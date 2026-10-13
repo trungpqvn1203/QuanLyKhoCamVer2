@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Read files in project directory",
+      "Run mvn commands",
+      "Run npm commands",
+      "Run docker compose commands",
+      "Run git status and git diff"
+    ],
+    "deny": [
+      "Push to remote repository",
+      "Delete files without confirmation",
+      "Run SQL write/delete commands",
+      "Install global packages",
+      "Access production credentials"
+    ]
+  }
+}
