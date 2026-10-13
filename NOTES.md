@@ -33,29 +33,35 @@ Ghi lại quá trình học và xây dựng dự án Grain Warehouse.
 
 ---
 
-<!-- Template cho các ngày tiếp theo:
+## Ngày: 2026-10-14
 
-## Ngày: YYYY-MM-DD
-
-### Module: [Tên module]
+### Module: Phase 3 — Project Foundation
 
 **Tôi hiểu gì:**
--
+- Cách dựng ứng dụng Spring Boot 3.3.5 với Java 21 LTS từ Maven `pom.xml`.
+- Cách tích hợp Flyway migration (`V1__init_schema.sql`) để phiên bản hóa cấu trúc database ngay từ đầu.
+- Cấu hình đa môi trường qua Spring Profiles (`application.yml` chung, `application-dev.yml` cho dev, `application-test.yml` cho test).
+- Chuẩn hóa cấu trúc ApiResponse (`success`, `data`, `message`, `error`, `timestamp`) giúp Frontend và Backend đồng bộ chặt chẽ.
+- Cấu hình proxy trong `vite.config.ts` để FE (5173) gọi trực tiếp endpoint `/api` của BE (8080) mà không gặp rào cản CORS trong dev.
 
 **Tôi còn chưa hiểu gì:**
--
+- Cách Flyway phát hiện file migration bị sửa đổi (checksum validation) và cách chạy `flyway:repair`.
+- Cơ chế `@MockBean` hoạt động ra sao trong Spring Slice Test (`@WebMvcTest`).
 
 **Lỗi đã gặp và cách xử lý:**
--
+- Lỗi khóa file trên Windows khi chạy `mvn clean` (tiến trình khác đang giữ folder `target/`): chạy `mvn test` mà không xóa ép buộc nếu đang có process đọc.
+- Lỗi toán tử `&&` trên PowerShell: dùng dấu `;` để ngăn cách lệnh tuần tự trên PowerShell.
 
 **Quyết định kỹ thuật và lý do:**
--
+- Tạo endpoint `/api/health` trả về kết nối DB thật (qua bảng `app_info`) song song với `/actuator/health` để có kiểm chứng cả ứng dụng lẫn database.
+- Đặt `hibernate.ddl-auto: validate` để đảm bảo Hibernate không tự ý sinh schema mà bắt buộc đi qua Flyway migration.
 
 **Hai câu hỏi tự kiểm tra:**
-1.
-2.
+1. Tại sao trong môi trường dev lại nên dùng Vite proxy (`/api` -> `http://localhost:8080`) thay vì cấu hình CORS mở rộng rãi (`@CrossOrigin("*")`) trên toàn bộ Controller của Spring Boot?
+2. Khi dùng Flyway, nếu một đồng nghiệp lỡ sửa nội dung của file `V1__init_schema.sql` sau khi DB dev đã migrate rồi, chuyện gì sẽ xảy ra khi khởi động lại backend?
 
 **Việc cần ôn lại:**
--
+- Chu trình khởi tạo Spring Application Context và thứ tự nạp profile.
+- Cú pháp migration Flyway và bảng `flyway_schema_history`.
 
--->
+---

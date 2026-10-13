@@ -31,55 +31,45 @@ Hỗ trợ quản lý nhiều kho, nhập/xuất/điều chuyển hàng, theo d�
 
 ## Chạy local
 
-### Yêu cầu
+### Yêu cầu môi trường
 
-- JDK 21+
-- Maven 3.9+
-- Node.js 20+ và npm
-- Docker và Docker Compose
-- PostgreSQL (hoặc dùng qua Docker)
+- JDK 21 LTS (Oracle hoặc OpenJDK)
+- Apache Maven 3.9+
+- Node.js 20+ và npm 10+
+- Docker và Docker Compose (dành cho database dev)
 
-### Bước chạy
+### Bước chạy chi tiết
 
 ```bash
-# 1. Clone repository
-git clone <repo-url>
-cd grain-warehouse
+# 1. Khởi chạy PostgreSQL qua Docker Compose
+docker compose -f infra/docker/docker-compose.dev.yml up -d
 
-# 2. Cấu hình môi trường
-cp .env.example .env
-# Sửa .env với thông tin database local
-
-# 3. Backend
+# 2. Khởi chạy Backend (Spring Boot 3.3.5)
 cd backend
 mvn spring-boot:run
 
-# 4. Frontend (terminal khác)
+# 3. Kiểm tra Backend & Database đã sẵn sàng
+curl http://localhost:8080/actuator/health
+curl http://localhost:8080/api/health
+
+# 4. Khởi chạy Frontend (mở terminal mới)
 cd frontend
 npm install
 npm run dev
+# Truy cập giao diện tại: http://localhost:5173
 ```
 
-### Chạy bằng Docker Compose
+## Chạy kiểm thử (Automated Tests)
 
 ```bash
-cp .env.example .env
-# Sửa .env
-docker compose up -d
-```
+# Backend smoke tests & controller tests
+cd backend
+mvn test
 
-## Cấu hình môi trường
-
-Xem [.env.example](.env.example) để biết các biến cần thiết. Không commit file `.env` thực tế.
-
-## Test
-
-```bash
-# Backend
-cd backend && mvn test
-
-# Frontend
-cd frontend && npm test
+# Frontend smoke tests & type checks
+cd frontend
+npm test
+npm run build
 ```
 
 ## Demo
