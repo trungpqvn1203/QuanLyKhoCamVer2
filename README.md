@@ -36,12 +36,17 @@ Hỗ trợ quản lý nhiều kho, nhập/xuất/điều chuyển hàng, theo d�
 - JDK 21 LTS (Oracle hoặc OpenJDK)
 - Apache Maven 3.9+
 - Node.js 20+ và npm 10+
-- Docker và Docker Compose (dành cho database dev)
+- PostgreSQL 16+ cài trên máy **hoặc** Docker Compose (chọn một — cả hai cùng dùng cổng 5432)
 
 ### Bước chạy chi tiết
 
 ```bash
-# 1. Khởi chạy PostgreSQL qua Docker Compose
+# 0. Tạo file cấu hình local (chỉ làm 1 lần), điền POSTGRES_PASSWORD
+cp .env.example .env
+
+# 1a. PostgreSQL cài trên máy: tạo 2 database (chỉ làm 1 lần)
+psql -U postgres -c "CREATE DATABASE grain_warehouse" -c "CREATE DATABASE grain_warehouse_test"
+# 1b. Hoặc dùng Docker (khi KHÔNG chạy PostgreSQL local)
 docker compose -f infra/docker/docker-compose.dev.yml up -d
 
 # 2. Khởi chạy Backend (Spring Boot 3.3.5)
@@ -62,7 +67,7 @@ npm run dev
 ## Chạy kiểm thử (Automated Tests)
 
 ```bash
-# Backend smoke tests & controller tests
+# Backend: chạy trên database thật grain_warehouse_test (cần PostgreSQL đang chạy)
 cd backend
 mvn test
 

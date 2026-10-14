@@ -99,16 +99,24 @@ Phân biệt 3 loại:
 
 ## Sản phẩm
 
-### ⚠️ Giả định tạm thời
+### ✅ Đã xác nhận (2026-10-14)
 
-- **BR-PRD-A01:** Mỗi sản phẩm có mã, tên, đơn vị tính, và có thể có mô tả.
-- **BR-PRD-A02:** Sản phẩm đang có tồn kho hoặc đã xuất hiện trong giao dịch không được xóa cứng (soft delete hoặc đánh dấu ngừng kinh doanh).
-- **BR-PRD-A03:** Mã sản phẩm là duy nhất trong toàn hệ thống.
+- **BR-PRD-01:** Mỗi sản phẩm có mã, tên, danh mục, đơn vị tính, khối lượng tịnh mỗi đơn vị, và có thể có mô tả.
+- **BR-PRD-02:** Mã sản phẩm do **hệ thống tự sinh** dạng `SP` + 6 chữ số (ví dụ `SP000001`), duy nhất toàn hệ thống, **không sửa được** sau khi tạo. Mã có thể nhảy số (do rollback) — chấp nhận.
+- **BR-PRD-03:** Tên sản phẩm duy nhất, **không phân biệt hoa thường** ("Cám heo con 25kg" = "cám heo con 25kg").
+- **BR-PRD-04:** Mỗi sản phẩm **bắt buộc** thuộc đúng một danh mục.
+- **BR-PRD-05:** Mỗi sản phẩm có **một đơn vị giao dịch cố định**: `BAG` (bao) hoặc `KG`. Không quy đổi đơn vị khi giao dịch.
+- **BR-PRD-06:** Mỗi sản phẩm có `net_weight_kg` > 0 (khối lượng một đơn vị; `KG` thì = 1). **Tấn chỉ là đơn vị báo cáo**: `tấn = số lượng × net_weight_kg / 1000` (ví dụ tổng nhập theo nhà cung cấp, tổng bán theo khách hàng).
+- **BR-PRD-07:** Không lưu giá trong sản phẩm. Giá nhập/bán ghi trên từng dòng chứng từ.
+- **BR-PRD-08:** Sản phẩm không xóa cứng; ngừng kinh doanh bằng `active = false`.
 
-### ❓ Câu hỏi mở
+## Danh mục sản phẩm
 
-- **BR-PRD-Q01:** Sản phẩm có phân nhóm/danh mục không? (ví dụ: cám gà, cám heo, cám cá)
-- **BR-PRD-Q02:** Đơn vị tính có cố định theo sản phẩm hay có thể chuyển đổi? (ví dụ: 1 bao = 25kg)
+### ✅ Đã xác nhận (2026-10-14)
+
+- **BR-CAT-01:** Danh mục (ví dụ: cám gà, cám heo, cám cá) quản lý bằng bảng riêng, có CRUD.
+- **BR-CAT-02:** Tên danh mục duy nhất, không phân biệt hoa thường.
+- **BR-CAT-03:** Danh mục không xóa cứng; ngừng dùng bằng `active = false`.
 
 ---
 

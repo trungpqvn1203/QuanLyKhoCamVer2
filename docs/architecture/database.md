@@ -1,33 +1,45 @@
 # Thiết kế Database
 
-> ⚠️ **Tài liệu thiết kế, chưa phải schema đã duyệt.** Các thực thể và quan hệ bên dưới là ứng viên, cần được xem xét và phê duyệt trước khi tạo migration.
+> ⚠️ **Tài liệu thiết kế.** Chỉ các bảng đánh dấu ✅ là schema đã duyệt; còn lại là ứng viên, cần được xem xét và phê duyệt trước khi tạo migration.
 
-## Các thực thể ứng viên
+## Các thực thể
 
-| Thực thể | Vai trò |
-|---|---|
-| `product` | Sản phẩm cám |
-| `warehouse` | Kho hàng |
-| `supplier` | Nhà cung cấp |
-| `customer` | Khách hàng (đại lý, trang trại) |
-| `inventory` | Tồn kho hiện tại (product × warehouse) |
-| `stock_document` | Chứng từ kho (phiếu nhập, phiếu xuất, phiếu điều chuyển) |
-| `stock_document_item` | Dòng chi tiết trong chứng từ |
-| `stock_transaction` | Lịch sử biến động tồn kho (bất biến) |
+| Thực thể | Vai trò | Trạng thái |
+|---|---|---|
+| `category` | Danh mục sản phẩm (cám gà, cám heo...) | ✅ Đã duyệt 2026-10-14 (V2) |
+| `product` | Sản phẩm cám | ✅ Đã duyệt 2026-10-14 (V2) |
+| `warehouse` | Kho hàng | Ứng viên |
+| `supplier` | Nhà cung cấp | Ứng viên |
+| `customer` | Khách hàng (đại lý, trang trại) | Ứng viên |
+| `inventory` | Tồn kho hiện tại (product × warehouse) | Ứng viên |
+| `stock_document` | Chứng từ kho (phiếu nhập, phiếu xuất, phiếu điều chuyển) | Ứng viên |
+| `stock_document_item` | Dòng chi tiết trong chứng từ | Ứng viên |
+| `stock_transaction` | Lịch sử biến động tồn kho (bất biến) | Ứng viên |
 
 ## ER Diagram (ứng viên)
 
 ```mermaid
 erDiagram
+    category {
+        bigint id PK
+        varchar name UK "unique, không phân biệt hoa thường"
+        text description
+        boolean active
+        timestamptz created_at
+        timestamptz updated_at
+    }
+
     product {
         bigint id PK
-        varchar code UK "Mã sản phẩm, unique"
-        varchar name "Tên sản phẩm"
-        varchar unit "Đơn vị tính"
+        varchar code UK "Tự sinh SP000001, không sửa"
+        varchar name UK "unique, không phân biệt hoa thường"
+        bigint category_id FK "NOT NULL"
+        varchar unit "BAG | KG"
+        numeric net_weight_kg "NUMERIC(10,3), > 0"
         text description
         boolean active "Còn kinh doanh?"
-        timestamp created_at
-        timestamp updated_at
+        timestamptz created_at
+        timestamptz updated_at
     }
 
     warehouse {
@@ -107,6 +119,7 @@ erDiagram
         timestamp created_at
     }
 
+    category ||--o{ product : "phân nhóm"
     product ||--o{ inventory : "tồn tại các kho"
     warehouse ||--o{ inventory : "chứa sản phẩm"
     product ||--o{ stock_document_item : "xuất hiện trong"
@@ -120,6 +133,16 @@ erDiagram
 ```
 
 ## Giải thích thiết kế
+
+### category & product (✅ đã duyệt — migration V2)
+
+- `id`: `BIGINT GENERATED ALWAYS AS IDENTITY` (chuẩn SQL, cấm chèn ID thủ công).
+- `product.code`: `DEFAULT 'SP' || lpad(nextval('product_code_seq')::text, 6, '0')`. Sequence an toàn khi nhiều request đồng thời (khác `MAX(code)+1` bị trùng khi đồng thời). Rollback có thể làm nhảy số — chấp nhận.
+- Vì mã tự sinh không chặn được trùng lặp, dùng `UNIQUE INDEX (lower(name))` để chặn tạo trùng sản phẩm.
+- `unit`: `CHECK (unit IN ('BAG','KG'))` — danh sách ít đổi, không cần bảng riêng.
+- `net_weight_kg NUMERIC(10,3) CHECK > 0` — phục vụ báo cáo quy đổi tấn.
+- `category_id NOT NULL` + FK; index `idx_product_category` cho lọc theo danh mục.
+- Thời gian dùng `TIMESTAMPTZ` để không lệch khi server chạy UTC.
 
 ### inventory (Tồn kho)
 
@@ -240,5 +263,5 @@ Cả hai transaction đều lock theo thứ tự ID tăng dần → không deadl
 - ❓ Cần quản lý lô hàng (batch) không?
 - ❓ Chứng từ có cần trạng thái (DRAFT → CONFIRMED) hay tạo là xong?
 - ❓ Mã chứng từ tự sinh hay người dùng nhập?
-- ❓ Cần bảng `category` riêng cho nhóm sản phẩm không?
-- ❓ Cần bảng `unit_of_measure` riêng hay lưu dạng chuỗi trong product?
+- ✅ ~~Cần bảng `category` riêng?~~ → Có (BR-CAT-01)
+- ✅ ~~Cần bảng `unit_of_measure` riêng?~~ → Không; `unit` là chuỗi có CHECK, kèm `net_weight_kg` (BR-PRD-05, 06)

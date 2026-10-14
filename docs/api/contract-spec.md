@@ -106,14 +106,20 @@ Khi có lỗi (4xx, 5xx), Backend bắt qua `@RestControllerAdvice` và trả v�
 | `BUSINESS_RULE_VIOLATION` | 409 | Vi phạm quy tắc nghiệp vụ | Xuất vượt tồn kho |
 | `UNAUTHORIZED` | 401 | Chưa đăng nhập / Token hết hạn | — |
 | `FORBIDDEN` | 403 | Không có quyền | — |
+| `METHOD_NOT_ALLOWED` | 405 | HTTP method không được hỗ trợ | `PATCH /api/products/1` |
+| `DATABASE_UNAVAILABLE` | 503 | Không kết nối được DB (chỉ dùng ở `/api/health`) | DB tắt |
 | `INTERNAL_ERROR` | 500 | Lỗi chưa xử lý phía server | — |
+
+> `error.message` không bao giờ chứa chi tiết nội bộ (SQL, stack trace, host DB) — chi tiết chỉ ghi vào log backend.
+>
+> **Giới hạn đã biết:** nếu JSON sai kiểu (ví dụ `unit: "TON"`), lỗi đọc JSON xảy ra **trước** Bean Validation → `details` chỉ chứa field sai kiểu, chưa liệt kê các field khác (ví dụ thiếu `name`).
 
 ### Lưu ý cho Frontend
 
 - **Luôn kiểm tra `success`** trước khi truy cập `data`.
 - Khi `success = false`, hiển thị `error.message` cho người dùng.
 - Nếu `error.details` có `field`, map lỗi vào ô input tương ứng trên form.
-- Cấu hình **Axios interceptor** để xử lý tập trung lỗi 401 (redirect login) và 500 (toast thông báo).
+- Xử lý lỗi tập trung trong `src/api/client.ts` (tự viết bằng `fetch`, xem ADR-0002): 401 → chuyển trang đăng nhập, 500 → thông báo chung.
 
 ---
 
@@ -143,6 +149,15 @@ POST   /api/products              # Tạo mới
 PUT    /api/products/:id          # Cập nhật
 DELETE /api/products/:id          # Xóa (soft delete)
 ```
+
+### Endpoint đã triển khai
+
+| Module | Endpoint | Ghi chú |
+|---|---|---|
+| Danh mục | `GET/POST /api/categories`, `GET/PUT/DELETE /api/categories/{id}` | DELETE = `active=false`; PUT có `active` để mở lại |
+| Sản phẩm | `GET/POST /api/products`, `GET/PUT/DELETE /api/products/{id}` | Không nhận `code` (tự sinh); response có `categoryName` |
+
+Danh sách nhận `page`, `size` (tối đa 100), `sort` (ví dụ `sort=name,asc`). `sort` sai thuộc tính → 400.
 
 ---
 

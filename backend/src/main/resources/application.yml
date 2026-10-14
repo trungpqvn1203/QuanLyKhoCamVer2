@@ -1,8 +1,22 @@
 spring:
   application:
     name: grain-warehouse-backend
+  # Đọc file .env ở thư mục gốc dự án (không bắt buộc tồn tại).
+  # "../.env" khi chạy từ backend/ (mvn), ".env" khi IDE chạy từ thư mục gốc.
+  config:
+    import:
+      - optional:file:../.env[.properties]
+      - optional:file:.env[.properties]
   profiles:
     active: ${SPRING_PROFILES_ACTIVE:dev}
+  jpa:
+    # Tắt Open Session In View: lazy loading ngoài transaction sẽ lỗi ngay,
+    # buộc service map Entity -> DTO bên trong @Transactional
+    open-in-view: false
+  data:
+    web:
+      pageable:
+        max-page-size: 100
 
 server:
   port: ${SERVER_PORT:8080}

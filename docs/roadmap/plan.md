@@ -11,16 +11,18 @@ Có hệ thống chạy được local với một luồng nghiệp vụ nhỏ h
 
 ### Checklist
 
-- [ ] Khảo sát nghiệp vụ, trả lời câu hỏi mở trong business/rules.md
-- [ ] Chốt schema cho bảng `product`, `warehouse`
+- [ ] Khảo sát nghiệp vụ, trả lời câu hỏi mở trong business/rules.md _(đã xong phần Sản phẩm/Danh mục)_
+- [x] Chốt schema cho bảng `category`, `product`
+- [ ] Chốt schema cho bảng `warehouse`
 - [x] Khởi tạo Spring Boot project (Maven, Java 21)
-- [x] Cấu hình PostgreSQL + Flyway
+- [x] Cấu hình PostgreSQL + Flyway _(test chạy trên DB thật `grain_warehouse_test`)_
 - [x] Migration V1: bảng `app_info` (kiểm chứng Flyway hoạt động)
-- [ ] Migration V2+: tạo bảng product, warehouse
+- [x] Migration V2: bảng `category`, `product`
+- [ ] Migration V3: bảng `warehouse`
 - [x] Khởi tạo React + Vite project
 - [ ] Docker Compose: PostgreSQL + Backend + Frontend _(hiện chỉ có PostgreSQL dev; Backend/Frontend đóng gói ở Tuần 4)_
-- [ ] Global exception handler (cần cho API đầu tiên)
-- [ ] API CRUD sản phẩm + test
+- [x] Global exception handler (cần cho API đầu tiên)
+- [x] API CRUD danh mục + sản phẩm + test
 - [ ] API CRUD kho + test
 - [ ] Seed dữ liệu demo
 - [ ] Giao diện cơ bản: danh sách sản phẩm, danh sách kho _(Ant Design — xem ADR-0002)_
