@@ -63,10 +63,11 @@ Trước khi thực hiện tác vụ, **bắt buộc** đọc [docs/README.md](d
 ## Chuẩn giao tiếp FE ↔ BE (API Contract)
 
 Toàn bộ API tuân thủ đặc tả tại [docs/api/contract-spec.md](docs/api/contract-spec.md):
-- Envelope thành công: `{ "success": true, "data": ..., "message": null, "timestamp": ... }`
-- Envelope thất bại: `{ "success": false, "data": null, "error": { "code": "...", "message": "...", "details": [...] }, "timestamp": ... }`
-- Phân trang: bọc metadata trong `meta: { page, size, totalElements, totalPages }`
-- Validation error: HTTP 400 + error code `VALIDATION_ERROR` + mảng `details: [{ field, message }]`
+- Envelope thành công: `{ "success": true, "data": ..., "message": "...", "timestamp": ... }`
+- Envelope thất bại: `{ "success": false, "error": { "code": "...", "message": "...", "details": [...] }, "timestamp": ... }`
+- Field có giá trị null được bỏ khỏi JSON (`@JsonInclude(NON_NULL)`), không trả `"field": null`
+- Phân trang: `data: { items: [...], pagination: { page, size, totalElements, totalPages, isFirst, isLast } }`
+- Validation error: HTTP 400 + error code `VALIDATION_FAILED` + mảng `details: [{ field, message }]` (không kèm `rejectedValue`)
 
 ## Quy ước đặt tên
 

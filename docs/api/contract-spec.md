@@ -2,6 +2,8 @@
 
 > Tài liệu quy ước chuẩn giao tiếp giữa Frontend và Backend.
 > Mọi API endpoint đều tuân thủ format này. Không tạo response kiểu riêng.
+>
+> **Field null bị bỏ khỏi JSON:** Backend dùng `@JsonInclude(NON_NULL)`. Response thành công không có `error`; response lỗi không có `data`; `message` chỉ xuất hiện khi có giá trị.
 
 ---
 
@@ -82,12 +84,10 @@ Khi có lỗi (4xx, 5xx), Backend bắt qua `@RestControllerAdvice` và trả v�
     "details": [
       {
         "field": "price",
-        "rejectedValue": -5000,
         "message": "Giá bán không được âm"
       },
       {
         "field": "name",
-        "rejectedValue": "",
         "message": "Tên sản phẩm không được để trống"
       }
     ]
@@ -197,9 +197,9 @@ interface ApiError {
   details?: FieldError[];
 }
 
+// Không kèm rejectedValue để tránh trả lại dữ liệu nhạy cảm (ví dụ mật khẩu)
 interface FieldError {
   field: string;
-  rejectedValue: unknown;
   message: string;
 }
 

@@ -13,15 +13,17 @@ Có hệ thống chạy được local với một luồng nghiệp vụ nhỏ h
 
 - [ ] Khảo sát nghiệp vụ, trả lời câu hỏi mở trong business/rules.md
 - [ ] Chốt schema cho bảng `product`, `warehouse`
-- [ ] Khởi tạo Spring Boot project (Maven, Java 21)
-- [ ] Cấu hình PostgreSQL + Flyway
-- [ ] Migration V1: tạo bảng product, warehouse
-- [ ] Khởi tạo React + Vite project
-- [ ] Docker Compose: PostgreSQL + Backend + Frontend
+- [x] Khởi tạo Spring Boot project (Maven, Java 21)
+- [x] Cấu hình PostgreSQL + Flyway
+- [x] Migration V1: bảng `app_info` (kiểm chứng Flyway hoạt động)
+- [ ] Migration V2+: tạo bảng product, warehouse
+- [x] Khởi tạo React + Vite project
+- [ ] Docker Compose: PostgreSQL + Backend + Frontend _(hiện chỉ có PostgreSQL dev; Backend/Frontend đóng gói ở Tuần 4)_
+- [ ] Global exception handler (cần cho API đầu tiên)
 - [ ] API CRUD sản phẩm + test
 - [ ] API CRUD kho + test
 - [ ] Seed dữ liệu demo
-- [ ] Giao diện cơ bản: danh sách sản phẩm, danh sách kho
+- [ ] Giao diện cơ bản: danh sách sản phẩm, danh sách kho _(Ant Design — xem ADR-0002)_
 - [ ] Commit: `feat: product and warehouse module with basic UI`
 
 ### Kiến thức cần nắm
@@ -41,7 +43,7 @@ Hoàn thành nhập kho, bán hàng, điều chuyển với đầy đủ StockTr
 ### Checklist
 
 - [ ] Chốt schema cho inventory, stock_document, stock_document_item, stock_transaction
-- [ ] Migration V2: tạo các bảng nghiệp vụ kho
+- [ ] Migration tiếp theo: tạo các bảng nghiệp vụ kho
 - [ ] Supplier + Customer CRUD (nếu cần)
 - [ ] Module nhập kho: API + service + test
 - [ ] Module bán hàng/xuất kho: API + service + test

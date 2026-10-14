@@ -1,0 +1,46 @@
+# ADR-0002: Thư viện UI và cấu trúc giao diện Frontend
+
+## Trạng thái
+
+✅ Đã chấp nhận — 2026-10-14
+
+## Bối cảnh
+
+Frontend sẽ có nhiều màn hình cùng dạng (danh sách sản phẩm, kho, chứng từ, lịch sử giao dịch; form nhập/xuất/điều chuyển). Cần:
+1. Giao diện thống nhất và hiện đại — sửa một button/table ở **một chỗ**, mọi màn hình cùng đổi.
+2. Ưu tiên học **luồng dữ liệu FE ↔ BE** (request, envelope `ApiResponse`, xử lý lỗi), không dồn thời gian vào tự dựng component.
+
+## Quyết định
+
+- Dùng **Ant Design 6.x** (hỗ trợ React 19 trực tiếp, peer `react >= 18`).
+- Theme hiện đại cấu hình **tập trung** qua `ConfigProvider` (màu chủ đạo, bo góc, font) — một file duy nhất.
+- Tầng `api/` **tự viết bằng `fetch`**: đọc envelope, kiểm tra `success`, map `error.details[]` vào ô form. Không dùng Axios, React Query hay client tự sinh trong MVP.
+- Chia giao diện 4 tầng:
+
+| Tầng | Vị trí | Nội dung |
+|---|---|---|
+| 1. Theme / tokens | `src/theme/` | Cấu hình `ConfigProvider` |
+| 2. UI dùng chung | `src/components/ui/` | Chỉ bọc mẫu lặp riêng của dự án, ví dụ `DataTable` nhận `data.pagination` theo contract-spec |
+| 3. Layout | `src/components/layout/` | `AppLayout` (sidebar + header), `PageHeader` |
+| 4. Màn hình nghiệp vụ | `src/features/<module>/` | Ghép tầng 1–3, chỉ chứa logic nghiệp vụ |
+
+**Luật:** tầng 4 không dùng thẻ `<button>`/`<table>` thô, không viết màu/kích thước cứng.
+
+## Phương án thay thế đã xem xét
+
+| Phương án | Lý do không chọn |
+|---|---|
+| Tự viết component + CSS | Tốn 1–2 tuần cho Table/Form/Modal, lệch mục tiêu học backend & luồng FE ↔ BE |
+| MUI | Phong cách Material, ít component chuyên cho giao diện quản trị hơn Ant Design; không có lợi thế rõ ràng |
+| shadcn/ui | Kéo theo Tailwind, Radix, TanStack Table, react-hook-form, zod — nhiều kiến thức frontend mới, làm loãng mục tiêu |
+
+## Đánh đổi
+
+1. **Bundle lớn hơn** so với tự viết — chấp nhận được với ứng dụng quản trị nội bộ.
+2. **`Form` của Ant Design tự quản lý state** → có thể che bước "gom dữ liệu → gửi request". Khắc phục: tự viết `onFinish(values)` gọi tầng `api/` và tự map lỗi validation vào form.
+3. **Giao diện mang dấu ấn Ant Design** — giảm bớt bằng theme tùy chỉnh.
+
+## Khi nào xem xét lại
+
+- Khi muốn học sâu frontend hoặc cần giao diện khác biệt hoàn toàn → cân nhắc shadcn/ui.
+- Khi số màn hình và nhu cầu cache dữ liệu tăng → cân nhắc React Query (sau khi đã hiểu luồng `fetch` thủ công).
