@@ -55,6 +55,19 @@ class CategoryApiTest {
     }
 
     @Test
+    @DisplayName("BR-CAT-04: tạo lại tên của danh mục đã ngừng dùng - 409, gợi ý mở lại")
+    void shouldRejectRecreatingDeactivatedCategory() throws Exception {
+        long id = createdId(createCategory("{\"name\": \"Cám lợn\"}"));
+        mockMvc.perform(delete("/api/categories/{id}", id)).andExpect(status().isNoContent());
+
+        createCategory("{\"name\": \"CÁM LỢN\"}")
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.code").value("DUPLICATE_RESOURCE"))
+                .andExpect(jsonPath("$.error.message").value(
+                        "Danh mục 'Cám lợn' đã tồn tại nhưng đang ngừng dùng. Hãy mở lại thay vì tạo mới"));
+    }
+
+    @Test
     @DisplayName("POST tên rỗng - 400 VALIDATION_FAILED, details chỉ ra field name")
     void shouldRejectBlankName() throws Exception {
         createCategory("{\"name\": \"   \"}")

@@ -31,10 +31,8 @@ public class CategoryService {
     @Transactional
     public CategoryResponse create(CreateCategoryRequest request) {
         String name = request.name().trim();
-        // BR-CAT-02: kiểm tra trước để trả lỗi rõ ràng; UNIQUE index ở DB là tuyến phòng thủ cuối
-        if (categoryRepository.existsByNameIgnoreCase(name)) {
-            throw new DuplicateResourceException("Danh mục '" + name + "' đã tồn tại");
-        }
+        // Kiểm tra trước để trả lỗi rõ ràng; UNIQUE index ở DB là tuyến phòng thủ cuối
+        categoryRepository.findByNameIgnoreCase(name).ifPresent(this::throwDuplicate);
         Category category = new Category();
         category.setName(name);
         category.setDescription(request.description());
@@ -45,9 +43,7 @@ public class CategoryService {
     public CategoryResponse update(Long id, UpdateCategoryRequest request) {
         Category category = findOrThrow(id);
         String name = request.name().trim();
-        if (categoryRepository.existsByNameIgnoreCaseAndIdNot(name, id)) {
-            throw new DuplicateResourceException("Danh mục '" + name + "' đã tồn tại");
-        }
+        categoryRepository.findByNameIgnoreCaseAndIdNot(name, id).ifPresent(this::throwDuplicate);
         category.setName(name);
         category.setDescription(request.description());
         category.setActive(request.active());
@@ -59,6 +55,16 @@ public class CategoryService {
     @Transactional
     public void deactivate(Long id) {
         findOrThrow(id).setActive(false);
+    }
+
+    /** BR-CAT-02, BR-CAT-04: tên trùng (kể cả danh mục đã ngừng dùng) bị từ chối, kèm hướng dẫn mở lại. */
+    private void throwDuplicate(Category existing) {
+        String label = "Danh mục '" + existing.getName() + "'";
+        if (!existing.isActive()) {
+            throw new DuplicateResourceException(label
+                    + " đã tồn tại nhưng đang ngừng dùng. Hãy mở lại thay vì tạo mới");
+        }
+        throw new DuplicateResourceException(label + " đã tồn tại");
     }
 
     private Category findOrThrow(Long id) {

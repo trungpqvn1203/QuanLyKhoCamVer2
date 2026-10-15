@@ -39,10 +39,7 @@ public class ProductService {
     @Transactional
     public ProductResponse create(CreateProductRequest request) {
         String name = request.name().trim();
-        // BR-PRD-03: tên duy nhất, không phân biệt hoa thường
-        if (productRepository.existsByNameIgnoreCase(name)) {
-            throw new DuplicateResourceException("Sản phẩm '" + name + "' đã tồn tại");
-        }
+        productRepository.findByNameIgnoreCase(name).ifPresent(this::throwDuplicate);
         validateNetWeight(request.unit(), request.netWeightKg());
         Category category = findActiveCategory(request.categoryId());
 
@@ -60,9 +57,7 @@ public class ProductService {
     public ProductResponse update(Long id, UpdateProductRequest request) {
         Product product = findOrThrow(id);
         String name = request.name().trim();
-        if (productRepository.existsByNameIgnoreCaseAndIdNot(name, id)) {
-            throw new DuplicateResourceException("Sản phẩm '" + name + "' đã tồn tại");
-        }
+        productRepository.findByNameIgnoreCaseAndIdNot(name, id).ifPresent(this::throwDuplicate);
         validateNetWeight(request.unit(), request.netWeightKg());
         // Chỉ chặn khi CHUYỂN sang danh mục khác đang ngừng dùng;
         // sản phẩm cũ vẫn sửa được mô tả dù danh mục hiện tại đã ngừng dùng
@@ -81,6 +76,19 @@ public class ProductService {
     @Transactional
     public void deactivate(Long id) {
         findOrThrow(id).setActive(false);
+    }
+
+    /**
+     * BR-PRD-03, BR-PRD-09: tên trùng (kể cả với sản phẩm đã ngừng kinh doanh) bị từ chối.
+     * Nếu bản ghi trùng đang ngừng kinh doanh → hướng dẫn mở bán lại để giữ nguyên mã và lịch sử.
+     */
+    private void throwDuplicate(Product existing) {
+        String label = "Sản phẩm '" + existing.getName() + "' (" + existing.getCode() + ")";
+        if (!existing.isActive()) {
+            throw new DuplicateResourceException(label
+                    + " đã tồn tại nhưng đang ngừng kinh doanh. Hãy mở bán lại thay vì tạo mới");
+        }
+        throw new DuplicateResourceException(label + " đã tồn tại");
     }
 
     /** BR-PRD-06: đơn vị KG thì khối lượng một đơn vị phải đúng 1 kg. */

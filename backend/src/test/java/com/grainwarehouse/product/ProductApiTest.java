@@ -86,6 +86,23 @@ class ProductApiTest {
     }
 
     @Test
+    @DisplayName("BR-PRD-09: tạo lại tên của sản phẩm đã ngừng kinh doanh - 409, gợi ý mở bán lại kèm mã SP")
+    void shouldRejectRecreatingDeactivatedProduct() throws Exception {
+        ResultActions created = createProduct(productJson("Cám lợn C14", "BAG", "25"));
+        long id = createdId(created);
+        String code = com.jayway.jsonpath.JsonPath.read(
+                created.andReturn().getResponse().getContentAsString(), "$.data.code");
+        mockMvc.perform(delete("/api/products/{id}", id)).andExpect(status().isNoContent());
+
+        createProduct(productJson("cám lợn c14", "BAG", "25"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.code").value("DUPLICATE_RESOURCE"))
+                .andExpect(jsonPath("$.error.message").value(
+                        "Sản phẩm 'Cám lợn C14' (" + code + ") đã tồn tại nhưng đang ngừng kinh doanh."
+                                + " Hãy mở bán lại thay vì tạo mới"));
+    }
+
+    @Test
     @DisplayName("BR-PRD-06: đơn vị KG với khối lượng 25 - 409; với 1.000 - 201 (so sánh BigDecimal)")
     void shouldRequireOneKgForKgUnit() throws Exception {
         createProduct(productJson("Cám cá xá", "KG", "25"))

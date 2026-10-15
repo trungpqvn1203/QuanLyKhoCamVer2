@@ -6,6 +6,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import java.util.Optional;
+
 public interface ProductRepository extends JpaRepository<Product, Long> {
 
     // @EntityGraph: JOIN lấy luôn category trong cùng một câu SQL.
@@ -14,7 +16,8 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
     @EntityGraph(attributePaths = "category")
     Page<Product> findAll(Pageable pageable);
 
-    boolean existsByNameIgnoreCase(String name);
+    // Trả về bản ghi (thay vì boolean) để thông báo lỗi nêu được mã SP và trạng thái
+    Optional<Product> findByNameIgnoreCase(String name);
 
-    boolean existsByNameIgnoreCaseAndIdNot(String name, Long id);
+    Optional<Product> findByNameIgnoreCaseAndIdNot(String name, Long id);
 }
