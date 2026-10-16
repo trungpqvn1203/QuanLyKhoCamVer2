@@ -42,11 +42,31 @@ export interface UpdateProductInput extends CreateProductInput {
   active: boolean
 }
 
+/** Bộ lọc danh sách — lọc phía backend (contract-spec: "Lọc sản phẩm"). */
+export interface ProductFilters {
+  keyword?: string
+  categoryId?: number
+  active?: boolean
+}
+
+export function hasActiveFilters({ keyword, categoryId, active }: ProductFilters): boolean {
+  return Boolean(keyword?.trim()) || categoryId !== undefined || active !== undefined
+}
+
 const BASE = '/api/products'
 
 export const productApi = {
-  list: ({ page, size }: PageQuery) =>
-    apiRequest<PageResponse<Product>>(withQuery(BASE, { page, size, sort: 'id,asc' })),
+  list: ({ page, size }: PageQuery, { keyword, categoryId, active }: ProductFilters = {}) =>
+    apiRequest<PageResponse<Product>>(
+      withQuery(BASE, {
+        page,
+        size,
+        sort: 'id,asc',
+        keyword: keyword?.trim() || undefined,
+        categoryId,
+        active: active === undefined ? undefined : String(active),
+      }),
+    ),
 
   create: (input: CreateProductInput) =>
     apiRequest<Product>(BASE, { method: 'POST', body: JSON.stringify(input) }),

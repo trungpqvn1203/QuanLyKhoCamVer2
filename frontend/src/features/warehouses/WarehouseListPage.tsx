@@ -1,10 +1,11 @@
 import { PlusOutlined } from '@ant-design/icons'
-import { App, Button, Popconfirm, Space } from 'antd'
+import { App, Button } from 'antd'
 import type { TableProps } from 'antd'
 import { useState } from 'react'
 import { ApiError } from '../../api/client'
 import { PageHeader } from '../../components/layout/PageHeader'
 import { DataTable } from '../../components/ui/DataTable'
+import { RowActions } from '../../components/ui/RowActions'
 import { StatusTag } from '../../components/ui/StatusTag'
 import { usePagedList } from '../../hooks/use-paged-list'
 import { WAREHOUSE_TYPE_LABELS, warehouseApi } from './warehouse-api'
@@ -13,7 +14,7 @@ import { WarehouseFormModal } from './WarehouseFormModal'
 
 export function WarehouseListPage() {
   const { message } = App.useApp()
-  const { page, loading, changePage, reload } = usePagedList(warehouseApi.list)
+  const { page, loading, error, changePage, reload } = usePagedList(warehouseApi.list)
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<Warehouse | null>(null)
 
@@ -46,25 +47,21 @@ export function WarehouseListPage() {
     {
       title: 'Thao tác',
       key: 'actions',
+      width: 100,
+      fixed: 'right',
       render: (_, warehouse) => (
-        <Space>
-          <Button type="link" onClick={() => openEdit(warehouse)}>
-            Sửa
-          </Button>
-          {warehouse.active && (
-            <Popconfirm
-              title={`Ngừng hoạt động kho ${warehouse.name}?`}
-              description="Có thể mở lại bằng nút Sửa."
-              okText="Ngừng hoạt động"
-              cancelText="Hủy"
-              onConfirm={() => deactivate(warehouse)}
-            >
-              <Button type="link" danger>
-                Ngừng hoạt động
-              </Button>
-            </Popconfirm>
-          )}
-        </Space>
+        <RowActions
+          onEdit={() => openEdit(warehouse)}
+          deactivate={
+            warehouse.active
+              ? {
+                  label: 'Ngừng hoạt động',
+                  confirmTitle: `Ngừng hoạt động kho ${warehouse.name}?`,
+                  onConfirm: () => deactivate(warehouse),
+                }
+              : undefined
+          }
+        />
       ),
     },
   ]
@@ -80,7 +77,15 @@ export function WarehouseListPage() {
           </Button>
         }
       />
-      <DataTable<Warehouse> columns={columns} page={page} loading={loading} rowKey="id" onPageChange={changePage} />
+      <DataTable<Warehouse>
+        columns={columns}
+        page={page}
+        loading={loading}
+        rowKey="id"
+        onPageChange={changePage}
+        error={error}
+        onRetry={reload}
+      />
       <WarehouseFormModal
         open={modalOpen}
         editing={editing}

@@ -6,7 +6,14 @@ interface StatusTagProps {
   inactiveText?: string
 }
 
-/** Hiển thị trạng thái active/ngừng thống nhất trên mọi bảng. */
+/**
+ * Badge trạng thái thống nhất trên mọi bảng:
+ * hoạt động = nền xanh nhạt chữ xanh; ngừng = nền xám chữ xám. Không viền cho gọn.
+ */
 export function StatusTag({ active, activeText = 'Đang hoạt động', inactiveText = 'Ngừng hoạt động' }: StatusTagProps) {
-  return <Tag color={active ? 'green' : 'default'}>{active ? activeText : inactiveText}</Tag>
+  return (
+    <Tag color={active ? 'success' : 'default'} variant="filled" style={{ marginInlineEnd: 0 }}>
+      {active ? activeText : inactiveText}
+    </Tag>
+  )
 }

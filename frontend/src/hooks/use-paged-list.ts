@@ -1,18 +1,19 @@
-import { App } from 'antd'
 import { useCallback, useEffect, useState } from 'react'
 import { ApiError } from '../api/client'
 import type { PageQuery, PageResponse } from '../api/types'
 
 /**
  * Tải danh sách có phân trang từ API; dùng chung cho mọi màn hình danh sách.
- * `reload()` gọi lại trang hiện tại (sau khi thêm/sửa/ngừng hoạt động).
+ * - `reload()` gọi lại trang hiện tại (sau khi thêm/sửa/ngừng hoạt động).
+ * - `fetchPage` đổi (ví dụ bộ lọc đổi) → tự tải lại; muốn về trang đầu thì gọi `changePage(0, size)`.
+ * - `error` khác null khi lần tải gần nhất thất bại; màn hình hiển thị kèm nút thử lại.
  */
 export function usePagedList<T>(fetchPage: (query: PageQuery) => Promise<PageResponse<T>>, initialSize = 20) {
-  const { message } = App.useApp()
   const [query, setQuery] = useState<PageQuery>({ page: 0, size: initialSize })
   const [reloadCount, setReloadCount] = useState(0)
   const [page, setPage] = useState<PageResponse<T> | null>(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     // Bỏ qua kết quả của request cũ: bấm trang 2 rồi trang 3 thật nhanh,
@@ -20,10 +21,12 @@ export function usePagedList<T>(fetchPage: (query: PageQuery) => Promise<PageRes
     let ignore = false
     fetchPage(query)
       .then((result) => {
-        if (!ignore) setPage(result)
+        if (ignore) return
+        setPage(result)
+        setError(null)
       })
-      .catch((error: unknown) => {
-        if (!ignore) message.error(error instanceof ApiError ? error.message : 'Không tải được dữ liệu')
+      .catch((err: unknown) => {
+        if (!ignore) setError(err instanceof ApiError ? err.message : 'Không tải được dữ liệu')
       })
       .finally(() => {
         if (!ignore) setLoading(false)
@@ -31,7 +34,7 @@ export function usePagedList<T>(fetchPage: (query: PageQuery) => Promise<PageRes
     return () => {
       ignore = true
     }
-  }, [fetchPage, query, reloadCount, message])
+  }, [fetchPage, query, reloadCount])
 
   const changePage = useCallback((pageIndex: number, size: number) => {
     setLoading(true)
@@ -44,5 +47,5 @@ export function usePagedList<T>(fetchPage: (query: PageQuery) => Promise<PageRes
     setReloadCount((count) => count + 1)
   }, [])
 
-  return { page, loading, changePage, reload }
+  return { page, query, loading, error, changePage, reload }
 }
