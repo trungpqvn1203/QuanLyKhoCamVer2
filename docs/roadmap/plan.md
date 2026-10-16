@@ -24,7 +24,7 @@ Có hệ thống chạy được local với một luồng nghiệp vụ nhỏ h
 - [x] Global exception handler (cần cho API đầu tiên)
 - [x] API CRUD danh mục + sản phẩm + test
 - [x] API CRUD kho + test
-- [ ] Seed dữ liệu demo
+- [x] Seed dữ liệu demo _(`db/seed/demo-data.sql`, chạy tay bằng psql)_
 - [ ] Giao diện cơ bản: danh sách sản phẩm, danh sách kho _(Ant Design — xem ADR-0002)_
 - [ ] Commit: `feat: product and warehouse module with basic UI`
 
