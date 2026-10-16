@@ -41,6 +41,7 @@ Frontend sẽ có nhiều màn hình cùng dạng (danh sách sản phẩm, kho,
 - `DataTable`: lần tải đầu hiện `Skeleton` theo đúng cột, các lần sau giữ dữ liệu cũ kèm vòng xoay.
 - `src/utils/format.ts`: định dạng ngày giờ bằng `Intl`, cố định múi giờ `Asia/Ho_Chi_Minh`, không thêm thư viện.
 - `DetailDrawer` nhận thêm `size` và `children` (2026-10-16): đặt bảng con dưới phần thông tin, ví dụ danh sách SP của nhà cung cấp kèm ô gán/gỡ. Chọn cách này thay vì trang chi tiết riêng (`/suppliers/:id`) vì MVP chỉ có một bảng con.
+- `RowActions` nhận thêm `extraActions` (2026-10-17): mục riêng của từng màn hình chèn sau "Sửa", ví dụ "Sản phẩm cung cấp" (NCC) / "Nhà cung cấp" (SP) mở thẳng khung gán/gỡ — chức năng nằm sâu trong khung chi tiết thì người dùng khó phát hiện.
 
 ## Phương án thay thế đã xem xét
 

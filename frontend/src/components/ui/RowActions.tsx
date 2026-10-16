@@ -1,10 +1,20 @@
 import { EditOutlined, EyeOutlined, MoreOutlined, StopOutlined } from '@ant-design/icons'
 import { App, Button, Dropdown } from 'antd'
 import type { MenuProps } from 'antd'
+import type { ReactNode } from 'react'
+
+/** Thao tác riêng của từng màn hình, chèn sau "Sửa" (ví dụ "Sản phẩm cung cấp"). */
+export interface RowExtraAction {
+  key: string
+  label: string
+  icon: ReactNode
+  onClick: () => void
+}
 
 interface RowActionsProps {
   onView: () => void
   onEdit: () => void
+  extraActions?: RowExtraAction[]
   /** Bỏ trống khi bản ghi đã ngừng → ẩn mục ngừng (mở lại qua form Sửa) */
   deactivate?: {
     label: string // ví dụ "Ngừng hoạt động", "Ngừng kinh doanh"
@@ -18,12 +28,13 @@ interface RowActionsProps {
  * Gom vào menu vì từ 3 thao tác trở lên, hàng nút icon khó nhận ra và chiếm chỗ.
  * Thao tác nguy hiểm tách riêng bằng đường kẻ, chữ đỏ, và luôn hỏi xác nhận.
  */
-export function RowActions({ onView, onEdit, deactivate }: RowActionsProps) {
+export function RowActions({ onView, onEdit, extraActions = [], deactivate }: RowActionsProps) {
   const { modal } = App.useApp()
 
   const items: MenuProps['items'] = [
     { key: 'view', icon: <EyeOutlined />, label: 'Xem chi tiết' },
     { key: 'edit', icon: <EditOutlined />, label: 'Sửa' },
+    ...extraActions.map(({ key, label, icon }) => ({ key, label, icon })),
     ...(deactivate
       ? [
           { type: 'divider' as const },
@@ -35,6 +46,7 @@ export function RowActions({ onView, onEdit, deactivate }: RowActionsProps) {
   const handleClick: MenuProps['onClick'] = ({ key }) => {
     if (key === 'view') onView()
     if (key === 'edit') onEdit()
+    extraActions.find((action) => action.key === key)?.onClick()
     if (key === 'deactivate' && deactivate) {
       // Popconfirm không dùng được trong menu (menu đóng thì Popconfirm mất theo) → dùng hộp xác nhận.
       // onOk trả Promise: nút xác nhận hiện vòng xoay đến khi API xong, chống bấm 2 lần.

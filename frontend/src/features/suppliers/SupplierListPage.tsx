@@ -1,5 +1,5 @@
-import { PlusOutlined } from '@ant-design/icons'
-import { App, Button, Typography, theme } from 'antd'
+import { AppstoreAddOutlined, PlusOutlined } from '@ant-design/icons'
+import { App, Button, Drawer, Typography, theme } from 'antd'
 import type { DescriptionsProps, TableProps } from 'antd'
 import { useState } from 'react'
 import { ApiError } from '../../api/client'
@@ -27,6 +27,9 @@ export function SupplierListPage() {
   // Tách cờ mở khỏi bản ghi: đóng khung thì nội dung vẫn còn trong lúc chạy hiệu ứng trượt ra
   const [detailOpen, setDetailOpen] = useState(false)
   const [viewing, setViewing] = useState<Supplier | null>(null)
+  // Khung riêng chỉ để gán/gỡ SP, mở từ menu ⋯ (không phải cuộn qua phần thông tin)
+  const [linksOpen, setLinksOpen] = useState(false)
+  const [linking, setLinking] = useState<Supplier | null>(null)
 
   const openCreate = () => {
     setEditing(null)
@@ -41,6 +44,11 @@ export function SupplierListPage() {
   const openDetail = (supplier: Supplier) => {
     setViewing(supplier)
     setDetailOpen(true)
+  }
+
+  const openLinks = (supplier: Supplier) => {
+    setLinking(supplier)
+    setLinksOpen(true)
   }
 
   const notifySuccess = (title: string, supplier: Supplier) =>
@@ -81,6 +89,9 @@ export function SupplierListPage() {
         <RowActions
           onView={() => openDetail(supplier)}
           onEdit={() => openEdit(supplier)}
+          extraActions={[
+            { key: 'products', label: 'Sản phẩm cung cấp', icon: <AppstoreAddOutlined />, onClick: () => openLinks(supplier) },
+          ]}
           deactivate={
             supplier.active
               ? {
@@ -150,8 +161,17 @@ export function SupplierListPage() {
         }}
       >
         {/* key: sang NCC khác thì tạo lại khung, không giữ ô tìm kiếm/trang của NCC trước */}
-        {viewing && <SupplierProductsPanel key={viewing.id} supplier={viewing} />}
+        {viewing && <SupplierProductsPanel key={viewing.id} supplier={viewing} title="Sản phẩm được cung cấp" />}
       </DetailDrawer>
+      <Drawer
+        open={linksOpen}
+        title={linking ? `Sản phẩm cung cấp · ${linking.code} ${linking.name}` : ''}
+        size={640}
+        onClose={() => setLinksOpen(false)}
+        destroyOnHidden
+      >
+        {linking && <SupplierProductsPanel key={linking.id} supplier={linking} />}
+      </Drawer>
     </>
   )
 }

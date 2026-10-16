@@ -50,4 +50,14 @@ describe('supplierApi - liên kết NCC–SP', () => {
     expect(url.pathname).toBe('/api/suppliers/7/products/42')
     expect(init.method).toBe('DELETE')
   })
+
+  it('listSuppliersOfProduct - URL nằm dưới /api/products, sắp theo mã NCC', async () => {
+    const captured = stubFetch()
+
+    await supplierApi.listSuppliersOfProduct(42, { page: 0, size: 10 })
+
+    const { url } = captured()
+    expect(url.pathname).toBe('/api/products/42/suppliers')
+    expect(url.searchParams.get('sort')).toBe('supplier.code,asc')
+  })
 })

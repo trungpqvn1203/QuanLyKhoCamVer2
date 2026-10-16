@@ -1,5 +1,5 @@
-import { PlusOutlined } from '@ant-design/icons'
-import { App, Button, Empty, Typography, theme } from 'antd'
+import { PlusOutlined, ShopOutlined } from '@ant-design/icons'
+import { App, Button, Drawer, Empty, Typography, theme } from 'antd'
 import type { DescriptionsProps, TableProps } from 'antd'
 import { useCallback, useState } from 'react'
 import { ApiError } from '../../api/client'
@@ -11,6 +11,7 @@ import { RowActions } from '../../components/ui/RowActions'
 import { StatusTag } from '../../components/ui/StatusTag'
 import { usePagedList } from '../../hooks/use-paged-list'
 import { formatDateTime } from '../../utils/format'
+import { ProductSuppliersPanel } from '../suppliers/ProductSuppliersPanel'
 import { PRODUCT_UNIT_LABELS, hasActiveFilters, productApi } from './product-api'
 import type { Product, ProductFilters } from './product-api'
 import { FILTER_BAR_HEIGHT, ProductFilterBar } from './ProductFilterBar'
@@ -30,6 +31,14 @@ export function ProductListPage() {
   // Tách cờ mở khỏi bản ghi: đóng khung thì nội dung vẫn còn trong lúc chạy hiệu ứng trượt ra
   const [detailOpen, setDetailOpen] = useState(false)
   const [viewing, setViewing] = useState<Product | null>(null)
+  // Khung riêng chỉ để gán/gỡ NCC, mở từ menu ⋯
+  const [linksOpen, setLinksOpen] = useState(false)
+  const [linking, setLinking] = useState<Product | null>(null)
+
+  const openLinks = (product: Product) => {
+    setLinking(product)
+    setLinksOpen(true)
+  }
   const filtering = hasActiveFilters(filters)
 
   const applyFilters = useCallback(
@@ -119,6 +128,9 @@ export function ProductListPage() {
         <RowActions
           onView={() => openDetail(product)}
           onEdit={() => openEdit(product)}
+          extraActions={[
+            { key: 'suppliers', label: 'Nhà cung cấp', icon: <ShopOutlined />, onClick: () => openLinks(product) },
+          ]}
           deactivate={
             product.active
               ? {
@@ -194,13 +206,25 @@ export function ProductListPage() {
       <DetailDrawer
         open={detailOpen}
         title="Chi tiết sản phẩm"
+        size={640}
         items={detailItems}
         onClose={() => setDetailOpen(false)}
         onEdit={() => {
           setDetailOpen(false)
           if (viewing) openEdit(viewing)
         }}
-      />
+      >
+        {viewing && <ProductSuppliersPanel key={viewing.id} product={viewing} title="Nhà cung cấp" />}
+      </DetailDrawer>
+      <Drawer
+        open={linksOpen}
+        title={linking ? `Nhà cung cấp · ${linking.code} ${linking.name}` : ''}
+        size={640}
+        onClose={() => setLinksOpen(false)}
+        destroyOnHidden
+      >
+        {linking && <ProductSuppliersPanel key={linking.id} product={linking} />}
+      </Drawer>
     </>
   )
 }

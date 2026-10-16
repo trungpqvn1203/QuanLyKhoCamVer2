@@ -8,6 +8,7 @@ import com.grainwarehouse.product.entity.Product;
 import com.grainwarehouse.product.repository.ProductRepository;
 import com.grainwarehouse.supplier.dto.CreateSupplierRequest;
 import com.grainwarehouse.supplier.dto.LinkProductRequest;
+import com.grainwarehouse.supplier.dto.ProductSupplierResponse;
 import com.grainwarehouse.supplier.dto.SupplierProductResponse;
 import com.grainwarehouse.supplier.dto.SupplierResponse;
 import com.grainwarehouse.supplier.dto.UpdateSupplierRequest;
@@ -81,6 +82,16 @@ public class SupplierService {
                 SupplierProductResponse::from);
     }
 
+    /** Chiều ngược của listProducts: NCC đang được phép cung cấp SP này (BR-SUP-05). */
+    public PageResponse<ProductSupplierResponse> listSuppliersOfProduct(Long productId, Pageable pageable) {
+        if (!productRepository.existsById(productId)) {
+            throw new ResourceNotFoundException("Không tìm thấy sản phẩm id=" + productId);
+        }
+        return PageResponse.from(
+                productSupplierRepository.findByIdProductIdAndActiveTrue(productId, pageable),
+                ProductSupplierResponse::from);
+    }
+
     /**
      * BR-SUP-05: mỗi cặp (NCC, SP) chỉ có một dòng — đã gỡ thì bật lại dòng cũ thay vì tạo mới.
      * BR-SUP-06: không gán khi NCC ngừng hoạt động hoặc SP ngừng kinh doanh.
@@ -102,7 +113,7 @@ public class SupplierService {
         ProductSupplierId id = new ProductSupplierId(supplierId, product.getId());
         ProductSupplier link = productSupplierRepository.findById(id).orElse(null);
         if (link == null) {
-            link = new ProductSupplier(supplierId, product);
+            link = new ProductSupplier(supplier, product);
         } else if (link.isActive()) {
             throw new DuplicateResourceException("Sản phẩm '" + product.getName() + "' (" + product.getCode()
                     + ") đã được gán cho " + label(supplier));

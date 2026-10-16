@@ -13,6 +13,8 @@ import type { Supplier, SupplierProduct } from './supplier-api'
 
 interface SupplierProductsPanelProps {
   supplier: Supplier
+  /** Có thì hiện tiêu đề và cách phần phía trên (khi nằm dưới thông tin NCC trong khung chi tiết) */
+  title?: string
 }
 
 /** Chờ người dùng ngừng gõ rồi mới gọi API (giống ô tìm kiếm trang Sản phẩm). */
@@ -22,12 +24,13 @@ const SEARCH_DEBOUNCE_MS = 400
 const SUGGESTION_SIZE = 20
 
 /**
- * Danh sách SP mà NCC được phép cung cấp (BR-SUP-05), nằm trong khung chi tiết NCC.
+ * Danh sách SP mà NCC được phép cung cấp (BR-SUP-05).
+ * Dùng ở 2 chỗ: dưới thông tin trong khung chi tiết NCC, và khung riêng mở từ menu ⋯.
  * - Gán: chọn SP đang kinh doanh (tìm theo mã/tên phía backend) → POST.
  * - Gỡ: hỏi xác nhận → DELETE (backend chỉ đặt active=false).
  * NCC ngừng hoạt động thì ẩn ô gán, vì backend sẽ từ chối (BR-SUP-06).
  */
-export function SupplierProductsPanel({ supplier }: SupplierProductsPanelProps) {
+export function SupplierProductsPanel({ supplier, title }: SupplierProductsPanelProps) {
   const { message, notification } = App.useApp()
   const { token } = theme.useToken()
 
@@ -139,10 +142,12 @@ export function SupplierProductsPanel({ supplier }: SupplierProductsPanelProps) 
   ]
 
   return (
-    <Flex vertical gap={12} style={{ marginTop: token.marginLG }}>
-      <Typography.Title level={5} style={{ margin: 0 }}>
-        Sản phẩm được cung cấp
-      </Typography.Title>
+    <Flex vertical gap={12} style={title ? { marginTop: token.marginLG } : undefined}>
+      {title && (
+        <Typography.Title level={5} style={{ margin: 0 }}>
+          {title}
+        </Typography.Title>
+      )}
 
       {supplier.active ? (
         <Flex gap={8}>

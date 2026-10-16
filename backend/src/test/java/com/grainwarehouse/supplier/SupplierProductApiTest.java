@@ -179,6 +179,36 @@ class SupplierProductApiTest {
                 .andExpect(jsonPath("$.error.details[0].field").value("productId"));
     }
 
+    @Test
+    @DisplayName("BR-SUP-05: GET /api/products/{id}/suppliers - chỉ NCC đang liên kết, kèm mã/tên/người liên hệ")
+    void shouldListSuppliersOfProduct() throws Exception {
+        Supplier other = saveSupplier("Nhà máy Cám Nam");
+        Supplier removed = saveSupplier("Đại lý Cám Bắc");
+        link(supplier.getId(), pigFeed.getId());
+        link(other.getId(), pigFeed.getId());
+        link(removed.getId(), pigFeed.getId());
+        link(supplier.getId(), chickenFeed.getId()); // SP khác — không được lẫn vào
+        mockMvc.perform(delete("/api/suppliers/{id}/products/{productId}", removed.getId(), pigFeed.getId()));
+
+        mockMvc.perform(get("/api/products/{id}/suppliers", pigFeed.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.pagination.totalElements").value(2))
+                .andExpect(jsonPath("$.data.items[0].supplierId").value(supplier.getId()))
+                .andExpect(jsonPath("$.data.items[0].supplierCode").value(supplier.getCode()))
+                .andExpect(jsonPath("$.data.items[0].supplierName").value("Công ty CP Cám Việt"))
+                .andExpect(jsonPath("$.data.items[0].contactName").value("Nguyễn Văn A"))
+                .andExpect(jsonPath("$.data.items[0].supplierActive").value(true))
+                .andExpect(jsonPath("$.data.items[1].supplierId").value(other.getId()));
+    }
+
+    @Test
+    @DisplayName("GET /api/products/{id}/suppliers - SP không tồn tại → 404")
+    void shouldReturnNotFoundForUnknownProduct() throws Exception {
+        mockMvc.perform(get("/api/products/{id}/suppliers", 999_999L))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error.code").value("RESOURCE_NOT_FOUND"));
+    }
+
     private ResultActions link(Long supplierId, Long productId) throws Exception {
         return mockMvc.perform(post("/api/suppliers/{id}/products", supplierId)
                 .contentType(MediaType.APPLICATION_JSON)

@@ -31,8 +31,13 @@ public class ProductSupplier {
     @EmbeddedId
     private ProductSupplierId id;
 
-    // @MapsId: cột product_id vừa là một phần khóa chính vừa là FK tới product.
-    // Map quan hệ để trả về mã/tên SP mà không cần query riêng.
+    // @MapsId: cột supplier_id / product_id vừa là một phần khóa chính vừa là FK.
+    // Map cả hai quan hệ để trả về mã/tên NCC hoặc SP (JOIN bằng @EntityGraph), không cần query riêng.
+    @MapsId("supplierId")
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "supplier_id")
+    private Supplier supplier;
+
     @MapsId("productId")
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "product_id")
@@ -51,8 +56,9 @@ public class ProductSupplier {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
-    public ProductSupplier(Long supplierId, Product product) {
-        this.id = new ProductSupplierId(supplierId, product.getId());
+    public ProductSupplier(Supplier supplier, Product product) {
+        this.id = new ProductSupplierId(supplier.getId(), product.getId());
+        this.supplier = supplier;
         this.product = product;
     }
 }

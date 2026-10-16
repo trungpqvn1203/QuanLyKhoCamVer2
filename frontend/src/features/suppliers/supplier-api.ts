@@ -37,11 +37,27 @@ export interface SupplierProduct {
   productActive: boolean
 }
 
+/** Một NCC đang được phép cung cấp SP — chiều ngược của SupplierProduct. */
+export interface ProductSupplierLink {
+  supplierId: number
+  supplierCode: string
+  supplierName: string
+  contactName: string
+  phone?: string
+  supplierActive: boolean
+}
+
 const BASE = '/api/suppliers'
 
 export const supplierApi = {
   list: ({ page, size }: PageQuery) =>
     apiRequest<PageResponse<Supplier>>(withQuery(BASE, { page, size, sort: 'id,asc' })),
+
+  /**
+   * NCC cho ô chọn (gán NCC từ phía SP). API danh sách NCC chưa có tìm kiếm/lọc
+   * → lấy 1 trang tối đa 100 (giới hạn backend), lọc theo tên ngay trên trình duyệt — đủ cho MVP.
+   */
+  listForSelect: () => apiRequest<PageResponse<Supplier>>(withQuery(BASE, { page: 0, size: 100, sort: 'name,asc' })),
 
   create: (input: CreateSupplierInput) =>
     apiRequest<Supplier>(BASE, { method: 'POST', body: JSON.stringify(input) }),
@@ -55,6 +71,12 @@ export const supplierApi = {
   listProducts: (supplierId: number, { page, size }: PageQuery) =>
     apiRequest<PageResponse<SupplierProduct>>(
       withQuery(`${BASE}/${supplierId}/products`, { page, size, sort: 'product.code,asc' }),
+    ),
+
+  /** Chiều ngược: NCC đang được phép cung cấp SP này. Gán/gỡ vẫn dùng linkProduct/unlinkProduct. */
+  listSuppliersOfProduct: (productId: number, { page, size }: PageQuery) =>
+    apiRequest<PageResponse<ProductSupplierLink>>(
+      withQuery(`/api/products/${productId}/suppliers`, { page, size, sort: 'supplier.code,asc' }),
     ),
 
   /** Gán mới hoặc bật lại liên kết đã gỡ (BR-SUP-05). */

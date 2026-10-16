@@ -12,4 +12,8 @@ public interface ProductSupplierRepository extends JpaRepository<ProductSupplier
     // "IdSupplierId" = thuộc tính id.supplierId. @EntityGraph: JOIN lấy luôn product, tránh N+1
     @EntityGraph(attributePaths = "product")
     Page<ProductSupplier> findByIdSupplierIdAndActiveTrue(Long supplierId, Pageable pageable);
+
+    // Chiều ngược: SP này do những NCC nào cung cấp — dùng idx_product_supplier_product
+    @EntityGraph(attributePaths = "supplier")
+    Page<ProductSupplier> findByIdProductIdAndActiveTrue(Long productId, Pageable pageable);
 }
