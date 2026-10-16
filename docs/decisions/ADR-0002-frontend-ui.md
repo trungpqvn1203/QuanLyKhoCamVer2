@@ -26,6 +26,13 @@ Frontend sẽ có nhiều màn hình cùng dạng (danh sách sản phẩm, kho,
 
 **Luật:** tầng 4 không dùng thẻ `<button>`/`<table>` thô, không viết màu/kích thước cứng.
 
+### Bổ sung (2026-10-16)
+
+- **`react-router-dom` 7.x** — mỗi màn hình có URL riêng (`/products`, `/warehouses`), F5 và nút Back hoạt động. Phương án không thêm thư viện (đổi màn hình bằng state) bị loại vì mất URL.
+- **`@ant-design/icons`** — bộ icon chính thức đi kèm Ant Design, chỉ dùng hiển thị.
+- `src/hooks/` chứa hook dùng chung (ví dụ `usePagedList` tải danh sách phân trang).
+- `FormModal` (tầng 2) gom xử lý lỗi form: `VALIDATION_FAILED` → lỗi dưới từng ô; lỗi khác → `Alert` trong modal.
+
 ## Phương án thay thế đã xem xét
 
 | Phương án | Lý do không chọn |
