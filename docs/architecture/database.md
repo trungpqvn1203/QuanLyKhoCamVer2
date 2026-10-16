@@ -8,7 +8,7 @@
 |---|---|---|
 | `category` | Danh mục sản phẩm (cám gà, cám heo...) | ✅ Đã duyệt 2026-10-14 (V2) |
 | `product` | Sản phẩm cám | ✅ Đã duyệt 2026-10-14 (V2) |
-| `warehouse` | Kho hàng | Ứng viên |
+| `warehouse` | Kho hàng | ✅ Đã duyệt 2026-10-16 (V3) |
 | `supplier` | Nhà cung cấp | Ứng viên |
 | `customer` | Khách hàng (đại lý, trang trại) | Ứng viên |
 | `inventory` | Tồn kho hiện tại (product × warehouse) | Ứng viên |
@@ -44,13 +44,13 @@ erDiagram
 
     warehouse {
         bigint id PK
-        varchar code UK "Mã kho, unique"
-        varchar name "Tên kho"
+        varchar code UK "Tự sinh KHO001, không sửa"
+        varchar name UK "unique, không phân biệt hoa thường"
         varchar type "CENTRAL | RETAIL"
-        varchar address
-        boolean active
-        timestamp created_at
-        timestamp updated_at
+        varchar address "NOT NULL"
+        boolean active "Còn hoạt động?"
+        timestamptz created_at
+        timestamptz updated_at
     }
 
     supplier {
@@ -143,6 +143,14 @@ erDiagram
 - `net_weight_kg NUMERIC(10,3) CHECK > 0` — phục vụ báo cáo quy đổi tấn.
 - `category_id NOT NULL` + FK; index `idx_product_category` cho lọc theo danh mục.
 - Thời gian dùng `TIMESTAMPTZ` để không lệch khi server chạy UTC.
+
+### warehouse (✅ đã duyệt — migration V3)
+
+- `code`: `DEFAULT 'KHO' || lpad(nextval('warehouse_code_seq')::text, 3, '0')` — cùng cách sinh mã như `product`. Vượt 999 kho thì `lpad` không cắt số, mã thành `KHO1000` (vẫn unique).
+- `UNIQUE INDEX (lower(name))` chặn trùng tên (BR-WH-03).
+- `type`: `CHECK (type IN ('CENTRAL','RETAIL'))`.
+- `address NOT NULL` (BR-WH-01).
+- Không xóa cứng (BR-WH-04): sau này `inventory`, `stock_document`, `stock_transaction` sẽ có FK tới kho.
 
 ### inventory (Tồn kho)
 

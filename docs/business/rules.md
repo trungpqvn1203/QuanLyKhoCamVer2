@@ -124,12 +124,15 @@ Phân biệt 3 loại:
 
 ## Kho
 
-### ⚠️ Giả định tạm thời
+### ✅ Đã xác nhận (2026-10-16)
 
-- **BR-WH-A01:** Mỗi kho có mã, tên, địa chỉ, loại kho (tập kết hoặc bán lẻ).
-- **BR-WH-A02:** Kho đang chứa hàng không được xóa.
+- **BR-WH-01:** Mỗi kho có mã, tên, loại kho (`CENTRAL` — tập kết, `RETAIL` — bán lẻ) và địa chỉ. Địa chỉ **bắt buộc**.
+- **BR-WH-02:** Mã kho do **hệ thống tự sinh** dạng `KHO` + 3 chữ số (ví dụ `KHO001`), duy nhất, **không sửa được**. Mã có thể nhảy số (do rollback) — chấp nhận.
+- **BR-WH-03:** Tên kho duy nhất, **không phân biệt hoa thường**.
+- **BR-WH-04:** Kho không xóa cứng; ngừng hoạt động bằng `active = false`. Không tạo mới kho trùng tên với kho đã ngừng hoạt động; hệ thống hướng dẫn mở lại (giống BR-PRD-09).
+- **BR-WH-05:** Kho còn tồn hàng không được ngừng hoạt động. _(Chưa thực thi được vì chưa có bảng `inventory` — bổ sung kiểm tra khi làm module tồn kho ở Tuần 2.)_
 
-### ❓ Câu hỏi mở
+### Ngoài phạm vi MVP
 
-- **BR-WH-Q01:** Kho có sức chứa tối đa không?
-- **BR-WH-Q02:** Có cần quản lý vị trí trong kho (kệ, ô) không?
+- ~~BR-WH-Q01: Sức chứa tối đa của kho~~ — không quản lý trong MVP.
+- ~~BR-WH-Q02: Vị trí trong kho (kệ, ô)~~ — không quản lý trong MVP.

@@ -156,6 +156,7 @@ DELETE /api/products/:id          # Xóa (soft delete)
 |---|---|---|
 | Danh mục | `GET/POST /api/categories`, `GET/PUT/DELETE /api/categories/{id}` | DELETE = `active=false`; PUT có `active` để mở lại |
 | Sản phẩm | `GET/POST /api/products`, `GET/PUT/DELETE /api/products/{id}` | Không nhận `code` (tự sinh); response có `categoryName` |
+| Kho | `GET/POST /api/warehouses`, `GET/PUT/DELETE /api/warehouses/{id}` | Không nhận `code` (tự sinh `KHO001`); `type`: `CENTRAL` \| `RETAIL`; `address` bắt buộc; DELETE = `active=false`; PUT có `active` để mở lại |
 
 Danh sách nhận `page`, `size` (tối đa 100), `sort` (ví dụ `sort=name,asc`). `sort` sai thuộc tính → 400.
 
