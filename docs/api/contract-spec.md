@@ -160,6 +160,16 @@ DELETE /api/products/:id          # Xóa (soft delete)
 
 Danh sách nhận `page`, `size` (tối đa 100), `sort` (ví dụ `sort=name,asc`). `sort` sai thuộc tính → 400.
 
+**Lọc sản phẩm** (`GET /api/products`, thêm 2026-10-16) — tất cả tùy chọn, không gửi = không lọc; lọc trong SQL nên `pagination` phản ánh kết quả đã lọc:
+
+| Tham số | Kiểu | Ý nghĩa |
+|---|---|---|
+| `keyword` | string | Mã **hoặc** tên chứa từ khóa, không phân biệt hoa thường, tự cắt khoảng trắng hai đầu. `%`, `_` là ký tự thường. Chưa bỏ dấu tiếng Việt (`cam` không khớp `cám`). |
+| `categoryId` | number | Thuộc danh mục này. Sai kiểu → 400 `VALIDATION_FAILED` |
+| `active` | boolean | `true` đang kinh doanh, `false` ngừng kinh doanh |
+
+Ví dụ: `GET /api/products?keyword=heo&categoryId=1&active=true&page=0&size=20`
+
 ---
 
 ## 5. Triển khai phía Backend (Java)

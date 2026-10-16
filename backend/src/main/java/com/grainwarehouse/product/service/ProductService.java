@@ -12,8 +12,10 @@ import com.grainwarehouse.product.entity.Product;
 import com.grainwarehouse.product.entity.ProductUnit;
 import com.grainwarehouse.product.repository.CategoryRepository;
 import com.grainwarehouse.product.repository.ProductRepository;
+import com.grainwarehouse.product.repository.ProductSpecifications;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,8 +30,13 @@ public class ProductService {
     private final ProductRepository productRepository;
     private final CategoryRepository categoryRepository;
 
-    public PageResponse<ProductResponse> list(Pageable pageable) {
-        return PageResponse.from(productRepository.findAll(pageable), ProductResponse::from);
+    /** Tham số lọc đều tùy chọn; null = không lọc theo tiêu chí đó. */
+    public PageResponse<ProductResponse> list(String keyword, Long categoryId, Boolean active, Pageable pageable) {
+        Specification<Product> spec = Specification.allOf(
+                ProductSpecifications.keywordContains(keyword),
+                ProductSpecifications.inCategory(categoryId),
+                ProductSpecifications.hasActive(active));
+        return PageResponse.from(productRepository.findAll(spec, pageable), ProductResponse::from);
     }
 
     public ProductResponse get(Long id) {
