@@ -1,4 +1,4 @@
-import { Alert, Button, Table } from 'antd'
+import { Alert, Button, Skeleton, Table } from 'antd'
 import type { TableProps } from 'antd'
 import type { ReactNode } from 'react'
 import type { PageResponse } from '../../api/types'
@@ -26,11 +26,19 @@ interface DataTableProps<T> {
  */
 const NON_TABLE_HEIGHT = 352
 
+/** Số dòng giả hiển thị khi tải lần đầu — đủ lấp màn hình laptop thông thường. */
+const SKELETON_ROWS = 8
+
 /**
  * Bảng có phân trang theo contract-spec (ADR-0002, tầng 2).
  * Ant Design đánh số trang từ 1, Spring từ 0 → chuyển đổi tại đây, màn hình không phải lo.
  * Thân bảng cuộn bên trong: tiêu đề cột và thanh phân trang luôn nhìn thấy.
  * Kiểu dáng (nền tiêu đề, hover, đường kẻ) cấu hình tập trung ở theme/theme.ts.
+ *
+ * Trạng thái tải:
+ * - Lần đầu (chưa có dữ liệu): giữ nguyên tiêu đề cột, thân bảng là các thanh xám nhấp nháy (Skeleton)
+ *   → người dùng thấy ngay bố cục trang, không bị "trang trắng rồi nhảy".
+ * - Các lần sau (đổi trang, lọc): giữ dữ liệu cũ + vòng xoay, tránh bảng chớp trắng mỗi lần bấm.
  */
 export function DataTable<T extends object>({
   columns,
@@ -44,6 +52,16 @@ export function DataTable<T extends object>({
   extraReservedHeight = 0,
 }: DataTableProps<T>) {
   const reserved = NON_TABLE_HEIGHT + extraReservedHeight + (error ? 56 : 0)
+  const initialLoading = loading && page === null
+
+  // Lần tải đầu: thay nội dung mọi ô bằng thanh skeleton, giữ nguyên tiêu đề và độ rộng cột
+  const tableColumns = initialLoading
+    ? columns?.map((column) => ({ ...column, render: () => <Skeleton.Input active size="small" block /> }))
+    : columns
+  // Dòng giả chỉ cần khóa rowKey cho React; ô không đọc dữ liệu (render bị thay ở trên) nên ép kiểu an toàn
+  const dataSource = initialLoading
+    ? Array.from({ length: SKELETON_ROWS }, (_, index) => ({ [rowKey]: `skeleton-${index}` }) as unknown as T)
+    : (page?.items ?? [])
 
   return (
     <>
@@ -63,10 +81,10 @@ export function DataTable<T extends object>({
         />
       )}
       <Table<T>
-        columns={columns}
-        dataSource={page?.items ?? []}
+        columns={tableColumns}
+        dataSource={dataSource}
         rowKey={rowKey}
-        loading={loading}
+        loading={loading && !initialLoading}
         locale={emptyText ? { emptyText } : undefined}
         // x: màn hình hẹp thì cuộn ngang thay vì ép chữ; y: cuộn dọc trong khung, tối thiểu 240px
         scroll={{ x: 'max-content', y: `max(240px, calc(100vh - ${reserved}px))` }}

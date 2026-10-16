@@ -33,6 +33,14 @@ Frontend sẽ có nhiều màn hình cùng dạng (danh sách sản phẩm, kho,
 - `src/hooks/` chứa hook dùng chung (ví dụ `usePagedList` tải danh sách phân trang).
 - `FormModal` (tầng 2) gom xử lý lỗi form: `VALIDATION_FAILED` → lỗi dưới từng ô; lỗi khác → `Alert` trong modal.
 
+### Bổ sung (2026-10-16, đợt 2): khai thác thêm component có sẵn của Ant Design, **không thêm thư viện**.
+
+- `RowActions` (tầng 2): một nút `⋯` mở menu (Xem chi tiết / Sửa / Ngừng). Thao tác ngừng hỏi lại bằng `modal.confirm`, vì `Popconfirm` biến mất khi menu đóng.
+- `DetailDrawer` (tầng 2): xem chi tiết bằng `Drawer` + `Descriptions`, dùng luôn dữ liệu của dòng trong bảng, không gọi thêm API. Bấm vào mã ở cột đầu hoặc chọn "Xem chi tiết" để mở.
+- Thông báo: thao tác **thành công** dùng `notification`, ghi rõ mã và tên bản ghi. **Lỗi** dùng `message`.
+- `DataTable`: lần tải đầu hiện `Skeleton` theo đúng cột, các lần sau giữ dữ liệu cũ kèm vòng xoay.
+- `src/utils/format.ts`: định dạng ngày giờ bằng `Intl`, cố định múi giờ `Asia/Ho_Chi_Minh`, không thêm thư viện.
+
 ## Phương án thay thế đã xem xét
 
 | Phương án | Lý do không chọn |

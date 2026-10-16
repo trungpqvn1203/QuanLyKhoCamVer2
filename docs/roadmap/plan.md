@@ -74,11 +74,11 @@ Giao diện sử dụng được cho tất cả nghiệp vụ chính. Hệ thố
 
 ### Checklist
 
-- [ ] Giao diện nhập kho
-- [ ] Giao diện bán hàng/xuất kho
-- [ ] Giao diện điều chuyển kho
-- [ ] Giao diện lịch sử biến động tồn kho
-- [ ] Báo cáo tồn kho (theo kho, theo sản phẩm)
+- [ ] Giao diện nhập kho _(form phiếu trong `Drawer`; dòng hàng động `Form.List`; dòng tổng `Table.Summary`; chọn SP có tìm kiếm gọi API khi gõ)_
+- [ ] Giao diện bán hàng/xuất kho _(dùng lại mẫu phiếu của nhập kho)_
+- [ ] Giao diện điều chuyển kho _(các bước `Steps`: chọn kho nguồn → chọn hàng → xác nhận)_
+- [ ] Giao diện lịch sử biến động tồn kho _(lọc khoảng ngày `DatePicker.RangePicker`)_
+- [ ] Báo cáo tồn kho (theo kho, theo sản phẩm) _(rê chuột xem tồn từng kho bằng `Popover`; trang tổng quan `Card` + `Statistic`)_
 - [ ] Phân trang cho danh sách dài
 - [ ] Xác thực và phân quyền cơ bản (nếu trong phạm vi)
 - [ ] Global error handling (backend + frontend)
