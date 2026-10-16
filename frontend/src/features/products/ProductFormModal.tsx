@@ -10,7 +10,8 @@ interface ProductFormModalProps {
   /** null = tạo mới */
   editing: Product | null
   onClose: () => void
-  onSaved: () => void
+  /** Nhận bản ghi backend trả về — có mã SP vừa sinh khi tạo mới */
+  onSaved: (saved: Product) => void
 }
 
 const UNIT_OPTIONS = (Object.keys(PRODUCT_UNIT_LABELS) as ProductUnit[]).map((value) => ({
@@ -43,13 +44,14 @@ export function ProductFormModal({ open, editing, onClose, onSaved }: ProductFor
     }))
 
   const handleSubmit = async (values: UpdateProductInput) => {
+    let saved: Product
     if (editing) {
-      await productApi.update(editing.id, values)
+      saved = await productApi.update(editing.id, values)
     } else {
       const { active: _active, ...createInput } = values
-      await productApi.create(createInput)
+      saved = await productApi.create(createInput)
     }
-    onSaved()
+    onSaved(saved)
   }
 
   return (

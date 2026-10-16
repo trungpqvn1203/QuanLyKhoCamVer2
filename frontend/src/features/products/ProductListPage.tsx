@@ -1,14 +1,16 @@
 import { PlusOutlined } from '@ant-design/icons'
-import { App, Button, Empty, theme } from 'antd'
-import type { TableProps } from 'antd'
+import { App, Button, Empty, Typography, theme } from 'antd'
+import type { DescriptionsProps, TableProps } from 'antd'
 import { useCallback, useState } from 'react'
 import { ApiError } from '../../api/client'
 import type { PageQuery } from '../../api/types'
 import { PageHeader } from '../../components/layout/PageHeader'
 import { DataTable } from '../../components/ui/DataTable'
+import { DetailDrawer } from '../../components/ui/DetailDrawer'
 import { RowActions } from '../../components/ui/RowActions'
 import { StatusTag } from '../../components/ui/StatusTag'
 import { usePagedList } from '../../hooks/use-paged-list'
+import { formatDateTime } from '../../utils/format'
 import { PRODUCT_UNIT_LABELS, hasActiveFilters, productApi } from './product-api'
 import type { Product, ProductFilters } from './product-api'
 import { FILTER_BAR_HEIGHT, ProductFilterBar } from './ProductFilterBar'
@@ -17,7 +19,7 @@ import { ProductFormModal } from './ProductFormModal'
 const weightFormat = new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 3 })
 
 export function ProductListPage() {
-  const { message } = App.useApp()
+  const { message, notification } = App.useApp()
   const { token } = theme.useToken()
   const [filters, setFilters] = useState<ProductFilters>({})
   // useCallback: chỉ tạo hàm mới khi bộ lọc đổi → usePagedList tự tải lại đúng lúc
@@ -25,6 +27,9 @@ export function ProductListPage() {
   const { page, query, loading, error, changePage, reload } = usePagedList(fetchPage)
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<Product | null>(null)
+  // Tách cờ mở khỏi bản ghi: đóng khung thì nội dung vẫn còn trong lúc chạy hiệu ứng trượt ra
+  const [detailOpen, setDetailOpen] = useState(false)
+  const [viewing, setViewing] = useState<Product | null>(null)
   const filtering = hasActiveFilters(filters)
 
   const applyFilters = useCallback(
@@ -45,10 +50,20 @@ export function ProductListPage() {
     setModalOpen(true)
   }
 
+  const openDetail = (product: Product) => {
+    setViewing(product)
+    setDetailOpen(true)
+  }
+
+  // Thành công dùng notification (góc phải, có tiêu đề + mã + tên) để người dùng biết chắc bản ghi nào;
+  // lỗi vặt vẫn dùng message cho gọn
+  const notifySuccess = (title: string, product: Product) =>
+    notification.success({ title, description: `${product.code} · ${product.name}` })
+
   const deactivate = async (product: Product) => {
     try {
       await productApi.deactivate(product.id)
-      message.success(`Đã ngừng kinh doanh ${product.code}`)
+      notifySuccess('Đã ngừng kinh doanh sản phẩm', product)
       reload()
     } catch (error) {
       message.error(error instanceof ApiError ? error.message : 'Không ngừng kinh doanh được sản phẩm')
@@ -60,8 +75,12 @@ export function ProductListPage() {
       title: 'Mã SP',
       dataIndex: 'code',
       width: 110,
-      // Font đơn cách: các mã SP000001, SP000012 thẳng cột, dễ dò
-      render: (code: string) => <span style={{ fontFamily: token.fontFamilyCode }}>{code}</span>,
+      // Font đơn cách: các mã SP000001, SP000012 thẳng cột, dễ dò. Bấm mã → xem chi tiết
+      render: (code: string, product) => (
+        <Typography.Link onClick={() => openDetail(product)} style={{ fontFamily: token.fontFamilyCode }}>
+          {code}
+        </Typography.Link>
+      ),
     },
     {
       title: 'Tên sản phẩm',
@@ -91,12 +110,14 @@ export function ProductListPage() {
       ),
     },
     {
-      title: 'Thao tác',
+      title: '',
       key: 'actions',
-      width: 100,
+      width: 56,
+      align: 'center',
       fixed: 'right',
       render: (_, product) => (
         <RowActions
+          onView={() => openDetail(product)}
           onEdit={() => openEdit(product)}
           deactivate={
             product.active
@@ -111,6 +132,24 @@ export function ProductListPage() {
       ),
     },
   ]
+
+  const detailItems: DescriptionsProps['items'] = viewing
+    ? [
+        { key: 'code', label: 'Mã SP', children: <span style={{ fontFamily: token.fontFamilyCode }}>{viewing.code}</span> },
+        { key: 'name', label: 'Tên sản phẩm', children: viewing.name },
+        { key: 'category', label: 'Danh mục', children: viewing.categoryName },
+        { key: 'unit', label: 'Đơn vị', children: PRODUCT_UNIT_LABELS[viewing.unit] },
+        { key: 'weight', label: 'KL tịnh (kg)', children: weightFormat.format(viewing.netWeightKg) },
+        { key: 'description', label: 'Mô tả', children: viewing.description ?? '—' },
+        {
+          key: 'status',
+          label: 'Trạng thái',
+          children: <StatusTag active={viewing.active} activeText="Đang kinh doanh" inactiveText="Ngừng kinh doanh" />,
+        },
+        { key: 'createdAt', label: 'Ngày tạo', children: formatDateTime(viewing.createdAt) },
+        { key: 'updatedAt', label: 'Cập nhật lần cuối', children: formatDateTime(viewing.updatedAt) },
+      ]
+    : []
 
   return (
     <>
@@ -147,9 +186,19 @@ export function ProductListPage() {
         open={modalOpen}
         editing={editing}
         onClose={() => setModalOpen(false)}
-        onSaved={() => {
-          message.success(editing ? 'Cập nhật sản phẩm thành công' : 'Tạo sản phẩm thành công')
+        onSaved={(saved) => {
+          notifySuccess(editing ? 'Đã cập nhật sản phẩm' : 'Đã tạo sản phẩm', saved)
           reload()
+        }}
+      />
+      <DetailDrawer
+        open={detailOpen}
+        title="Chi tiết sản phẩm"
+        items={detailItems}
+        onClose={() => setDetailOpen(false)}
+        onEdit={() => {
+          setDetailOpen(false)
+          if (viewing) openEdit(viewing)
         }}
       />
     </>

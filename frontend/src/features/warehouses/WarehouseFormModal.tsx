@@ -8,7 +8,8 @@ interface WarehouseFormModalProps {
   /** null = tạo mới */
   editing: Warehouse | null
   onClose: () => void
-  onSaved: () => void
+  /** Nhận bản ghi backend trả về — có mã kho vừa sinh khi tạo mới */
+  onSaved: (saved: Warehouse) => void
 }
 
 const TYPE_OPTIONS = (Object.keys(WAREHOUSE_TYPE_LABELS) as WarehouseType[]).map((value) => ({
@@ -20,13 +21,11 @@ export function WarehouseFormModal({ open, editing, onClose, onSaved }: Warehous
   const [form] = Form.useForm<UpdateWarehouseInput>()
 
   const handleSubmit = async (values: UpdateWarehouseInput) => {
-    if (editing) {
-      await warehouseApi.update(editing.id, values)
-    } else {
-      // Tạo mới không gửi active: kho mới luôn hoạt động
-      await warehouseApi.create({ name: values.name, type: values.type, address: values.address })
-    }
-    onSaved()
+    // Tạo mới không gửi active: kho mới luôn hoạt động
+    const saved = editing
+      ? await warehouseApi.update(editing.id, values)
+      : await warehouseApi.create({ name: values.name, type: values.type, address: values.address })
+    onSaved(saved)
   }
 
   return (
