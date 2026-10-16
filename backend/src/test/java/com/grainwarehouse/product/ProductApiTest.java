@@ -181,6 +181,73 @@ class ProductApiTest {
     }
 
     @Test
+    @DisplayName("GET ?keyword - tìm theo tên, không phân biệt hoa thường; totalElements theo kết quả lọc")
+    void shouldSearchByName() throws Exception {
+        createProduct(productJson("Cám heo con 25kg", "BAG", "25"));
+        createProduct(productJson("Cám heo thịt 40kg", "BAG", "40"));
+        createProduct(productJson("Cám gà đẻ 40kg", "BAG", "40"));
+
+        mockMvc.perform(get("/api/products").param("keyword", "  HEO  ").param("size", "1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items.length()").value(1))
+                .andExpect(jsonPath("$.data.pagination.totalElements").value(2))
+                .andExpect(jsonPath("$.data.pagination.totalPages").value(2));
+    }
+
+    @Test
+    @DisplayName("GET ?keyword - tìm theo mã sản phẩm")
+    void shouldSearchByCode() throws Exception {
+        String code = com.jayway.jsonpath.JsonPath.read(
+                createProduct(productJson("Cám heo con 25kg", "BAG", "25"))
+                        .andReturn().getResponse().getContentAsString(), "$.data.code");
+        createProduct(productJson("Cám gà đẻ 40kg", "BAG", "40"));
+
+        mockMvc.perform(get("/api/products").param("keyword", code.toLowerCase()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.pagination.totalElements").value(1))
+                .andExpect(jsonPath("$.data.items[0].code").value(code));
+    }
+
+    @Test
+    @DisplayName("GET ?keyword=% - ký tự đại diện LIKE được hiểu là chữ thường, không khớp tất cả")
+    void shouldEscapeLikeWildcards() throws Exception {
+        createProduct(productJson("Cám heo con 25kg", "BAG", "25"));
+
+        mockMvc.perform(get("/api/products").param("keyword", "%"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.pagination.totalElements").value(0));
+    }
+
+    @Test
+    @DisplayName("GET ?categoryId&active - lọc theo danh mục và trạng thái, kết hợp với keyword")
+    void shouldFilterByCategoryAndActive() throws Exception {
+        Long chickenId = saveCategory("Cám gà", true).getId();
+        long deactivatedId = createdId(createProduct(productJson("Cám heo nái 25kg", "BAG", "25")));
+        mockMvc.perform(delete("/api/products/{id}", deactivatedId)).andExpect(status().isNoContent());
+        createProduct(productJson("Cám heo con 25kg", "BAG", "25"));
+        createProduct(productJsonWithCategory("Cám gà đẻ 40kg", chickenId));
+
+        mockMvc.perform(get("/api/products").param("categoryId", categoryId.toString()))
+                .andExpect(jsonPath("$.data.pagination.totalElements").value(2));
+
+        mockMvc.perform(get("/api/products").param("categoryId", categoryId.toString()).param("active", "false"))
+                .andExpect(jsonPath("$.data.pagination.totalElements").value(1))
+                .andExpect(jsonPath("$.data.items[0].name").value("Cám heo nái 25kg"));
+
+        mockMvc.perform(get("/api/products").param("active", "true").param("keyword", "đẻ"))
+                .andExpect(jsonPath("$.data.pagination.totalElements").value(1))
+                .andExpect(jsonPath("$.data.items[0].categoryName").value("Cám gà"));
+    }
+
+    @Test
+    @DisplayName("GET ?categoryId=abc - 400 VALIDATION_FAILED, không phải 500")
+    void shouldRejectInvalidFilterType() throws Exception {
+        mockMvc.perform(get("/api/products").param("categoryId", "abc"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("VALIDATION_FAILED"));
+    }
+
+    @Test
     @DisplayName("GET sort theo thuộc tính không tồn tại - 400, không phải 500")
     void shouldRejectInvalidSort() throws Exception {
         mockMvc.perform(get("/api/products").param("sort", "khongCo,asc"))

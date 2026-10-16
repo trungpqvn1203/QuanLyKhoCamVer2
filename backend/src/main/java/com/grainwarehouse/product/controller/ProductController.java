@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -28,10 +29,14 @@ public class ProductController {
 
     private final ProductService productService;
 
+    // Tham số lọc tùy chọn: không gửi = không lọc (request cũ vẫn chạy như trước)
     @GetMapping
     public ResponseEntity<ApiResponse<PageResponse<ProductResponse>>> list(
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) Long categoryId,
+            @RequestParam(required = false) Boolean active,
             @PageableDefault(size = 20, sort = "id") Pageable pageable) {
-        return ResponseEntity.ok(ApiResponse.ok(productService.list(pageable)));
+        return ResponseEntity.ok(ApiResponse.ok(productService.list(keyword, categoryId, active, pageable)));
     }
 
     @GetMapping("/{id}")

@@ -25,8 +25,8 @@ Có hệ thống chạy được local với một luồng nghiệp vụ nhỏ h
 - [x] API CRUD danh mục + sản phẩm + test
 - [x] API CRUD kho + test
 - [x] Seed dữ liệu demo _(`db/seed/demo-data.sql`, chạy tay bằng psql)_
-- [ ] Giao diện cơ bản: danh sách sản phẩm, danh sách kho _(Ant Design — xem ADR-0002)_
-- [ ] Commit: `feat: product and warehouse module with basic UI`
+- [x] Giao diện cơ bản: danh sách sản phẩm, danh sách kho + form thêm/sửa _(Ant Design, React Router — xem ADR-0002)_
+- [x] Commit _(tách theo module: product, warehouse, seed, UI, bộ lọc sản phẩm)_
 
 ### Kiến thức cần nắm
 - Spring Boot project structure
