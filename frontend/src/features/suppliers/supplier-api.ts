@@ -1,0 +1,70 @@
+import { apiRequest, withQuery } from '../../api/client'
+import type { PageQuery, PageResponse } from '../../api/types'
+import type { ProductUnit } from '../products/product-api'
+
+export interface Supplier {
+  id: number
+  code: string
+  name: string
+  contactName: string
+  // Trường tùy chọn: bỏ trống thì backend lưu NULL và bỏ khỏi JSON (NON_NULL)
+  phone?: string
+  email?: string
+  address?: string
+  active: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+export interface CreateSupplierInput {
+  name: string
+  contactName: string
+  phone?: string
+  email?: string
+  address?: string
+}
+
+export interface UpdateSupplierInput extends CreateSupplierInput {
+  active: boolean
+}
+
+/** Một SP đang liên kết với NCC (BR-SUP-05). productActive = SP còn kinh doanh. */
+export interface SupplierProduct {
+  productId: number
+  productCode: string
+  productName: string
+  unit: ProductUnit
+  productActive: boolean
+}
+
+const BASE = '/api/suppliers'
+
+export const supplierApi = {
+  list: ({ page, size }: PageQuery) =>
+    apiRequest<PageResponse<Supplier>>(withQuery(BASE, { page, size, sort: 'id,asc' })),
+
+  create: (input: CreateSupplierInput) =>
+    apiRequest<Supplier>(BASE, { method: 'POST', body: JSON.stringify(input) }),
+
+  update: (id: number, input: UpdateSupplierInput) =>
+    apiRequest<Supplier>(`${BASE}/${id}`, { method: 'PUT', body: JSON.stringify(input) }),
+
+  /** Không xóa cứng: backend đặt active = false (BR-SUP-04); các liên kết SP được giữ (BR-SUP-07). */
+  deactivate: (id: number) => apiRequest<void>(`${BASE}/${id}`, { method: 'DELETE' }),
+
+  listProducts: (supplierId: number, { page, size }: PageQuery) =>
+    apiRequest<PageResponse<SupplierProduct>>(
+      withQuery(`${BASE}/${supplierId}/products`, { page, size, sort: 'product.code,asc' }),
+    ),
+
+  /** Gán mới hoặc bật lại liên kết đã gỡ (BR-SUP-05). */
+  linkProduct: (supplierId: number, productId: number) =>
+    apiRequest<SupplierProduct>(`${BASE}/${supplierId}/products`, {
+      method: 'POST',
+      body: JSON.stringify({ productId }),
+    }),
+
+  /** Gỡ liên kết: backend chỉ đặt active = false, không xóa dòng (BR-SUP-05). */
+  unlinkProduct: (supplierId: number, productId: number) =>
+    apiRequest<void>(`${BASE}/${supplierId}/products/${productId}`, { method: 'DELETE' }),
+}

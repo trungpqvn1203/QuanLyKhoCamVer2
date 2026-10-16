@@ -40,6 +40,7 @@ Frontend sẽ có nhiều màn hình cùng dạng (danh sách sản phẩm, kho,
 - Thông báo: thao tác **thành công** dùng `notification`, ghi rõ mã và tên bản ghi. **Lỗi** dùng `message`.
 - `DataTable`: lần tải đầu hiện `Skeleton` theo đúng cột, các lần sau giữ dữ liệu cũ kèm vòng xoay.
 - `src/utils/format.ts`: định dạng ngày giờ bằng `Intl`, cố định múi giờ `Asia/Ho_Chi_Minh`, không thêm thư viện.
+- `DetailDrawer` nhận thêm `size` và `children` (2026-10-16): đặt bảng con dưới phần thông tin, ví dụ danh sách SP của nhà cung cấp kèm ô gán/gỡ. Chọn cách này thay vì trang chi tiết riêng (`/suppliers/:id`) vì MVP chỉ có một bảng con.
 
 ## Phương án thay thế đã xem xét
 
