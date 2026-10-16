@@ -9,7 +9,8 @@
 | `category` | Danh mục sản phẩm (cám gà, cám heo...) | ✅ Đã duyệt 2026-10-14 (V2) |
 | `product` | Sản phẩm cám | ✅ Đã duyệt 2026-10-14 (V2) |
 | `warehouse` | Kho hàng | ✅ Đã duyệt 2026-10-16 (V3) |
-| `supplier` | Nhà cung cấp | Ứng viên |
+| `supplier` | Nhà cung cấp | ✅ Đã duyệt 2026-10-16 (V4) |
+| `product_supplier` | NCC được phép cung cấp SP nào (nhiều–nhiều) | ✅ Đã duyệt 2026-10-16 (V4) |
 | `customer` | Khách hàng (đại lý, trang trại) | Ứng viên |
 | `inventory` | Tồn kho hiện tại (product × warehouse) | Ứng viên |
 | `stock_document` | Chứng từ kho (phiếu nhập, phiếu xuất, phiếu điều chuyển) | Ứng viên |
@@ -55,13 +56,23 @@ erDiagram
 
     supplier {
         bigint id PK
-        varchar code UK
-        varchar name
-        varchar phone
-        varchar address
-        boolean active
-        timestamp created_at
-        timestamp updated_at
+        varchar code UK "Tự sinh NCC001, không sửa"
+        varchar name UK "unique, không phân biệt hoa thường"
+        varchar contact_name "NOT NULL"
+        varchar phone "nullable"
+        varchar email "nullable"
+        varchar address "nullable"
+        boolean active "Còn hoạt động?"
+        timestamptz created_at
+        timestamptz updated_at
+    }
+
+    product_supplier {
+        bigint supplier_id PK,FK
+        bigint product_id PK,FK
+        boolean active "false = đã gỡ liên kết"
+        timestamptz created_at
+        timestamptz updated_at
     }
 
     customer {
@@ -126,6 +137,8 @@ erDiagram
     stock_document ||--|{ stock_document_item : "chứa"
     warehouse ||--o{ stock_document : "kho chính"
     supplier ||--o{ stock_document : "cung cấp"
+    supplier ||--o{ product_supplier : "được phép cung cấp"
+    product ||--o{ product_supplier : "do NCC cung cấp"
     customer ||--o{ stock_document : "mua hàng"
     stock_document_item ||--|{ stock_transaction : "tạo giao dịch"
     product ||--o{ stock_transaction : "biến động"
@@ -151,6 +164,13 @@ erDiagram
 - `type`: `CHECK (type IN ('CENTRAL','RETAIL'))`.
 - `address NOT NULL` (BR-WH-01).
 - Không xóa cứng (BR-WH-04): sau này `inventory`, `stock_document`, `stock_transaction` sẽ có FK tới kho.
+
+### supplier & product_supplier (✅ đã duyệt — migration V4)
+
+- `supplier.code`: `DEFAULT 'NCC' || lpad(nextval('supplier_code_seq')::text, 3, '0')` — cùng cách sinh mã như `warehouse`.
+- `UNIQUE INDEX (lower(name))` chặn trùng tên (BR-SUP-03). Chỉ `contact_name` bắt buộc; `phone`, `email`, `address` nullable (BR-SUP-01). Định dạng email kiểm tra ở API, không ở DB.
+- `product_supplier` dùng **khóa chính kép** `(supplier_id, product_id)` thay vì cột `id` riêng: mỗi cặp chỉ có một dòng, gỡ/gán lại chỉ đổi `active` (BR-SUP-05). Phương án thay thế `id` + `UNIQUE(supplier_id, product_id)` chỉ cần khi dòng nối có vòng đời riêng hoặc bảng khác trỏ tới nó.
+- `idx_product_supplier_product (product_id)`: khóa chính chỉ phục vụ truy vấn bắt đầu bằng `supplier_id`; index này phục vụ chiều ngược "SP Y do những NCC nào cung cấp".
 
 ### inventory (Tồn kho)
 

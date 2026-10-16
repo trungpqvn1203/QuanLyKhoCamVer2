@@ -136,3 +136,18 @@ Phân biệt 3 loại:
 
 - ~~BR-WH-Q01: Sức chứa tối đa của kho~~ — không quản lý trong MVP.
 - ~~BR-WH-Q02: Vị trí trong kho (kệ, ô)~~ — không quản lý trong MVP.
+
+---
+
+## Nhà cung cấp
+
+### ✅ Đã xác nhận (2026-10-16)
+
+- **BR-SUP-01:** Mỗi NCC có mã, tên, **người liên hệ (bắt buộc)**; số điện thoại, email, địa chỉ **tùy chọn**. Email nếu nhập phải đúng định dạng.
+- **BR-SUP-02:** Mã NCC do **hệ thống tự sinh** dạng `NCC` + 3 chữ số (ví dụ `NCC001`), duy nhất, **không sửa được**. Mã có thể nhảy số (do rollback) — chấp nhận.
+- **BR-SUP-03:** Tên NCC duy nhất, **không phân biệt hoa thường**.
+- **BR-SUP-04:** NCC không xóa cứng; ngừng hoạt động bằng `active = false`. Không tạo mới NCC trùng tên với NCC đã ngừng hoạt động; hệ thống hướng dẫn mở lại (giống BR-PRD-09).
+- **BR-SUP-05:** Quản lý **NCC nào được cung cấp SP nào** bằng bảng nối `product_supplier` (nhiều–nhiều). Mỗi cặp (NCC, SP) chỉ có một dòng: gỡ liên kết = `active = false`, gán lại = bật `active = true` trên chính dòng đó.
+- **BR-SUP-06:** Không gán SP **đã ngừng kinh doanh**, không gán SP cho NCC **đã ngừng hoạt động**.
+- **BR-SUP-07:** Ngừng hoạt động NCC **giữ nguyên** các liên kết (mở lại NCC không phải gán lại).
+- **BR-SUP-08:** **Chặn cứng** khi nhập kho: phiếu nhập từ NCC X chỉ được chứa SP đang liên kết `active = true` với X. _(Thực thi ở module nhập kho.)_
