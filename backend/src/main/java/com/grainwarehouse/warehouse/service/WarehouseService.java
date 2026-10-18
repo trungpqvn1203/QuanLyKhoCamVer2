@@ -2,6 +2,7 @@ package com.grainwarehouse.warehouse.service;
 
 import com.grainwarehouse.common.exception.DuplicateResourceException;
 import com.grainwarehouse.common.exception.ResourceNotFoundException;
+import com.grainwarehouse.common.repository.CommonSpecifications;
 import com.grainwarehouse.common.response.PageResponse;
 import com.grainwarehouse.warehouse.dto.CreateWarehouseRequest;
 import com.grainwarehouse.warehouse.dto.UpdateWarehouseRequest;
@@ -10,6 +11,7 @@ import com.grainwarehouse.warehouse.entity.Warehouse;
 import com.grainwarehouse.warehouse.repository.WarehouseRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,8 +22,11 @@ public class WarehouseService {
 
     private final WarehouseRepository warehouseRepository;
 
-    public PageResponse<WarehouseResponse> list(Pageable pageable) {
-        return PageResponse.from(warehouseRepository.findAll(pageable), WarehouseResponse::from);
+    public PageResponse<WarehouseResponse> list(String keyword, Boolean active, Pageable pageable) {
+        Specification<Warehouse> spec = Specification.allOf(
+                CommonSpecifications.keywordContains(keyword, "code", "name"),
+                CommonSpecifications.hasActive(active));
+        return PageResponse.from(warehouseRepository.findAll(spec, pageable), WarehouseResponse::from);
     }
 
     public WarehouseResponse get(Long id) {

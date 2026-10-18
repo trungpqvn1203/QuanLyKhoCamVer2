@@ -173,6 +173,58 @@ class SupplierApiTest {
                 .andExpect(jsonPath("$.data.pagination.isLast").value(false));
     }
 
+    @Test
+    @DisplayName("GET ?keyword - tìm theo mã hoặc tên, không phân biệt hoa thường; totalElements theo kết quả lọc")
+    void shouldSearchByCodeOrName() throws Exception {
+        String code = readCode(createSupplier(supplierJson("Công ty CP Cám Việt")));
+        createSupplier(supplierJson("Công ty Cám Bắc"));
+        createSupplier(supplierJson("Nhà máy Thức ăn Nam"));
+
+        mockMvc.perform(get("/api/suppliers").param("keyword", "  CÔNG TY  ").param("size", "1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items.length()").value(1))
+                .andExpect(jsonPath("$.data.pagination.totalElements").value(2));
+
+        mockMvc.perform(get("/api/suppliers").param("keyword", code.toLowerCase()))
+                .andExpect(jsonPath("$.data.pagination.totalElements").value(1))
+                .andExpect(jsonPath("$.data.items[0].code").value(code));
+    }
+
+    @Test
+    @DisplayName("GET ?keyword=% - ký tự đại diện LIKE được hiểu là chữ thường, không khớp tất cả")
+    void shouldEscapeLikeWildcards() throws Exception {
+        createSupplier(supplierJson("Công ty CP Cám Việt"));
+
+        mockMvc.perform(get("/api/suppliers").param("keyword", "%"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.pagination.totalElements").value(0));
+    }
+
+    @Test
+    @DisplayName("GET ?active - lọc theo trạng thái, kết hợp với keyword")
+    void shouldFilterByActive() throws Exception {
+        long deactivatedId = createdId(createSupplier(supplierJson("Nhà máy Cám Nam")));
+        mockMvc.perform(delete("/api/suppliers/{id}", deactivatedId)).andExpect(status().isNoContent());
+        createSupplier(supplierJson("Nhà máy Cám Bắc"));
+        createSupplier(supplierJson("Công ty CP Cám Việt"));
+
+        mockMvc.perform(get("/api/suppliers").param("active", "false"))
+                .andExpect(jsonPath("$.data.pagination.totalElements").value(1))
+                .andExpect(jsonPath("$.data.items[0].name").value("Nhà máy Cám Nam"));
+
+        mockMvc.perform(get("/api/suppliers").param("active", "true").param("keyword", "nhà máy"))
+                .andExpect(jsonPath("$.data.pagination.totalElements").value(1))
+                .andExpect(jsonPath("$.data.items[0].name").value("Nhà máy Cám Bắc"));
+    }
+
+    @Test
+    @DisplayName("GET ?active=abc - 400 VALIDATION_FAILED, không phải 500")
+    void shouldRejectInvalidActiveFilter() throws Exception {
+        mockMvc.perform(get("/api/suppliers").param("active", "abc"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("VALIDATION_FAILED"));
+    }
+
     private ResultActions createSupplier(String json) throws Exception {
         return mockMvc.perform(post("/api/suppliers")
                 .contentType(MediaType.APPLICATION_JSON)

@@ -173,6 +173,15 @@ Danh sách nhận `page`, `size` (tối đa 100), `sort` (ví dụ `sort=name,as
 
 Ví dụ: `GET /api/products?keyword=heo&categoryId=1&active=true&page=0&size=20`
 
+**Lọc nhà cung cấp, kho** (`GET /api/suppliers`, `GET /api/warehouses`, thêm 2026-10-19) — cùng quy ước với lọc sản phẩm, dùng chung `CommonSpecifications` ở backend:
+
+| Tham số | Kiểu | Ý nghĩa |
+|---|---|---|
+| `keyword` | string | Mã **hoặc** tên chứa từ khóa — cùng cách so khớp với `keyword` của sản phẩm |
+| `active` | boolean | `true` đang hoạt động, `false` ngừng hoạt động. Sai kiểu → 400 `VALIDATION_FAILED` |
+
+Ví dụ: `GET /api/suppliers?keyword=cám&active=true&page=0&size=20`
+
 ---
 
 ## 5. Triển khai phía Backend (Java)

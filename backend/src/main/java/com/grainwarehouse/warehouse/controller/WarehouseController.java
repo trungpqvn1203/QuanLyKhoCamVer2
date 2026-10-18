@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -28,10 +29,13 @@ public class WarehouseController {
 
     private final WarehouseService warehouseService;
 
+    // Tham số lọc tùy chọn: không gửi = không lọc (request cũ vẫn chạy như trước)
     @GetMapping
     public ResponseEntity<ApiResponse<PageResponse<WarehouseResponse>>> list(
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) Boolean active,
             @PageableDefault(size = 20, sort = "id") Pageable pageable) {
-        return ResponseEntity.ok(ApiResponse.ok(warehouseService.list(pageable)));
+        return ResponseEntity.ok(ApiResponse.ok(warehouseService.list(keyword, active, pageable)));
     }
 
     @GetMapping("/{id}")

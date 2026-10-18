@@ -3,6 +3,7 @@ package com.grainwarehouse.supplier.service;
 import com.grainwarehouse.common.exception.BusinessException;
 import com.grainwarehouse.common.exception.DuplicateResourceException;
 import com.grainwarehouse.common.exception.ResourceNotFoundException;
+import com.grainwarehouse.common.repository.CommonSpecifications;
 import com.grainwarehouse.common.response.PageResponse;
 import com.grainwarehouse.product.entity.Product;
 import com.grainwarehouse.product.repository.ProductRepository;
@@ -19,6 +20,7 @@ import com.grainwarehouse.supplier.repository.ProductSupplierRepository;
 import com.grainwarehouse.supplier.repository.SupplierRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -31,8 +33,11 @@ public class SupplierService {
     private final ProductSupplierRepository productSupplierRepository;
     private final ProductRepository productRepository;
 
-    public PageResponse<SupplierResponse> list(Pageable pageable) {
-        return PageResponse.from(supplierRepository.findAll(pageable), SupplierResponse::from);
+    public PageResponse<SupplierResponse> list(String keyword, Boolean active, Pageable pageable) {
+        Specification<Supplier> spec = Specification.allOf(
+                CommonSpecifications.keywordContains(keyword, "code", "name"),
+                CommonSpecifications.hasActive(active));
+        return PageResponse.from(supplierRepository.findAll(spec, pageable), SupplierResponse::from);
     }
 
     public SupplierResponse get(Long id) {
