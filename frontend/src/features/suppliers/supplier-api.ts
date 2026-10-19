@@ -1,5 +1,6 @@
 import { apiRequest, withQuery } from '../../api/client'
 import type { PageQuery, PageResponse } from '../../api/types'
+import { toFilterParams } from '../../utils/filters'
 import type { ProductUnit } from '../products/product-api'
 
 export interface Supplier {
@@ -47,17 +48,17 @@ export interface ProductSupplierLink {
   supplierActive: boolean
 }
 
+/** Bộ lọc danh sách — lọc phía backend (contract-spec: "Lọc nhà cung cấp, kho"). */
+export type SupplierFilters = {
+  keyword?: string
+  active?: boolean
+}
+
 const BASE = '/api/suppliers'
 
 export const supplierApi = {
-  list: ({ page, size }: PageQuery) =>
-    apiRequest<PageResponse<Supplier>>(withQuery(BASE, { page, size, sort: 'id,asc' })),
-
-  /**
-   * NCC cho ô chọn (gán NCC từ phía SP). API danh sách NCC chưa có tìm kiếm/lọc
-   * → lấy 1 trang tối đa 100 (giới hạn backend), lọc theo tên ngay trên trình duyệt — đủ cho MVP.
-   */
-  listForSelect: () => apiRequest<PageResponse<Supplier>>(withQuery(BASE, { page: 0, size: 100, sort: 'name,asc' })),
+  list: ({ page, size }: PageQuery, filters: SupplierFilters = {}) =>
+    apiRequest<PageResponse<Supplier>>(withQuery(BASE, { page, size, sort: 'id,asc', ...toFilterParams(filters) })),
 
   create: (input: CreateSupplierInput) =>
     apiRequest<Supplier>(BASE, { method: 'POST', body: JSON.stringify(input) }),

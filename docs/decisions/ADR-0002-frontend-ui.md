@@ -43,6 +43,16 @@ Frontend sẽ có nhiều màn hình cùng dạng (danh sách sản phẩm, kho,
 - `DetailDrawer` nhận thêm `size` và `children` (2026-10-16): đặt bảng con dưới phần thông tin, ví dụ danh sách SP của nhà cung cấp kèm ô gán/gỡ. Chọn cách này thay vì trang chi tiết riêng (`/suppliers/:id`) vì MVP chỉ có một bảng con.
 - `RowActions` nhận thêm `extraActions` (2026-10-17): mục riêng của từng màn hình chèn sau "Sửa", ví dụ "Sản phẩm cung cấp" (NCC) / "Nhà cung cấp" (SP) mở thẳng khung gán/gỡ — chức năng nằm sâu trong khung chi tiết thì người dùng khó phát hiện.
 
+### Bổ sung (2026-10-19): chuẩn hóa danh sách sau rà soát UI/UX — vẫn **không thêm thư viện**
+
+- `FilterBar` (tầng 2) thay `ProductFilterBar`: màn hình khai báo mảng `fields` (`keyword` | `select` | `status`), FilterBar tự vẽ, debounce từ khóa và hiện "Xóa bộ lọc". Hook `useFilteredList` gom bộ lọc + `usePagedList`, đổi bộ lọc thì về trang đầu. Chọn **cấu hình khai báo** thay vì tự sinh ô lọc từ entity: kiểu TS không tồn tại lúc chạy, và chỉ tham số API thực sự hỗ trợ mới được hiện.
+- `usePagedList`: trang vừa tải rỗng mà không phải trang đầu → tự lùi về trang cuối còn dữ liệu.
+- `DataTable`: lỗi khi chưa từng tải được thì không hiện "chưa có dữ liệu". `ListEmpty` phân biệt "chưa có bản ghi" (nút Thêm) và "không có kết quả lọc" (nút Xóa bộ lọc).
+- `FormModal`: bấm ra ngoài không đóng; đóng khi form đã sửa thì hỏi lại; nhãn nút gửi theo thao tác (`submitText`); thân modal cuộn, nút luôn nhìn thấy.
+- `DetailDrawer`: thông tin chia nhóm (`sections`); dữ liệu liên quan nằm ở **tab** (`tabs`) thay cho `children`. **Thay quyết định 2026-10-17**: mục `⋯` "Sản phẩm cung cấp" / "Nhà cung cấp" không mở Drawer riêng nữa mà mở khung chi tiết ở đúng tab — một bản ghi một khung.
+- `RowActions`: bắt buộc `recordLabel` (aria-label "Thao tác cho NCC001"); thêm `reactivate` (mục "Mở lại", không cần xác nhận vì không mất dữ liệu) — gọi PUT với `active: true`.
+- `CodeLink` / `CodeText`: mã bản ghi font đơn cách; ở cột đầu là `Button type="link"` để Tab/Enter dùng được.
+
 ## Phương án thay thế đã xem xét
 
 | Phương án | Lý do không chọn |

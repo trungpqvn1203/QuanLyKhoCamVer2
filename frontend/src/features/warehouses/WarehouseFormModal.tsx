@@ -34,6 +34,7 @@ export function WarehouseFormModal({ open, editing, onClose, onSaved }: Warehous
       title={editing ? `Sửa kho ${editing.code}` : 'Thêm kho'}
       form={form}
       initialValues={editing ?? { type: 'CENTRAL' }}
+      submitText={editing ? 'Lưu thay đổi' : 'Thêm'}
       onSubmit={handleSubmit}
       onClose={onClose}
     >

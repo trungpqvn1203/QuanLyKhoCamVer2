@@ -30,6 +30,7 @@ export function SupplierFormModal({ open, editing, onClose, onSaved }: SupplierF
       title={editing ? `Sửa nhà cung cấp ${editing.code}` : 'Thêm nhà cung cấp'}
       form={form}
       initialValues={editing ?? undefined}
+      submitText={editing ? 'Lưu thay đổi' : 'Thêm'}
       onSubmit={handleSubmit}
       onClose={onClose}
     >

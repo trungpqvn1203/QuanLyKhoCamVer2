@@ -17,6 +17,27 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
+describe('supplierApi.list', () => {
+  it('không có bộ lọc - chỉ gửi page, size, sort', async () => {
+    const captured = stubFetch()
+
+    await supplierApi.list({ page: 0, size: 20 })
+
+    const { url } = captured()
+    expect([...url.searchParams.keys()].sort()).toEqual(['page', 'size', 'sort'])
+  })
+
+  it('gửi keyword đã cắt khoảng trắng và active=false', async () => {
+    const captured = stubFetch()
+
+    await supplierApi.list({ page: 0, size: 20 }, { keyword: '  cám ', active: false })
+
+    const { url } = captured()
+    expect(url.searchParams.get('keyword')).toBe('cám')
+    expect(url.searchParams.get('active')).toBe('false')
+  })
+})
+
 describe('supplierApi - liên kết NCC–SP', () => {
   it('listProducts - đúng đường dẫn con, gửi page/size và sắp theo mã SP', async () => {
     const captured = stubFetch()

@@ -1,4 +1,4 @@
-import { Alert, Button, Skeleton, Table } from 'antd'
+import { Alert, Button, Empty, Skeleton, Table } from 'antd'
 import type { TableProps } from 'antd'
 import type { ReactNode } from 'react'
 import type { PageResponse } from '../../api/types'
@@ -39,6 +39,7 @@ const SKELETON_ROWS = 8
  * - Lần đầu (chưa có dữ liệu): giữ nguyên tiêu đề cột, thân bảng là các thanh xám nhấp nháy (Skeleton)
  *   → người dùng thấy ngay bố cục trang, không bị "trang trắng rồi nhảy".
  * - Các lần sau (đổi trang, lọc): giữ dữ liệu cũ + vòng xoay, tránh bảng chớp trắng mỗi lần bấm.
+ * - Lỗi khi chưa từng tải được: không hiện "chưa có dữ liệu" (dễ hiểu nhầm là hệ thống trống).
  */
 export function DataTable<T extends object>({
   columns,
@@ -53,6 +54,12 @@ export function DataTable<T extends object>({
 }: DataTableProps<T>) {
   const reserved = NON_TABLE_HEIGHT + extraReservedHeight + (error ? 56 : 0)
   const initialLoading = loading && page === null
+  const failedBeforeLoad = Boolean(error) && page === null
+  const emptyContent = failedBeforeLoad ? (
+    <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Chưa tải được dữ liệu" />
+  ) : (
+    emptyText
+  )
 
   // Lần tải đầu: thay nội dung mọi ô bằng thanh skeleton, giữ nguyên tiêu đề và độ rộng cột
   const tableColumns = initialLoading
@@ -85,7 +92,7 @@ export function DataTable<T extends object>({
         dataSource={dataSource}
         rowKey={rowKey}
         loading={loading && !initialLoading}
-        locale={emptyText ? { emptyText } : undefined}
+        locale={emptyContent ? { emptyText: emptyContent } : undefined}
         // x: màn hình hẹp thì cuộn ngang thay vì ép chữ; y: cuộn dọc trong khung, tối thiểu 240px
         scroll={{ x: 'max-content', y: `max(240px, calc(100vh - ${reserved}px))` }}
         pagination={{

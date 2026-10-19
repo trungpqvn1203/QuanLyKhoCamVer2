@@ -60,6 +60,7 @@ export function ProductFormModal({ open, editing, onClose, onSaved }: ProductFor
       title={editing ? `Sửa sản phẩm ${editing.code}` : 'Thêm sản phẩm'}
       form={form}
       initialValues={editing ?? { unit: 'BAG' }}
+      submitText={editing ? 'Lưu thay đổi' : 'Thêm'}
       onSubmit={handleSubmit}
       onClose={onClose}
     >

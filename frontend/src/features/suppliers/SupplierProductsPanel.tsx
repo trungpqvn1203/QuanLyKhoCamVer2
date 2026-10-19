@@ -1,10 +1,11 @@
 import { DisconnectOutlined, PlusOutlined } from '@ant-design/icons'
-import { Alert, App, Button, Flex, Popconfirm, Select, Table, Typography, theme } from 'antd'
+import { Alert, App, Button, Flex, Popconfirm, Select, Table } from 'antd'
 import type { TableProps } from 'antd'
 import { useCallback, useEffect, useState } from 'react'
 import { ApiError } from '../../api/client'
 import type { PageQuery } from '../../api/types'
-import { StatusTag } from '../../components/ui/StatusTag'
+import { CodeText } from '../../components/ui/CodeLink'
+import { STATUS_COLUMN_WIDTH, StatusTag } from '../../components/ui/StatusTag'
 import { usePagedList } from '../../hooks/use-paged-list'
 import { PRODUCT_UNIT_LABELS, productApi } from '../products/product-api'
 import type { Product, ProductUnit } from '../products/product-api'
@@ -13,8 +14,6 @@ import type { Supplier, SupplierProduct } from './supplier-api'
 
 interface SupplierProductsPanelProps {
   supplier: Supplier
-  /** Có thì hiện tiêu đề và cách phần phía trên (khi nằm dưới thông tin NCC trong khung chi tiết) */
-  title?: string
 }
 
 /** Chờ người dùng ngừng gõ rồi mới gọi API (giống ô tìm kiếm trang Sản phẩm). */
@@ -25,14 +24,13 @@ const SUGGESTION_SIZE = 20
 
 /**
  * Danh sách SP mà NCC được phép cung cấp (BR-SUP-05).
- * Dùng ở 2 chỗ: dưới thông tin trong khung chi tiết NCC, và khung riêng mở từ menu ⋯.
+ * Nằm ở tab "Sản phẩm cung cấp" trong khung chi tiết NCC (mở từ mã NCC hoặc menu ⋯).
  * - Gán: chọn SP đang kinh doanh (tìm theo mã/tên phía backend) → POST.
  * - Gỡ: hỏi xác nhận → DELETE (backend chỉ đặt active=false).
  * NCC ngừng hoạt động thì ẩn ô gán, vì backend sẽ từ chối (BR-SUP-06).
  */
-export function SupplierProductsPanel({ supplier, title }: SupplierProductsPanelProps) {
+export function SupplierProductsPanel({ supplier }: SupplierProductsPanelProps) {
   const { message, notification } = App.useApp()
-  const { token } = theme.useToken()
 
   // useCallback: usePagedList tải lại mỗi khi hàm này đổi → chỉ đổi khi sang NCC khác
   const fetchLinks = useCallback((query: PageQuery) => supplierApi.listProducts(supplier.id, query), [supplier.id])
@@ -109,14 +107,14 @@ export function SupplierProductsPanel({ supplier, title }: SupplierProductsPanel
       title: 'Mã SP',
       dataIndex: 'productCode',
       width: 100,
-      render: (code: string) => <span style={{ fontFamily: token.fontFamilyCode }}>{code}</span>,
+      render: (code: string) => <CodeText code={code} />,
     },
     { title: 'Tên sản phẩm', dataIndex: 'productName' },
     { title: 'ĐVT', dataIndex: 'unit', width: 64, render: (unit: ProductUnit) => PRODUCT_UNIT_LABELS[unit] },
     {
       title: 'Trạng thái',
       dataIndex: 'productActive',
-      width: 140,
+      width: STATUS_COLUMN_WIDTH,
       render: (active: boolean) => (
         <StatusTag active={active} activeText="Đang kinh doanh" inactiveText="Ngừng kinh doanh" />
       ),
@@ -135,25 +133,20 @@ export function SupplierProductsPanel({ supplier, title }: SupplierProductsPanel
           cancelText="Hủy"
           onConfirm={() => unlink(item)}
         >
-          <Button type="text" danger icon={<DisconnectOutlined />} aria-label="Gỡ sản phẩm" />
+          <Button type="text" danger icon={<DisconnectOutlined />} aria-label={`Gỡ ${item.productCode}`} />
         </Popconfirm>
       ),
     },
   ]
 
   return (
-    <Flex vertical gap={12} style={title ? { marginTop: token.marginLG } : undefined}>
-      {title && (
-        <Typography.Title level={5} style={{ margin: 0 }}>
-          {title}
-        </Typography.Title>
-      )}
-
+    <Flex vertical gap={12}>
       {supplier.active ? (
         <Flex gap={8}>
           <Select<number>
             style={{ flex: 1, minWidth: 0 }}
             placeholder="Tìm sản phẩm theo mã hoặc tên"
+            aria-label="Chọn sản phẩm để gán"
             value={selectedId ?? undefined}
             options={options}
             loading={searching}
