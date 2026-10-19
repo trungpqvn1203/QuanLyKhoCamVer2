@@ -20,6 +20,8 @@
 | `stock_document_item` | Dòng chi tiết trong chứng từ | ✅ Đã duyệt 2026-10-19 (V6) |
 | `stock_transaction` | Lịch sử biến động tồn kho (bất biến) | ✅ Đã duyệt 2026-10-19 (V6) |
 
+> **Mã tự sinh (từ V10):** mọi cột `code` dùng `DEFAULT format_code('<tiền tố>', nextval('<seq>'), <độ rộng>)` — đệm số 0 khi ngắn hơn, giữ nguyên khi dài hơn (`KHO1050`). Không dùng `lpad` trực tiếp: `lpad` **cắt** chuỗi dài hơn độ rộng (`lpad('1050', 3)` = `'105'`) → mã trùng. Bảng mới có mã tự sinh phải dùng `format_code` (test `CodeGenerationPersistenceTest` kiểm mọi cột).
+
 ## ER Diagram (ứng viên)
 
 ```mermaid

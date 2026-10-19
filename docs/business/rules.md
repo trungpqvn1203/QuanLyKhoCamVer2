@@ -192,7 +192,7 @@ Phân biệt 3 loại:
 ### ✅ Đã xác nhận (2026-10-20)
 
 - **BR-CUS-01:** Mỗi khách có mã, tên, loại, **số điện thoại (bắt buộc)**; người liên hệ, địa chỉ, ghi chú **tùy chọn**.
-- **BR-CUS-02:** Mã khách do **hệ thống tự sinh** dạng `KH` + 4 chữ số (`KH0001`), duy nhất, **không sửa được**. Có thể nhảy số (rollback) — chấp nhận. Quá 9999 thì mã dài thêm (`KH10000`), vẫn duy nhất.
+- **BR-CUS-02:** Mã khách do **hệ thống tự sinh** dạng `KH` + 4 chữ số (`KH0001`), duy nhất, **không sửa được**. Có thể nhảy số (rollback) — chấp nhận. Quá 9999 thì mã dài thêm (`KH10000`), vẫn duy nhất — _đúng từ V10; trước đó `lpad` cắt cụt mã, xem LESSONS 2026-10-20_.
 - **BR-CUS-03:** Loại khách: Đại lý (`DEALER`), Trang trại (`FARM`), Khách lẻ (`RETAIL`).
 - **BR-CUS-04:** **SĐT là định danh chống trùng**, duy nhất trên toàn bộ khách (kể cả đã ngừng). **Tên được phép trùng** (hai "Trại heo Minh" ở hai xã).
 - **BR-CUS-05:** Khách không xóa cứng; ngừng hoạt động bằng `active = false`. Tạo khách mới bằng SĐT của khách đã ngừng → từ chối, hướng dẫn mở lại (giống BR-SUP-04).
