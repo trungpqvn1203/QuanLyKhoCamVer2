@@ -160,6 +160,28 @@ DELETE /api/products/:id          # Xóa (soft delete)
 | Nhà cung cấp | `GET/POST /api/suppliers`, `GET/PUT/DELETE /api/suppliers/{id}` | Không nhận `code` (tự sinh `NCC001`); `contactName` bắt buộc; `phone`, `email`, `address` tùy chọn (rỗng → bỏ khỏi JSON); DELETE = `active=false`; PUT có `active` để mở lại |
 | SP của NCC | `GET/POST /api/suppliers/{id}/products`, `DELETE /api/suppliers/{id}/products/{productId}` | GET: SP đang liên kết (phân trang, mặc định sort `product.code`). POST `{ productId }` → 201, gán mới hoặc bật lại liên kết đã gỡ; đang liên kết → 409 `DUPLICATE_RESOURCE`; NCC/SP ngừng hoạt động → 409 `BUSINESS_RULE_VIOLATION`. DELETE = gỡ (`active=false`) → 204 |
 | NCC của SP | `GET /api/products/{id}/suppliers` | Chiều ngược: NCC đang liên kết với SP (phân trang, mặc định sort `supplier.code`), item gồm `supplierId`, `supplierCode`, `supplierName`, `contactName`, `phone`, `supplierActive`. Chỉ đọc — gán/gỡ dùng API của NCC ở dòng trên. Code đặt trong module supplier để tránh phụ thuộc vòng |
+| Phiếu nhập | `GET/POST /api/inbound-receipts`, `GET/PUT /api/inbound-receipts/{id}`, `POST /api/inbound-receipts/{id}/complete`, `…/cancel`, `…/reverse` | Xem mục **Phiếu nhập kho** bên dưới. Không có DELETE → 405 |
+
+**Phiếu nhập kho** (thêm 2026-10-19, BR-IMP-01..14):
+
+| Endpoint | Body | Kết quả / lỗi |
+|---|---|---|
+| `POST /api/inbound-receipts` | `{ supplierId, warehouseId, documentDate?, note?, lines: [{ productId, orderedQuantity, receivedQuantity?, unitPrice }] }` | 201, phiếu `DRAFT`, chưa đổi tồn. `documentDate` không gửi = hôm nay (giờ VN); ngày tương lai → 400 field `documentDate`. `receivedQuantity` không gửi = `orderedQuantity`. Số lượng là số nguyên (`2.5` → 400). SP lặp dòng → 400 field `lines[i].productId`. SP chưa gán cho NCC, kho/NCC/SP ngừng hoạt động → 409 `BUSINESS_RULE_VIOLATION` |
+| `PUT /api/inbound-receipts/{id}` | như POST | Chỉ phiếu `DRAFT`; thay toàn bộ dòng (dòng không gửi bị bỏ). Phiếu trạng thái khác → 409 |
+| `POST …/{id}/complete` | — | Chỉ `DRAFT` → `COMPLETED`: tồn tăng theo SL thực nhận, mỗi dòng có SL > 0 ghi một giao dịch IN. Kiểm tra lại kho/NCC/SP/liên kết. Không dòng nào có SL > 0 → 409 |
+| `POST …/{id}/cancel` | `{ reason? }` (body tùy chọn) | Chỉ `DRAFT` → `CANCELLED`, không đổi tồn |
+| `POST …/{id}/reverse` | `{ reason }` (bắt buộc) | Chỉ `COMPLETED` → `REVERSED`: mỗi giao dịch IN có một OUT trỏ về nó. Tồn không đủ → 409, không đổi gì. Đã đảo rồi → 409 "chỉ được đảo một lần" |
+
+Response chi tiết: `id, code, status, documentDate, warehouseId/Code/Name, supplierId/Code/Name, note, totalAmount, reason, completedAt, cancelledAt, reversedAt, createdAt, updatedAt, lines: [{ id, productId, productCode, productName, unit, orderedQuantity, receivedQuantity, unitPrice, lineAmount }]` (trường null bị bỏ). `lineAmount = receivedQuantity × unitPrice` làm tròn `HALF_UP` về đồng; `totalAmount` = tổng `lineAmount`. Danh sách trả bản tóm tắt (không có `lines`, `note`, `reason`), mặc định sắp xếp `id` giảm dần.
+
+Lọc `GET /api/inbound-receipts` (tất cả tùy chọn):
+
+| Tham số | Kiểu | Ý nghĩa |
+|---|---|---|
+| `keyword` | string | Mã phiếu chứa từ khóa, không phân biệt hoa thường (`pn000012` hoặc `12` khớp `PN000012`) |
+| `status` | `DRAFT` \| `COMPLETED` \| `CANCELLED` \| `REVERSED` | Sai giá trị → 400 |
+| `warehouseId`, `supplierId` | number | Kho nhận / NCC |
+| `documentDateFrom`, `documentDateTo` | `YYYY-MM-DD` | Ngày chứng từ trong khoảng, hai đầu đều tính |
 
 Danh sách nhận `page`, `size` (tối đa 100), `sort` (ví dụ `sort=name,asc`). `sort` sai thuộc tính → 400.
 

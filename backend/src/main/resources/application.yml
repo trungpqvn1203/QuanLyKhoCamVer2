@@ -17,6 +17,11 @@ spring:
     web:
       pageable:
         max-page-size: 100
+  jackson:
+    deserialization:
+      # Mặc định Jackson âm thầm cắt 2.5 thành 2 khi field kiểu Integer.
+      # Số lượng là số nguyên (BR-INV-07) → gửi 2.5 phải bị từ chối 400, không được thành 2 bao.
+      accept-float-as-int: false
 
 server:
   port: ${SERVER_PORT:8080}

@@ -39,7 +39,8 @@ class SearchConventionTest {
     @DisplayName("Quét được các module hiện có (tránh test 'pass' vì không tìm thấy gì)")
     void shouldFindExistingModules() {
         assertThat(criteriaClasses).extracting(Class::getSimpleName)
-                .contains("ProductSearchCriteria", "SupplierSearchCriteria", "WarehouseSearchCriteria");
+                .contains("ProductSearchCriteria", "SupplierSearchCriteria", "WarehouseSearchCriteria",
+                        "InboundReceiptSearchCriteria");
     }
 
     @Test

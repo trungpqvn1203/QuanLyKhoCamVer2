@@ -23,10 +23,13 @@ Phân biệt 3 loại:
 - **BR-INV-A01:** Tồn kho được quản lý theo cặp (sản phẩm, kho). Mỗi sản phẩm có một bản ghi tồn tại mỗi kho mà nó xuất hiện.
 - **BR-INV-A02:** "Tồn khả dụng" trong MVP bằng tồn hiện tại (chưa có cơ chế đặt trước / reserve).
 
+### ✅ Đã xác nhận (2026-10-19)
+
+- **BR-INV-07:** Số lượng tồn và số lượng trên chứng từ **luôn là số nguyên** (cả `BAG` lẫn `KG`). _(Trả lời BR-INV-Q02)_
+
 ### ❓ Câu hỏi mở
 
 - **BR-INV-Q01:** Có cần quản lý lô hàng (batch/lot) không? Ví dụ: ngày sản xuất, hạn sử dụng theo từng lô.
-- **BR-INV-Q02:** Số lượng tồn có thể là số thập phân không? (ví dụ: 2.5 bao 25kg)
 
 ---
 
@@ -37,26 +40,43 @@ Phân biệt 3 loại:
 - **BR-MON-01:** Không sử dụng `float` hoặc `double` cho giá tiền. Java dùng `BigDecimal`, PostgreSQL dùng `NUMERIC`.
 - **BR-MON-02:** Quy tắc làm tròn phải được xác nhận trước khi triển khai, không tự chọn.
 
-### ❓ Câu hỏi mở
+### ✅ Đã xác nhận (2026-10-19)
 
-- **BR-MON-Q01:** Độ chính xác giá tiền: NUMERIC(15,2) hay NUMERIC(15,4)? Có cần giá lẻ dưới đồng không?
-- **BR-MON-Q02:** Quy tắc làm tròn khi tính thành tiền: HALF_UP, HALF_EVEN, hay FLOOR?
-- **BR-MON-Q03:** Đơn vị tiền tệ: chỉ VND hay cần hỗ trợ nhiều đơn vị?
+- **BR-MON-03:** Chỉ dùng **VND**. _(Trả lời BR-MON-Q03)_
+- **BR-MON-04:** Đơn giá lưu **2 chữ số thập phân** (`NUMERIC(15,2)`). _(Trả lời BR-MON-Q01)_
+- **BR-MON-05:** Thành tiền dòng = số lượng × đơn giá, **làm tròn `HALF_UP` về đồng** (0 chữ số thập phân). Tổng phiếu = tổng thành tiền các dòng, không làm tròn thêm. _(Trả lời BR-MON-Q02)_
 
 ---
 
 ## Nhập kho
 
+### ✅ Đã xác nhận (2026-10-19)
+
+- **BR-IMP-01:** Phiếu nhập ghi nhà cung cấp, kho nhận, ngày chứng từ và nhiều dòng hàng. Mỗi dòng có sản phẩm, số lượng và đơn giá nhập.
+- **BR-IMP-02:** Phiếu có trạng thái **Nháp → Hoàn tất**, vì số lượng NCC giao thực tế có thể lệch so với lúc lên đơn. Phiếu nháp **không ảnh hưởng tồn** và được sửa tự do. _(Trả lời BR-IMP-Q01)_
+- **BR-IMP-03:** Mỗi dòng lưu **cả SL đặt và SL thực nhận**. SL thực nhận mặc định bằng SL đặt và được sửa khi hàng về. Khi hoàn tất, tồn kho tăng theo **SL thực nhận**, và thành tiền cũng tính theo SL thực nhận.
+- **BR-IMP-04:** Hoàn tất phiếu: tăng tồn và ghi `StockTransaction` cho mọi dòng **trong cùng một transaction**. Sau khi hoàn tất, phiếu bị khóa, không sửa được.
+- **BR-IMP-05:** Phiếu nháp không dùng nữa chuyển sang **Đã hủy**. Không xóa cứng, mã phiếu được giữ lại.
+- **BR-IMP-06:** Phiếu đã hoàn tất mà phát hiện sai thì **đảo toàn phiếu**: chuyển sang **Đã đảo**, ghi `StockTransaction` OUT tham chiếu giao dịch gốc. Nếu tồn hiện tại không đủ để trừ thì từ chối. Sau đó tạo phiếu đúng mới. Điều chỉnh từng dòng chưa hỗ trợ trong MVP.
+- **BR-IMP-07:** Mã phiếu do hệ thống tự sinh dạng `PN` + 6 chữ số (ví dụ `PN000001`), duy nhất, không sửa được. Mã có thể nhảy số, chấp nhận như BR-PRD-02.
+- **BR-IMP-08:** Ngày chứng từ mặc định là hôm nay. Được ghi lùi ngày (nhập bù phiếu giấy), **không được ghi ngày tương lai**. Thời điểm ghi sổ thật lưu riêng.
+- **BR-IMP-09:** Ghi nhận giá nhập trên từng dòng. **Chưa tính giá vốn** trong MVP. _(Trả lời BR-IMP-Q02)_
+- **BR-IMP-10:** Áp dụng BR-SUP-08 (chỉ nhập SP đang liên kết với NCC). Kiểm tra cả khi lưu nháp **và lúc hoàn tất**, vì liên kết có thể bị gỡ trong khoảng giữa hai lần.
+
+**Bảo vệ trạng thái ở tầng service** _(xác nhận 2026-10-19)_
+
+- **BR-IMP-11:** Chỉ phiếu **Nháp** mới được sửa (kể cả dòng hàng), hủy hoặc hoàn tất. Chỉ có ba bước chuyển hợp lệ: Nháp → Hoàn tất, Nháp → Đã hủy, Hoàn tất → Đã đảo. Đã hủy và Đã đảo là trạng thái cuối.
+- **BR-IMP-12:** Chỉ phiếu **Hoàn tất** mới được đảo, và mỗi phiếu **chỉ được đảo một lần**.
+- **BR-IMP-13:** Không xóa phiếu ở bất kỳ trạng thái nào (API không có DELETE). Không sửa dòng hàng của phiếu đã hoàn tất.
+- **BR-IMP-14:** Mọi thao tác thay đổi phiếu phải **khóa dòng phiếu (`SELECT … FOR UPDATE`) rồi mới kiểm tra lại trạng thái, bên trong cùng transaction**. Khóa chỉ có tác dụng khi *mọi* đường thay đổi trạng thái đều theo quy trình này. Thêm thao tác mới mà đọc phiếu bằng `findById` rồi sửa là mở lại lỗ hổng.
+
 ### ⚠️ Giả định tạm thời
 
-- **BR-IMP-A01:** Một phiếu nhập có thể chứa nhiều dòng hàng (nhiều sản phẩm, mỗi dòng có số lượng và đơn giá).
-- **BR-IMP-A02:** Phiếu nhập kho ghi nhận nhà cung cấp, kho nhận, ngày nhập và danh sách hàng hóa.
-- **BR-IMP-A03:** Phiếu nhập đã hoàn tất không được sửa nội dung để tránh sai lệch lịch sử. Nếu sai, tạo phiếu điều chỉnh.
-
-### ❓ Câu hỏi mở
-
-- **BR-IMP-Q01:** Phiếu nhập có cần trạng thái (nháp → xác nhận → hoàn tất) hay nhập là hoàn tất luôn?
-- **BR-IMP-Q02:** Có cần ghi nhận giá nhập để tính giá vốn không?
+- **BR-IMP-A04:** Kho nhận, NCC và sản phẩm phải đang hoạt động, cả khi lưu nháp lẫn khi hoàn tất.
+- **BR-IMP-A05:** Một sản phẩm chỉ xuất hiện **một dòng** trong mỗi phiếu.
+- **BR-IMP-A06:** SL đặt > 0. SL thực nhận ≥ 0 (bằng 0 nghĩa là NCC không giao dòng đó). Phải có ít nhất một dòng có SL thực nhận > 0 thì mới hoàn tất được.
+- **BR-IMP-A07:** Đơn giá ≥ 0. Giá 0 dùng cho hàng tặng hoặc khuyến mãi.
+- **BR-IMP-A08:** Không quản lý lô hàng trong MVP (BR-INV-Q01 tạm trả lời "không").
 
 ---
 

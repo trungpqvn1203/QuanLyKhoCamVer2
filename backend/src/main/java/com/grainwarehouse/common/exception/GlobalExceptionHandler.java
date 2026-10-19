@@ -18,7 +18,6 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 /**
  * Chuyển mọi exception thành envelope lỗi chuẩn (docs/api/contract-spec.md).
@@ -43,13 +42,17 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ResponseEntity<ApiResponse<Void>> handleUnreadable(HttpMessageNotReadableException ex) {
         if (ex.getCause() instanceof MismatchedInputException mie && !mie.getPath().isEmpty()) {
-            String field = mie.getPath().stream()
-                    .map(JsonMappingException.Reference::getFieldName)
-                    .collect(Collectors.joining("."));
             return error(HttpStatus.BAD_REQUEST, "VALIDATION_FAILED", VALIDATION_MESSAGE,
-                    List.of(new ApiErrorDetail(field, "Giá trị không hợp lệ")));
+                    List.of(new ApiErrorDetail(fieldPath(mie.getPath()), "Giá trị không hợp lệ")));
         }
         return error(HttpStatus.BAD_REQUEST, "VALIDATION_FAILED", "Body JSON không hợp lệ", null);
+    }
+
+    // Dữ liệu sai chỉ service kiểm tra được (ngày tương lai, SP lặp dòng...) — cùng định dạng lỗi validation
+    @ExceptionHandler(InvalidRequestException.class)
+    public ResponseEntity<ApiResponse<Void>> handleInvalidRequest(InvalidRequestException ex) {
+        return error(HttpStatus.BAD_REQUEST, "VALIDATION_FAILED", VALIDATION_MESSAGE,
+                List.of(new ApiErrorDetail(ex.getField(), ex.getMessage())));
     }
 
     // Path/query param sai kiểu (ví dụ /api/products/abc)
@@ -105,6 +108,20 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiResponse<Void>> handleUnexpected(Exception ex) {
         log.error("Lỗi chưa xử lý", ex);
         return error(HttpStatus.INTERNAL_SERVER_ERROR, "INTERNAL_ERROR", "Lỗi hệ thống, vui lòng thử lại sau", null);
+    }
+
+    // Đường dẫn JSON → tên field giống Bean Validation: lines → [0] → orderedQuantity = "lines[0].orderedQuantity"
+    // (phần tử mảng không có tên field, chỉ có index)
+    private static String fieldPath(List<JsonMappingException.Reference> path) {
+        StringBuilder field = new StringBuilder();
+        for (JsonMappingException.Reference ref : path) {
+            if (ref.getFieldName() == null) {
+                field.append('[').append(ref.getIndex()).append(']');
+            } else {
+                field.append(field.isEmpty() ? "" : ".").append(ref.getFieldName());
+            }
+        }
+        return field.toString();
     }
 
     private ResponseEntity<ApiResponse<Void>> error(HttpStatus status, String code, String message,
