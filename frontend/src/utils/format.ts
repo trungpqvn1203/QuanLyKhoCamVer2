@@ -49,6 +49,19 @@ export function todayIso(now: Date = new Date()): string {
   return isoDateFormat.format(now)
 }
 
+const integerFormat = new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 0 })
+const tonsFormat = new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 3 })
+
+/** Số lượng nguyên nhóm hàng nghìn kiểu Việt Nam: 1200 → "1.200". */
+export function formatQuantity(quantity: number): string {
+  return integerFormat.format(quantity)
+}
+
+/** Tấn (BR-STK-02, backend đã làm tròn 3 chữ số lẻ): 1.25 → "1,25 tấn"; 3 → "3 tấn". */
+export function formatTons(tons: number): string {
+  return `${tonsFormat.format(tons)} tấn`
+}
+
 /** Ký hiệu thống nhất cho trường trống (trường tùy chọn bị bỏ khỏi JSON khi NULL — contract-spec). */
 export const EMPTY_TEXT = '—'
 

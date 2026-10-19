@@ -1,5 +1,5 @@
-import { PlusOutlined, ShopOutlined } from '@ant-design/icons'
-import { App, Button, Typography } from 'antd'
+import { DatabaseOutlined, PlusOutlined, ShopOutlined } from '@ant-design/icons'
+import { App, Button, Flex, Typography } from 'antd'
 import type { TableProps } from 'antd'
 import { useEffect, useState } from 'react'
 import { ApiError } from '../../api/client'
@@ -14,28 +14,49 @@ import { ListEmpty } from '../../components/ui/ListEmpty'
 import { RowActions } from '../../components/ui/RowActions'
 import { STATUS_COLUMN_WIDTH, StatusTag } from '../../components/ui/StatusTag'
 import { useFilteredList } from '../../hooks/use-filtered-list'
-import { formatDateTime, orEmpty } from '../../utils/format'
+import { EMPTY_TEXT, formatDateTime, formatQuantity, formatTons, orEmpty } from '../../utils/format'
 import { ProductSuppliersPanel } from '../suppliers/ProductSuppliersPanel'
+import { warehouseApi } from '../warehouses/warehouse-api'
+import type { Warehouse } from '../warehouses/warehouse-api'
 import { PRODUCT_UNIT_LABELS, categoryApi, productApi } from './product-api'
-import type { Category, Product, ProductFilters } from './product-api'
+import type { Category, Product } from './product-api'
+import { STOCK_STATUS_LABELS, productStockApi } from './product-stock-api'
+import type { ProductStock, ProductStockFilters, StockStatus } from './product-stock-api'
 import { ProductFormModal } from './ProductFormModal'
+import { ProductStockPanel } from './ProductStockPanel'
+import { StockBreakdownPopover } from './StockBreakdownPopover'
+import { StockStatusTag } from './StockStatusTag'
 
 const weightFormat = new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 3 })
 
-/** Tab NCC trong khung chi tiết; menu ⋯ "Nhà cung cấp" mở thẳng tab này. */
+/** Tab trong khung chi tiết; menu ⋯ mở thẳng tab tương ứng. */
+const STOCK_TAB = 'stock'
 const SUPPLIERS_TAB = 'suppliers'
 
+const STOCK_STATUS_OPTIONS = (Object.keys(STOCK_STATUS_LABELS) as StockStatus[]).map((status) => ({
+  value: status,
+  label: STOCK_STATUS_LABELS[status],
+}))
+
+/** "Bao" → "bao" để ghép sau số: "120 bao". */
+const unitText = (product: Pick<Product, 'unit'>) => PRODUCT_UNIT_LABELS[product.unit].toLowerCase()
+
+/**
+ * Sản phẩm kèm tồn kho (BR-STK-01..06). Bảng lấy từ GET /api/inventory/products (đủ trường SP + số tồn);
+ * thêm/sửa/ngừng vẫn qua /api/products. Tồn chỉ để xem — chỉ đổi được qua chứng từ kho.
+ */
 export function ProductListPage() {
   const { message, notification } = App.useApp()
   const { page, loading, error, changePage, reload, filters, applyFilters, filtering } = useFilteredList(
-    productApi.list,
+    productStockApi.list,
   )
   const [categories, setCategories] = useState<Category[]>([])
+  const [warehouses, setWarehouses] = useState<Warehouse[]>([])
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<Product | null>(null)
   // Tách cờ mở khỏi bản ghi: đóng khung thì nội dung vẫn còn trong lúc chạy hiệu ứng trượt ra
   const [detailOpen, setDetailOpen] = useState(false)
-  const [viewing, setViewing] = useState<Product | null>(null)
+  const [viewing, setViewing] = useState<ProductStock | null>(null)
   const [detailTab, setDetailTab] = useState(DETAIL_INFO_TAB)
 
   useEffect(() => {
@@ -43,9 +64,14 @@ export function ProductListPage() {
       .listForSelect()
       .then((result) => setCategories(result.items))
       .catch((err: unknown) => message.error(err instanceof ApiError ? err.message : 'Không tải được danh mục'))
+    // Gồm cả kho đã ngừng: hàng ở đó vẫn tính vào tồn (BR-STK-01)
+    warehouseApi
+      .list({ page: 0, size: 100 })
+      .then((result) => setWarehouses(result.items))
+      .catch(() => setWarehouses([]))
   }, [message])
 
-  const filterFields: FilterField<ProductFilters>[] = [
+  const filterFields: FilterField<ProductStockFilters>[] = [
     { type: 'keyword', name: 'keyword', placeholder: 'Tìm theo mã hoặc tên sản phẩm' },
     {
       type: 'select',
@@ -58,6 +84,18 @@ export function ProductListPage() {
       })),
     },
     { type: 'status', name: 'active', activeLabel: 'Đang kinh doanh', inactiveLabel: 'Ngừng kinh doanh' },
+    { type: 'select', name: 'stockStatus', placeholder: 'Tình trạng tồn', options: STOCK_STATUS_OPTIONS, width: 150 },
+    {
+      type: 'select',
+      name: 'warehouseId',
+      // BR-STK-05: chọn kho = cột Tồn kho hiện số tại kho đó; không bớt SP khỏi danh sách
+      placeholder: 'Xem tồn tại kho…',
+      options: warehouses.map((warehouse) => ({
+        value: warehouse.id,
+        label: `${warehouse.code} · ${warehouse.name}${warehouse.active ? '' : ' (ngừng)'}`,
+      })),
+      width: 200,
+    },
   ]
 
   const openCreate = () => {
@@ -70,7 +108,7 @@ export function ProductListPage() {
     setModalOpen(true)
   }
 
-  const openDetail = (product: Product, tab = DETAIL_INFO_TAB) => {
+  const openDetail = (product: ProductStock, tab = DETAIL_INFO_TAB) => {
     setViewing(product)
     setDetailTab(tab)
     setDetailOpen(true)
@@ -111,13 +149,15 @@ export function ProductListPage() {
           unit: product.unit,
           netWeightKg: product.netWeightKg,
           description: product.description,
+          // PUT = cập nhật toàn bộ: thiếu trường này thì mức tồn tối thiểu bị xóa
+          minStockQuantity: product.minStockQuantity,
           active: true,
         }),
       'Đã mở bán lại sản phẩm',
       'Không mở bán lại được sản phẩm',
     )
 
-  const columns: TableProps<Product>['columns'] = [
+  const columns: TableProps<ProductStock>['columns'] = [
     {
       title: 'Mã SP',
       dataIndex: 'code',
@@ -127,20 +167,65 @@ export function ProductListPage() {
     { title: 'Tên sản phẩm', dataIndex: 'name', render: (name: string) => <Typography.Text strong>{name}</Typography.Text> },
     { title: 'Danh mục', dataIndex: 'categoryName' },
     {
-      title: 'Đơn vị',
-      dataIndex: 'unit',
-      width: 90,
-      render: (unit: Product['unit']) => PRODUCT_UNIT_LABELS[unit],
-    },
-    {
       title: 'KL tịnh (kg)',
       dataIndex: 'netWeightKg',
       align: 'right',
-      width: 120,
+      width: 110,
       render: (kg: number) => <span style={{ fontVariantNumeric: 'tabular-nums' }}>{weightFormat.format(kg)}</span>,
     },
     {
-      title: 'Trạng thái',
+      // Dữ liệu trên trang tự cho biết đang xem theo kho hay tổng (không đọc bộ lọc, có thể đang đổi giữa chừng)
+      title: 'Tồn kho',
+      key: 'stock',
+      align: 'right',
+      width: 150,
+      render: (_, product) => {
+        const byWarehouse = product.warehouseId !== undefined
+        const quantity = byWarehouse ? (product.warehouseStockQuantity ?? 0) : product.stockQuantity
+        const tons = byWarehouse ? (product.warehouseStockTons ?? 0) : product.stockTons
+        return (
+          <Flex vertical align="flex-end">
+            {/* key theo số tồn: tồn đổi sau khi tải lại → popover tạo lại, không hiện số cũ đã lưu */}
+            <StockBreakdownPopover key={`${product.id}-${product.stockQuantity}-${product.incomingQuantity}`} productId={product.id}>
+              <Button
+                type="link"
+                size="small"
+                aria-label={`Tồn theo kho của ${product.code}`}
+                style={{ padding: 0, height: 'auto', fontVariantNumeric: 'tabular-nums' }}
+              >
+                {formatQuantity(quantity)} {unitText(product)}
+              </Button>
+            </StockBreakdownPopover>
+            <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+              {byWarehouse ? `Tổng mọi kho: ${formatQuantity(product.stockQuantity)}` : formatTons(tons)}
+            </Typography.Text>
+          </Flex>
+        )
+      },
+    },
+    {
+      title: 'Đang về',
+      key: 'incoming',
+      align: 'right',
+      width: 100,
+      render: (_, product) => {
+        const incoming =
+          product.warehouseId !== undefined ? (product.warehouseIncomingQuantity ?? 0) : product.incomingQuantity
+        return incoming > 0 ? (
+          <Typography.Text type="secondary">+{formatQuantity(incoming)}</Typography.Text>
+        ) : (
+          EMPTY_TEXT
+        )
+      },
+    },
+    {
+      title: 'Tình trạng tồn',
+      dataIndex: 'stockStatus',
+      width: 130,
+      render: (status: StockStatus) => <StockStatusTag status={status} />,
+    },
+    {
+      title: 'Kinh doanh',
       dataIndex: 'active',
       width: STATUS_COLUMN_WIDTH,
       render: (active: boolean) => (
@@ -159,6 +244,12 @@ export function ProductListPage() {
           onView={() => openDetail(product)}
           onEdit={() => openEdit(product)}
           extraActions={[
+            {
+              key: 'stock',
+              label: 'Tồn theo kho',
+              icon: <DatabaseOutlined />,
+              onClick: () => openDetail(product, STOCK_TAB),
+            },
             {
               key: 'suppliers',
               label: 'Nhà cung cấp',
@@ -192,6 +283,14 @@ export function ProductListPage() {
             { key: 'category', label: 'Danh mục', children: viewing.categoryName },
             { key: 'unit', label: 'Đơn vị', children: PRODUCT_UNIT_LABELS[viewing.unit] },
             { key: 'weight', label: 'KL tịnh (kg)', children: weightFormat.format(viewing.netWeightKg) },
+            {
+              key: 'minStock',
+              label: 'Tồn tối thiểu',
+              children:
+                viewing.minStockQuantity === undefined
+                  ? 'Không đặt'
+                  : `${formatQuantity(viewing.minStockQuantity)} ${unitText(viewing)}`,
+            },
             { key: 'description', label: 'Mô tả', children: orEmpty(viewing.description) },
           ],
         },
@@ -201,7 +300,7 @@ export function ProductListPage() {
           items: [
             {
               key: 'active',
-              label: 'Trạng thái',
+              label: 'Kinh doanh',
               children: (
                 <StatusTag active={viewing.active} activeText="Đang kinh doanh" inactiveText="Ngừng kinh doanh" />
               ),
@@ -223,15 +322,15 @@ export function ProductListPage() {
     <>
       <PageHeader
         title="Sản phẩm"
-        description="Quản lý danh mục và thông tin sản phẩm"
+        description="Thông tin sản phẩm và số lượng đang có ở các kho"
         actions={
           <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
             Thêm sản phẩm
           </Button>
         }
       />
-      <FilterBar<ProductFilters> fields={filterFields} value={filters} onChange={applyFilters} />
-      <DataTable<Product>
+      <FilterBar<ProductStockFilters> fields={filterFields} value={filters} onChange={applyFilters} />
+      <DataTable<ProductStock>
         columns={columns}
         page={page}
         loading={loading}
@@ -262,7 +361,7 @@ export function ProductListPage() {
       <DetailDrawer
         open={detailOpen}
         title={viewing ? `${viewing.code} · ${viewing.name}` : ''}
-        size={640}
+        size={720}
         sections={detailSections}
         onClose={() => setDetailOpen(false)}
         onEdit={() => {
@@ -274,6 +373,12 @@ export function ProductListPage() {
         tabs={
           viewing
             ? [
+                {
+                  key: STOCK_TAB,
+                  label: 'Tồn kho',
+                  // key: sang SP khác thì tạo lại panel và tải tồn của SP đó
+                  children: <ProductStockPanel key={viewing.id} product={viewing} />,
+                },
                 {
                   key: SUPPLIERS_TAB,
                   label: 'Nhà cung cấp',

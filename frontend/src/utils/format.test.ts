@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest'
-import { EMPTY_TEXT, formatDate, formatDateTime, orEmpty, todayIso } from './format'
+import { EMPTY_TEXT, formatDate, formatDateTime, formatQuantity, formatTons, orEmpty, todayIso } from './format'
+
+describe('formatQuantity / formatTons', () => {
+  it('nhóm hàng nghìn bằng dấu chấm, phần lẻ bằng dấu phẩy', () => {
+    expect(formatQuantity(1200)).toBe('1.200')
+    expect(formatTons(1.25)).toBe('1,25 tấn')
+    expect(formatTons(3)).toBe('3 tấn')
+    expect(formatTons(1234.5)).toBe('1.234,5 tấn')
+  })
+})
 
 describe('formatDate', () => {
   it('LocalDate từ backend → dd/mm/yyyy, không lệch ngày', () => {
