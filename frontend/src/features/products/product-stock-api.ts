@@ -56,6 +56,14 @@ export interface ProductStockDetail {
   warehouses: WarehouseStock[]
 }
 
+/**
+ * Dòng này có số theo kho không. So `!= null` (bắt cả null lẫn undefined), không so `!== undefined`:
+ * API từng trả `"warehouseId": null` khi không lọc kho → `null !== undefined` là true → ô tồn hiện nhầm 0.
+ */
+export function isByWarehouse(row: Pick<ProductStock, 'warehouseId'>): boolean {
+  return row.warehouseId != null
+}
+
 /** Bộ lọc của trang Sản phẩm = bộ lọc sản phẩm + kho + tình trạng tồn. */
 export type ProductStockFilters = ProductFilters & {
   warehouseId?: number

@@ -74,7 +74,7 @@ export function ProductStockPanel({ product }: { product: Product }) {
         <Col span={8}>
           <Statistic
             title="Tồn tối thiểu"
-            value={detail.minStockQuantity === undefined ? 'Không đặt' : formatQuantity(detail.minStockQuantity)}
+            value={detail.minStockQuantity == null ? 'Không đặt' : formatQuantity(detail.minStockQuantity)}
           />
           <StockStatusTag status={detail.stockStatus} />
         </Col>

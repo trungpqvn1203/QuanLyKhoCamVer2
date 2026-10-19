@@ -20,7 +20,7 @@ import { warehouseApi } from '../warehouses/warehouse-api'
 import type { Warehouse } from '../warehouses/warehouse-api'
 import { PRODUCT_UNIT_LABELS, categoryApi, productApi } from './product-api'
 import type { Category, Product } from './product-api'
-import { STOCK_STATUS_LABELS, productStockApi } from './product-stock-api'
+import { STOCK_STATUS_LABELS, isByWarehouse, productStockApi } from './product-stock-api'
 import type { ProductStock, ProductStockFilters, StockStatus } from './product-stock-api'
 import { ProductFormModal } from './ProductFormModal'
 import { ProductStockPanel } from './ProductStockPanel'
@@ -40,7 +40,6 @@ const STOCK_STATUS_OPTIONS = (Object.keys(STOCK_STATUS_LABELS) as StockStatus[])
 
 /** "Bao" → "bao" để ghép sau số: "120 bao". */
 const unitText = (product: Pick<Product, 'unit'>) => PRODUCT_UNIT_LABELS[product.unit].toLowerCase()
-
 /**
  * Sản phẩm kèm tồn kho (BR-STK-01..06). Bảng lấy từ GET /api/inventory/products (đủ trường SP + số tồn);
  * thêm/sửa/ngừng vẫn qua /api/products. Tồn chỉ để xem — chỉ đổi được qua chứng từ kho.
@@ -70,6 +69,9 @@ export function ProductListPage() {
       .then((result) => setWarehouses(result.items))
       .catch(() => setWarehouses([]))
   }, [message])
+
+  const selectedWarehouse =
+    filters.warehouseId == null ? undefined : warehouses.find((warehouse) => warehouse.id === filters.warehouseId)
 
   const filterFields: FilterField<ProductStockFilters>[] = [
     { type: 'keyword', name: 'keyword', placeholder: 'Tìm theo mã hoặc tên sản phẩm' },
@@ -174,13 +176,14 @@ export function ProductListPage() {
       render: (kg: number) => <span style={{ fontVariantNumeric: 'tabular-nums' }}>{weightFormat.format(kg)}</span>,
     },
     {
-      // Dữ liệu trên trang tự cho biết đang xem theo kho hay tổng (không đọc bộ lọc, có thể đang đổi giữa chừng)
-      title: 'Tồn kho',
+      // Tiêu đề ghi rõ kho đang xem để số "0" không bị hiểu là hết hàng toàn hệ thống
+      title: selectedWarehouse ? `Tồn tại ${selectedWarehouse.code}` : 'Tồn kho',
       key: 'stock',
       align: 'right',
       width: 150,
+      // Ô tự đọc dữ liệu của dòng (không đọc bộ lọc — bộ lọc có thể vừa đổi mà dữ liệu chưa tải xong)
       render: (_, product) => {
-        const byWarehouse = product.warehouseId !== undefined
+        const byWarehouse = isByWarehouse(product)
         const quantity = byWarehouse ? (product.warehouseStockQuantity ?? 0) : product.stockQuantity
         const tons = byWarehouse ? (product.warehouseStockTons ?? 0) : product.stockTons
         return (
@@ -209,8 +212,7 @@ export function ProductListPage() {
       align: 'right',
       width: 100,
       render: (_, product) => {
-        const incoming =
-          product.warehouseId !== undefined ? (product.warehouseIncomingQuantity ?? 0) : product.incomingQuantity
+        const incoming = isByWarehouse(product) ? (product.warehouseIncomingQuantity ?? 0) : product.incomingQuantity
         return incoming > 0 ? (
           <Typography.Text type="secondary">+{formatQuantity(incoming)}</Typography.Text>
         ) : (
@@ -287,7 +289,7 @@ export function ProductListPage() {
               key: 'minStock',
               label: 'Tồn tối thiểu',
               children:
-                viewing.minStockQuantity === undefined
+                viewing.minStockQuantity == null
                   ? 'Không đặt'
                   : `${formatQuantity(viewing.minStockQuantity)} ${unitText(viewing)}`,
             },

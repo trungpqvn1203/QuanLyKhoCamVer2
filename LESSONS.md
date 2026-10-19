@@ -14,9 +14,18 @@ Ghi dồn sau mỗi module, ôn tập ở cuối dự án. Mỗi mục: **khái 
 - **PUT = thay toàn bộ → thêm trường là phải rà mọi chỗ gọi PUT** — nút "Mở bán lại" tự dựng body PUT từ dữ liệu dòng. Thêm `minStockQuantity` vào API mà quên thêm ở đây thì mỗi lần mở bán lại sẽ âm thầm xóa mức tồn tối thiểu. `grep "productApi.update"` để tìm hết các chỗ.
 - **Tải khi cần (lazy) cho popover** — 20 dòng × tồn từng kho mà tải sẵn thì tốn 20 request, trong khi người dùng thường chỉ rê chuột vài dòng. Gọi API ở `onOpenChange` lần đầu, rồi giữ kết quả. Đặt `key` theo số tồn để dữ liệu cũ không bị giữ sau khi danh sách tải lại.
 
+### Lỗi đã gặp: không chọn kho mà ô tồn vẫn hiện 0, dưới ghi "Tổng mọi kho: 27"
+
+- **Nguyên nhân gốc: backend trả `"warehouseId": null` thay vì bỏ trường**, trái với contract (NON_NULL). `@JsonInclude(NON_NULL)` chỉ gắn trên `ApiResponse`; annotation trên một lớp **không lan** sang các object lồng bên trong (`data`). Lỗi này có từ đầu dự án, ở mọi API (`"description": null`, `"email": null`...). Sửa ở một chỗ: `spring.jackson.default-property-inclusion: non_null`.
+- **Nguyên nhân trực tiếp ở frontend**: `product.warehouseId !== undefined` mà `null !== undefined` là `true` → giao diện tưởng đang lọc kho, lấy `warehouseStockQuantity ?? 0` = 0. Với dữ liệu từ API, dùng `!= null` / `== null` (bắt cả `null` lẫn `undefined`). TypeScript khai báo `warehouseId?: number` nhưng **không kiểm tra lúc chạy**: kiểu chỉ là lời hứa, JSON thật có thể khác.
+- **Vì sao test không bắt được**: `jsonPath("$.x").doesNotExist()` vẫn pass khi `x` có giá trị `null`. Test mới `JsonNullOmissionTest` kiểm tra trên **chuỗi JSON thô** (không có `"field": null`). Đã thử bỏ dòng cấu hình → 4/6 API fail.
+- **Bài học UX**: ô số mà không ghi phạm vi ("tại kho nào") thì hai con số đúng vẫn trông như mâu thuẫn. Tiêu đề cột giờ đổi thành "Tồn tại KHO002" khi đang chọn kho.
+
 ### Câu hỏi ôn tập (để cuối dự án)
 
 1. Vì sao `COALESCE(SUM(quantity), 0)` chứ không chỉ `SUM(quantity)` trong bộ lọc "Hết hàng"?
+4. Trong JavaScript, `null !== undefined`, `null != undefined`, `null ?? 0` cho kết quả gì? Khi nào dùng `!=` thay vì `!==`?
+5. Vì sao `@JsonInclude(NON_NULL)` trên `ApiResponse` không làm mất `"description": null` bên trong `data`?
 2. Nếu đặt endpoint tồn kho trong module product thì phụ thuộc vòng xuất hiện ở đâu? Có những cách nào để tránh?
 3. "Đang về" lấy SL đặt của phiếu Nháp. Khi phiếu đó hoàn tất với SL thực nhận khác SL đặt, con số nào thay đổi và thay đổi bao nhiêu?
 

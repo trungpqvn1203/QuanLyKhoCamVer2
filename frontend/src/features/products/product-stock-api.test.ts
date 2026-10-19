@@ -1,5 +1,17 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { productStockApi } from './product-stock-api'
+import { isByWarehouse, productStockApi } from './product-stock-api'
+
+describe('isByWarehouse', () => {
+  it('không lọc kho - trường vắng mặt HOẶC null đều không phải số theo kho', () => {
+    expect(isByWarehouse({})).toBe(false)
+    // Lỗi đã gặp: backend trả "warehouseId": null → so !== undefined cho ra true → ô tồn hiện 0
+    expect(isByWarehouse({ warehouseId: null as unknown as undefined })).toBe(false)
+  })
+
+  it('có lọc kho - đúng', () => {
+    expect(isByWarehouse({ warehouseId: 3 })).toBe(true)
+  })
+})
 
 function stubFetch() {
   const fetchMock = vi.fn().mockResolvedValue(
