@@ -1,44 +1,64 @@
-import { PlusOutlined } from '@ant-design/icons'
-import { App, Button, Empty, Typography, theme } from 'antd'
-import type { DescriptionsProps, TableProps } from 'antd'
-import { useCallback, useState } from 'react'
+import { PlusOutlined, ShopOutlined } from '@ant-design/icons'
+import { App, Button, Typography } from 'antd'
+import type { TableProps } from 'antd'
+import { useEffect, useState } from 'react'
 import { ApiError } from '../../api/client'
-import type { PageQuery } from '../../api/types'
 import { PageHeader } from '../../components/layout/PageHeader'
+import { CodeLink, CodeText } from '../../components/ui/CodeLink'
 import { DataTable } from '../../components/ui/DataTable'
-import { DetailDrawer } from '../../components/ui/DetailDrawer'
+import { DETAIL_INFO_TAB, DetailDrawer } from '../../components/ui/DetailDrawer'
+import type { DetailSection } from '../../components/ui/DetailDrawer'
+import { FILTER_BAR_HEIGHT, FilterBar } from '../../components/ui/FilterBar'
+import type { FilterField } from '../../components/ui/FilterBar'
+import { ListEmpty } from '../../components/ui/ListEmpty'
 import { RowActions } from '../../components/ui/RowActions'
-import { StatusTag } from '../../components/ui/StatusTag'
-import { usePagedList } from '../../hooks/use-paged-list'
-import { formatDateTime } from '../../utils/format'
-import { PRODUCT_UNIT_LABELS, hasActiveFilters, productApi } from './product-api'
-import type { Product, ProductFilters } from './product-api'
-import { FILTER_BAR_HEIGHT, ProductFilterBar } from './ProductFilterBar'
+import { STATUS_COLUMN_WIDTH, StatusTag } from '../../components/ui/StatusTag'
+import { useFilteredList } from '../../hooks/use-filtered-list'
+import { formatDateTime, orEmpty } from '../../utils/format'
+import { ProductSuppliersPanel } from '../suppliers/ProductSuppliersPanel'
+import { PRODUCT_UNIT_LABELS, categoryApi, productApi } from './product-api'
+import type { Category, Product, ProductFilters } from './product-api'
 import { ProductFormModal } from './ProductFormModal'
 
 const weightFormat = new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 3 })
 
+/** Tab NCC trong khung chi tiết; menu ⋯ "Nhà cung cấp" mở thẳng tab này. */
+const SUPPLIERS_TAB = 'suppliers'
+
 export function ProductListPage() {
   const { message, notification } = App.useApp()
-  const { token } = theme.useToken()
-  const [filters, setFilters] = useState<ProductFilters>({})
-  // useCallback: chỉ tạo hàm mới khi bộ lọc đổi → usePagedList tự tải lại đúng lúc
-  const fetchPage = useCallback((query: PageQuery) => productApi.list(query, filters), [filters])
-  const { page, query, loading, error, changePage, reload } = usePagedList(fetchPage)
+  const { page, loading, error, changePage, reload, filters, applyFilters, filtering } = useFilteredList(
+    productApi.list,
+  )
+  const [categories, setCategories] = useState<Category[]>([])
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<Product | null>(null)
   // Tách cờ mở khỏi bản ghi: đóng khung thì nội dung vẫn còn trong lúc chạy hiệu ứng trượt ra
   const [detailOpen, setDetailOpen] = useState(false)
   const [viewing, setViewing] = useState<Product | null>(null)
-  const filtering = hasActiveFilters(filters)
+  const [detailTab, setDetailTab] = useState(DETAIL_INFO_TAB)
 
-  const applyFilters = useCallback(
-    (next: ProductFilters) => {
-      setFilters(next)
-      changePage(0, query.size) // đổi điều kiện lọc → về trang đầu
+  useEffect(() => {
+    categoryApi
+      .listForSelect()
+      .then((result) => setCategories(result.items))
+      .catch((err: unknown) => message.error(err instanceof ApiError ? err.message : 'Không tải được danh mục'))
+  }, [message])
+
+  const filterFields: FilterField<ProductFilters>[] = [
+    { type: 'keyword', name: 'keyword', placeholder: 'Tìm theo mã hoặc tên sản phẩm' },
+    {
+      type: 'select',
+      name: 'categoryId',
+      placeholder: 'Tất cả danh mục',
+      // Lọc được cả danh mục đã ngừng dùng (để tra sản phẩm cũ), đánh dấu rõ
+      options: categories.map((category) => ({
+        value: category.id,
+        label: category.active ? category.name : `${category.name} (ngừng dùng)`,
+      })),
     },
-    [changePage, query.size],
-  )
+    { type: 'status', name: 'active', activeLabel: 'Đang kinh doanh', inactiveLabel: 'Ngừng kinh doanh' },
+  ]
 
   const openCreate = () => {
     setEditing(null)
@@ -50,8 +70,9 @@ export function ProductListPage() {
     setModalOpen(true)
   }
 
-  const openDetail = (product: Product) => {
+  const openDetail = (product: Product, tab = DETAIL_INFO_TAB) => {
     setViewing(product)
+    setDetailTab(tab)
     setDetailOpen(true)
   }
 
@@ -60,33 +81,50 @@ export function ProductListPage() {
   const notifySuccess = (title: string, product: Product) =>
     notification.success({ title, description: `${product.code} · ${product.name}` })
 
-  const deactivate = async (product: Product) => {
+  /** Gọi API cho thao tác trên dòng → báo kết quả → tải lại để khớp backend (không cập nhật tại chỗ). */
+  const runRowAction = async (product: Product, action: () => Promise<unknown>, done: string, failed: string) => {
     try {
-      await productApi.deactivate(product.id)
-      notifySuccess('Đã ngừng kinh doanh sản phẩm', product)
+      await action()
+      notifySuccess(done, product)
       reload()
-    } catch (error) {
-      message.error(error instanceof ApiError ? error.message : 'Không ngừng kinh doanh được sản phẩm')
+    } catch (err) {
+      message.error(err instanceof ApiError ? err.message : failed)
     }
   }
+
+  const deactivate = (product: Product) =>
+    runRowAction(
+      product,
+      () => productApi.deactivate(product.id),
+      'Đã ngừng kinh doanh sản phẩm',
+      'Không ngừng kinh doanh được sản phẩm',
+    )
+
+  // Mở bán lại = PUT đủ trường hiện có + active=true (BR-PRD-09: hướng dẫn mở bán lại bằng PUT)
+  const reactivate = (product: Product) =>
+    runRowAction(
+      product,
+      () =>
+        productApi.update(product.id, {
+          name: product.name,
+          categoryId: product.categoryId,
+          unit: product.unit,
+          netWeightKg: product.netWeightKg,
+          description: product.description,
+          active: true,
+        }),
+      'Đã mở bán lại sản phẩm',
+      'Không mở bán lại được sản phẩm',
+    )
 
   const columns: TableProps<Product>['columns'] = [
     {
       title: 'Mã SP',
       dataIndex: 'code',
       width: 110,
-      // Font đơn cách: các mã SP000001, SP000012 thẳng cột, dễ dò. Bấm mã → xem chi tiết
-      render: (code: string, product) => (
-        <Typography.Link onClick={() => openDetail(product)} style={{ fontFamily: token.fontFamilyCode }}>
-          {code}
-        </Typography.Link>
-      ),
+      render: (code: string, product) => <CodeLink code={code} onClick={() => openDetail(product)} />,
     },
-    {
-      title: 'Tên sản phẩm',
-      dataIndex: 'name',
-      render: (name: string) => <span style={{ fontWeight: token.fontWeightStrong }}>{name}</span>,
-    },
+    { title: 'Tên sản phẩm', dataIndex: 'name', render: (name: string) => <Typography.Text strong>{name}</Typography.Text> },
     { title: 'Danh mục', dataIndex: 'categoryName' },
     {
       title: 'Đơn vị',
@@ -104,7 +142,7 @@ export function ProductListPage() {
     {
       title: 'Trạng thái',
       dataIndex: 'active',
-      width: 150,
+      width: STATUS_COLUMN_WIDTH,
       render: (active: boolean) => (
         <StatusTag active={active} activeText="Đang kinh doanh" inactiveText="Ngừng kinh doanh" />
       ),
@@ -117,8 +155,17 @@ export function ProductListPage() {
       fixed: 'right',
       render: (_, product) => (
         <RowActions
+          recordLabel={product.code}
           onView={() => openDetail(product)}
           onEdit={() => openEdit(product)}
+          extraActions={[
+            {
+              key: 'suppliers',
+              label: 'Nhà cung cấp',
+              icon: <ShopOutlined />,
+              onClick: () => openDetail(product, SUPPLIERS_TAB),
+            },
+          ]}
           deactivate={
             product.active
               ? {
@@ -128,26 +175,47 @@ export function ProductListPage() {
                 }
               : undefined
           }
+          reactivate={product.active ? undefined : { label: 'Mở bán lại', onConfirm: () => reactivate(product) }}
         />
       ),
     },
   ]
 
-  const detailItems: DescriptionsProps['items'] = viewing
+  const detailSections: DetailSection[] = viewing
     ? [
-        { key: 'code', label: 'Mã SP', children: <span style={{ fontFamily: token.fontFamilyCode }}>{viewing.code}</span> },
-        { key: 'name', label: 'Tên sản phẩm', children: viewing.name },
-        { key: 'category', label: 'Danh mục', children: viewing.categoryName },
-        { key: 'unit', label: 'Đơn vị', children: PRODUCT_UNIT_LABELS[viewing.unit] },
-        { key: 'weight', label: 'KL tịnh (kg)', children: weightFormat.format(viewing.netWeightKg) },
-        { key: 'description', label: 'Mô tả', children: viewing.description ?? '—' },
+        {
+          key: 'general',
+          title: 'Thông tin chung',
+          items: [
+            { key: 'code', label: 'Mã SP', children: <CodeText code={viewing.code} /> },
+            { key: 'name', label: 'Tên sản phẩm', children: viewing.name },
+            { key: 'category', label: 'Danh mục', children: viewing.categoryName },
+            { key: 'unit', label: 'Đơn vị', children: PRODUCT_UNIT_LABELS[viewing.unit] },
+            { key: 'weight', label: 'KL tịnh (kg)', children: weightFormat.format(viewing.netWeightKg) },
+            { key: 'description', label: 'Mô tả', children: orEmpty(viewing.description) },
+          ],
+        },
         {
           key: 'status',
-          label: 'Trạng thái',
-          children: <StatusTag active={viewing.active} activeText="Đang kinh doanh" inactiveText="Ngừng kinh doanh" />,
+          title: 'Trạng thái',
+          items: [
+            {
+              key: 'active',
+              label: 'Trạng thái',
+              children: (
+                <StatusTag active={viewing.active} activeText="Đang kinh doanh" inactiveText="Ngừng kinh doanh" />
+              ),
+            },
+          ],
         },
-        { key: 'createdAt', label: 'Ngày tạo', children: formatDateTime(viewing.createdAt) },
-        { key: 'updatedAt', label: 'Cập nhật lần cuối', children: formatDateTime(viewing.updatedAt) },
+        {
+          key: 'system',
+          title: 'Thông tin hệ thống',
+          items: [
+            { key: 'createdAt', label: 'Ngày tạo', children: formatDateTime(viewing.createdAt) },
+            { key: 'updatedAt', label: 'Cập nhật lần cuối', children: formatDateTime(viewing.updatedAt) },
+          ],
+        },
       ]
     : []
 
@@ -162,7 +230,7 @@ export function ProductListPage() {
           </Button>
         }
       />
-      <ProductFilterBar value={filters} onChange={applyFilters} total={page?.pagination.totalElements} />
+      <FilterBar<ProductFilters> fields={filterFields} value={filters} onChange={applyFilters} />
       <DataTable<Product>
         columns={columns}
         page={page}
@@ -173,13 +241,13 @@ export function ProductListPage() {
         onRetry={reload}
         extraReservedHeight={FILTER_BAR_HEIGHT}
         emptyText={
-          filtering ? (
-            <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Không có sản phẩm phù hợp bộ lọc">
-              <Button onClick={() => applyFilters({})}>Xóa bộ lọc</Button>
-            </Empty>
-          ) : (
-            <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Chưa có sản phẩm nào" />
-          )
+          <ListEmpty
+            noun="sản phẩm"
+            filtering={filtering}
+            onClearFilters={() => applyFilters({})}
+            onCreate={openCreate}
+            createLabel="Thêm sản phẩm"
+          />
         }
       />
       <ProductFormModal
@@ -193,13 +261,28 @@ export function ProductListPage() {
       />
       <DetailDrawer
         open={detailOpen}
-        title="Chi tiết sản phẩm"
-        items={detailItems}
+        title={viewing ? `${viewing.code} · ${viewing.name}` : ''}
+        size={640}
+        sections={detailSections}
         onClose={() => setDetailOpen(false)}
         onEdit={() => {
           setDetailOpen(false)
           if (viewing) openEdit(viewing)
         }}
+        activeTab={detailTab}
+        onTabChange={setDetailTab}
+        tabs={
+          viewing
+            ? [
+                {
+                  key: SUPPLIERS_TAB,
+                  label: 'Nhà cung cấp',
+                  // key: sang SP khác thì tạo lại panel, không giữ ô tìm kiếm/trang của SP trước
+                  children: <ProductSuppliersPanel key={viewing.id} product={viewing} />,
+                },
+              ]
+            : []
+        }
       />
     </>
   )

@@ -6,8 +6,10 @@ import com.grainwarehouse.common.response.PageResponse;
 import com.grainwarehouse.warehouse.dto.CreateWarehouseRequest;
 import com.grainwarehouse.warehouse.dto.UpdateWarehouseRequest;
 import com.grainwarehouse.warehouse.dto.WarehouseResponse;
+import com.grainwarehouse.warehouse.dto.WarehouseSearchCriteria;
 import com.grainwarehouse.warehouse.entity.Warehouse;
 import com.grainwarehouse.warehouse.repository.WarehouseRepository;
+import com.grainwarehouse.warehouse.repository.WarehouseSpecifications;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -20,8 +22,9 @@ public class WarehouseService {
 
     private final WarehouseRepository warehouseRepository;
 
-    public PageResponse<WarehouseResponse> list(Pageable pageable) {
-        return PageResponse.from(warehouseRepository.findAll(pageable), WarehouseResponse::from);
+    public PageResponse<WarehouseResponse> list(WarehouseSearchCriteria criteria, Pageable pageable) {
+        return PageResponse.from(
+                warehouseRepository.findAll(WarehouseSpecifications.from(criteria), pageable), WarehouseResponse::from);
     }
 
     public WarehouseResponse get(Long id) {

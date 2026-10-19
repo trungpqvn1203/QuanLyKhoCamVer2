@@ -173,6 +173,44 @@ class WarehouseApiTest {
                 .andExpect(jsonPath("$.data.pagination.isLast").value(false));
     }
 
+    @Test
+    @DisplayName("GET ?keyword - tìm theo mã hoặc tên, không phân biệt hoa thường; totalElements theo kết quả lọc")
+    void shouldSearchByCodeOrName() throws Exception {
+        String code = readCode(createWarehouse(warehouseJson("Kho Hà Nội", "CENTRAL", "Hà Nội")));
+        createWarehouse(warehouseJson("Kho Hải Phòng", "CENTRAL", "Hải Phòng"));
+        createWarehouse(warehouseJson("Cửa hàng Cầu Giấy", "RETAIL", "Hà Nội"));
+
+        // Không tìm "kho": mã KHO001... của cả 3 bản ghi đều chứa "kho"
+        mockMvc.perform(get("/api/warehouses").param("keyword", " KHO H ").param("size", "1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items.length()").value(1))
+                .andExpect(jsonPath("$.data.pagination.totalElements").value(2));
+
+        mockMvc.perform(get("/api/warehouses").param("keyword", code.toLowerCase()))
+                .andExpect(jsonPath("$.data.pagination.totalElements").value(1))
+                .andExpect(jsonPath("$.data.items[0].code").value(code));
+
+        // Gõ không dấu (migration V5)
+        mockMvc.perform(get("/api/warehouses").param("keyword", "ha noi"))
+                .andExpect(jsonPath("$.data.pagination.totalElements").value(1))
+                .andExpect(jsonPath("$.data.items[0].name").value("Kho Hà Nội"));
+    }
+
+    @Test
+    @DisplayName("GET ?active - lọc theo trạng thái, kết hợp với keyword")
+    void shouldFilterByActive() throws Exception {
+        long deactivatedId = createdId(createWarehouse(warehouseJson("Kho Hà Nội", "CENTRAL", "Hà Nội")));
+        mockMvc.perform(delete("/api/warehouses/{id}", deactivatedId)).andExpect(status().isNoContent());
+        createWarehouse(warehouseJson("Kho Hải Phòng", "CENTRAL", "Hải Phòng"));
+
+        mockMvc.perform(get("/api/warehouses").param("active", "false"))
+                .andExpect(jsonPath("$.data.pagination.totalElements").value(1))
+                .andExpect(jsonPath("$.data.items[0].name").value("Kho Hà Nội"));
+
+        mockMvc.perform(get("/api/warehouses").param("active", "true").param("keyword", "hà nội"))
+                .andExpect(jsonPath("$.data.pagination.totalElements").value(0));
+    }
+
     private ResultActions createWarehouse(String json) throws Exception {
         return mockMvc.perform(post("/api/warehouses")
                 .contentType(MediaType.APPLICATION_JSON)

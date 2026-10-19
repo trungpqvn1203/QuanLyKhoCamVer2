@@ -1,5 +1,6 @@
 import { apiRequest, withQuery } from '../../api/client'
 import type { PageQuery, PageResponse } from '../../api/types'
+import { toFilterParams } from '../../utils/filters'
 
 export type ProductUnit = 'BAG' | 'KG'
 
@@ -42,31 +43,18 @@ export interface UpdateProductInput extends CreateProductInput {
   active: boolean
 }
 
-/** Bộ lọc danh sách — lọc phía backend (contract-spec: "Lọc sản phẩm"). */
-export interface ProductFilters {
+/** Bộ lọc danh sách — lọc phía backend (contract-spec: "Lọc sản phẩm"). `type` để dùng được với FilterBar. */
+export type ProductFilters = {
   keyword?: string
   categoryId?: number
   active?: boolean
 }
 
-export function hasActiveFilters({ keyword, categoryId, active }: ProductFilters): boolean {
-  return Boolean(keyword?.trim()) || categoryId !== undefined || active !== undefined
-}
-
 const BASE = '/api/products'
 
 export const productApi = {
-  list: ({ page, size }: PageQuery, { keyword, categoryId, active }: ProductFilters = {}) =>
-    apiRequest<PageResponse<Product>>(
-      withQuery(BASE, {
-        page,
-        size,
-        sort: 'id,asc',
-        keyword: keyword?.trim() || undefined,
-        categoryId,
-        active: active === undefined ? undefined : String(active),
-      }),
-    ),
+  list: ({ page, size }: PageQuery, filters: ProductFilters = {}) =>
+    apiRequest<PageResponse<Product>>(withQuery(BASE, { page, size, sort: 'id,asc', ...toFilterParams(filters) })),
 
   create: (input: CreateProductInput) =>
     apiRequest<Product>(BASE, { method: 'POST', body: JSON.stringify(input) }),

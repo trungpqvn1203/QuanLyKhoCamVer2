@@ -1,5 +1,6 @@
 import { apiRequest, withQuery } from '../../api/client'
 import type { PageQuery, PageResponse } from '../../api/types'
+import { toFilterParams } from '../../utils/filters'
 
 export type WarehouseType = 'CENTRAL' | 'RETAIL'
 
@@ -29,11 +30,17 @@ export interface UpdateWarehouseInput extends CreateWarehouseInput {
   active: boolean
 }
 
+/** Bộ lọc danh sách — lọc phía backend (contract-spec: "Lọc nhà cung cấp, kho"). */
+export type WarehouseFilters = {
+  keyword?: string
+  active?: boolean
+}
+
 const BASE = '/api/warehouses'
 
 export const warehouseApi = {
-  list: ({ page, size }: PageQuery) =>
-    apiRequest<PageResponse<Warehouse>>(withQuery(BASE, { page, size, sort: 'id,asc' })),
+  list: ({ page, size }: PageQuery, filters: WarehouseFilters = {}) =>
+    apiRequest<PageResponse<Warehouse>>(withQuery(BASE, { page, size, sort: 'id,asc', ...toFilterParams(filters) })),
 
   create: (input: CreateWarehouseInput) =>
     apiRequest<Warehouse>(BASE, { method: 'POST', body: JSON.stringify(input) }),

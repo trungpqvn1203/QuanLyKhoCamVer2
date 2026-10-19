@@ -157,6 +157,9 @@ DELETE /api/products/:id          # Xóa (soft delete)
 | Danh mục | `GET/POST /api/categories`, `GET/PUT/DELETE /api/categories/{id}` | DELETE = `active=false`; PUT có `active` để mở lại |
 | Sản phẩm | `GET/POST /api/products`, `GET/PUT/DELETE /api/products/{id}` | Không nhận `code` (tự sinh); response có `categoryName` |
 | Kho | `GET/POST /api/warehouses`, `GET/PUT/DELETE /api/warehouses/{id}` | Không nhận `code` (tự sinh `KHO001`); `type`: `CENTRAL` \| `RETAIL`; `address` bắt buộc; DELETE = `active=false`; PUT có `active` để mở lại |
+| Nhà cung cấp | `GET/POST /api/suppliers`, `GET/PUT/DELETE /api/suppliers/{id}` | Không nhận `code` (tự sinh `NCC001`); `contactName` bắt buộc; `phone`, `email`, `address` tùy chọn (rỗng → bỏ khỏi JSON); DELETE = `active=false`; PUT có `active` để mở lại |
+| SP của NCC | `GET/POST /api/suppliers/{id}/products`, `DELETE /api/suppliers/{id}/products/{productId}` | GET: SP đang liên kết (phân trang, mặc định sort `product.code`). POST `{ productId }` → 201, gán mới hoặc bật lại liên kết đã gỡ; đang liên kết → 409 `DUPLICATE_RESOURCE`; NCC/SP ngừng hoạt động → 409 `BUSINESS_RULE_VIOLATION`. DELETE = gỡ (`active=false`) → 204 |
+| NCC của SP | `GET /api/products/{id}/suppliers` | Chiều ngược: NCC đang liên kết với SP (phân trang, mặc định sort `supplier.code`), item gồm `supplierId`, `supplierCode`, `supplierName`, `contactName`, `phone`, `supplierActive`. Chỉ đọc — gán/gỡ dùng API của NCC ở dòng trên. Code đặt trong module supplier để tránh phụ thuộc vòng |
 
 Danh sách nhận `page`, `size` (tối đa 100), `sort` (ví dụ `sort=name,asc`). `sort` sai thuộc tính → 400.
 
@@ -164,11 +167,23 @@ Danh sách nhận `page`, `size` (tối đa 100), `sort` (ví dụ `sort=name,as
 
 | Tham số | Kiểu | Ý nghĩa |
 |---|---|---|
-| `keyword` | string | Mã **hoặc** tên chứa từ khóa, không phân biệt hoa thường, tự cắt khoảng trắng hai đầu. `%`, `_` là ký tự thường. Chưa bỏ dấu tiếng Việt (`cam` không khớp `cám`). |
+| `keyword` | string | Mã **hoặc** tên chứa từ khóa, không phân biệt hoa thường, **không phân biệt dấu** (`cam` khớp `Cám`, `dong` khớp `Đồng` — từ 2026-10-19, migration V5), tự cắt khoảng trắng hai đầu. `%`, `_` là ký tự thường. |
 | `categoryId` | number | Thuộc danh mục này. Sai kiểu → 400 `VALIDATION_FAILED` |
 | `active` | boolean | `true` đang kinh doanh, `false` ngừng kinh doanh |
 
 Ví dụ: `GET /api/products?keyword=heo&categoryId=1&active=true&page=0&size=20`
+
+**Lọc nhà cung cấp, kho** (`GET /api/suppliers`, `GET /api/warehouses`, thêm 2026-10-19) — cùng quy ước với lọc sản phẩm, dùng chung `CommonSpecifications` ở backend.
+
+> **Quy ước tìm kiếm (2026-10-19):** danh sách dùng `GET` + query string, không dùng `POST .../search` — đọc dữ liệu thì F5, bookmark, cache được. Backend bind tham số lọc vào record `XxxSearchCriteria` (`@ModelAttribute`), phân trang/sắp xếp vẫn qua `page`, `size`, `sort`. Chỉ xem xét `POST` khi điều kiện lọc quá dài cho URL (ví dụ danh sách hàng trăm id). Chi tiết & checklist module mới: [search-pattern.md](../architecture/search-pattern.md).
+
+
+| Tham số | Kiểu | Ý nghĩa |
+|---|---|---|
+| `keyword` | string | Mã **hoặc** tên chứa từ khóa — cùng cách so khớp với `keyword` của sản phẩm |
+| `active` | boolean | `true` đang hoạt động, `false` ngừng hoạt động. Sai kiểu → 400 `VALIDATION_FAILED` |
+
+Ví dụ: `GET /api/suppliers?keyword=cám&active=true&page=0&size=20`
 
 ---
 

@@ -27,3 +27,11 @@ export function formatDateTime(iso: string): string {
   const date = new Date(iso)
   return `${dateFormat.format(date)} ${timeFormat.format(date)}`
 }
+
+/** Ký hiệu thống nhất cho trường trống (trường tùy chọn bị bỏ khỏi JSON khi NULL — contract-spec). */
+export const EMPTY_TEXT = '—'
+
+/** Chuỗi trống / chỉ khoảng trắng / không có → "—", để bảng và khung chi tiết không có ô rỗng. */
+export function orEmpty(value?: string | null): string {
+  return value?.trim() ? value : EMPTY_TEXT
+}

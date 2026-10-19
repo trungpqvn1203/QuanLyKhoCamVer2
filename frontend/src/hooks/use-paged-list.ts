@@ -3,6 +3,16 @@ import { ApiError } from '../api/client'
 import type { PageQuery, PageResponse } from '../api/types'
 
 /**
+ * Trang vừa tải rỗng nhưng không phải trang đầu → trả về trang cuối còn dữ liệu; null = giữ nguyên.
+ * Ví dụ: đang lọc "Đang hoạt động", ở trang 3 chỉ còn 1 dòng, ngừng hoạt động dòng đó →
+ * tải lại trang 3 thì rỗng, phải lùi về trang 2 thay vì báo "không có kết quả".
+ */
+export function fallbackPageIndex(requestedPage: number, result: PageResponse<unknown>): number | null {
+  if (result.items.length > 0 || requestedPage === 0) return null
+  return Math.max(result.pagination.totalPages - 1, 0)
+}
+
+/**
  * Tải danh sách có phân trang từ API; dùng chung cho mọi màn hình danh sách.
  * - `reload()` gọi lại trang hiện tại (sau khi thêm/sửa/ngừng hoạt động).
  * - `fetchPage` đổi (ví dụ bộ lọc đổi) → tự tải lại; muốn về trang đầu thì gọi `changePage(0, size)`.
@@ -22,14 +32,20 @@ export function usePagedList<T>(fetchPage: (query: PageQuery) => Promise<PageRes
     fetchPage(query)
       .then((result) => {
         if (ignore) return
+        const fallback = fallbackPageIndex(query.page, result)
+        if (fallback !== null) {
+          // Giữ trạng thái đang tải; effect chạy lại với trang hợp lệ
+          setQuery((prev) => ({ ...prev, page: fallback }))
+          return
+        }
         setPage(result)
         setError(null)
+        setLoading(false)
       })
       .catch((err: unknown) => {
-        if (!ignore) setError(err instanceof ApiError ? err.message : 'Không tải được dữ liệu')
-      })
-      .finally(() => {
-        if (!ignore) setLoading(false)
+        if (ignore) return
+        setError(err instanceof ApiError ? err.message : 'Không tải được dữ liệu')
+        setLoading(false)
       })
     return () => {
       ignore = true

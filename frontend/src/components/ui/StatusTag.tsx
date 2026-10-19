@@ -6,6 +6,9 @@ interface StatusTagProps {
   inactiveText?: string
 }
 
+/** Độ rộng cột "Trạng thái" thống nhất trên mọi bảng — đủ cho nhãn dài nhất "Ngừng kinh doanh". */
+export const STATUS_COLUMN_WIDTH = 150
+
 /**
  * Badge trạng thái thống nhất trên mọi bảng:
  * hoạt động = nền xanh nhạt chữ xanh; ngừng = nền xám chữ xám. Không viền cho gọn.

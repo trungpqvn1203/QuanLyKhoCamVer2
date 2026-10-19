@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { hasActiveFilters, productApi } from './product-api'
+import { productApi } from './product-api'
 
 function stubFetchAndCaptureUrl() {
   const fetchMock = vi.fn().mockResolvedValue(
@@ -44,15 +44,5 @@ describe('productApi.list', () => {
     await productApi.list({ page: 0, size: 20 }, { keyword: '   ' })
 
     expect(capturedUrl().searchParams.has('keyword')).toBe(false)
-  })
-})
-
-describe('hasActiveFilters', () => {
-  it('nhận ra từng loại bộ lọc, kể cả active=false', () => {
-    expect(hasActiveFilters({})).toBe(false)
-    expect(hasActiveFilters({ keyword: '  ' })).toBe(false)
-    expect(hasActiveFilters({ keyword: 'heo' })).toBe(true)
-    expect(hasActiveFilters({ categoryId: 1 })).toBe(true)
-    expect(hasActiveFilters({ active: false })).toBe(true)
   })
 })

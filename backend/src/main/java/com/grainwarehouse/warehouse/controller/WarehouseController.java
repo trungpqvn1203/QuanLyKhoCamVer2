@@ -5,6 +5,7 @@ import com.grainwarehouse.common.response.PageResponse;
 import com.grainwarehouse.warehouse.dto.CreateWarehouseRequest;
 import com.grainwarehouse.warehouse.dto.UpdateWarehouseRequest;
 import com.grainwarehouse.warehouse.dto.WarehouseResponse;
+import com.grainwarehouse.warehouse.dto.WarehouseSearchCriteria;
 import com.grainwarehouse.warehouse.service.WarehouseService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -14,6 +15,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -28,10 +30,12 @@ public class WarehouseController {
 
     private final WarehouseService warehouseService;
 
+    // Tiêu chí lọc bind từ query string vào record; không gửi = không lọc (request cũ vẫn chạy như trước)
     @GetMapping
     public ResponseEntity<ApiResponse<PageResponse<WarehouseResponse>>> list(
+            @ModelAttribute WarehouseSearchCriteria criteria,
             @PageableDefault(size = 20, sort = "id") Pageable pageable) {
-        return ResponseEntity.ok(ApiResponse.ok(warehouseService.list(pageable)));
+        return ResponseEntity.ok(ApiResponse.ok(warehouseService.list(criteria, pageable)));
     }
 
     @GetMapping("/{id}")
