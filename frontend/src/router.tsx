@@ -1,6 +1,7 @@
 import { Button, Result } from 'antd'
 import { Link, Navigate, createBrowserRouter } from 'react-router-dom'
 import { AppLayout } from './components/layout/AppLayout'
+import { AttendancePage } from './features/attendance/AttendancePage'
 import { CustomerListPage } from './features/customers/CustomerListPage'
 import { EmployeeListPage } from './features/employees/EmployeeListPage'
 import { InboundReceiptListPage } from './features/inbound-receipts/InboundReceiptListPage'
@@ -20,6 +21,7 @@ export const router = createBrowserRouter([
       { path: 'customers', element: <CustomerListPage /> },
       { path: 'inbound-receipts', element: <InboundReceiptListPage /> },
       { path: 'employees', element: <EmployeeListPage /> },
+      { path: 'attendance', element: <AttendancePage /> },
       {
         path: '*',
         element: (
