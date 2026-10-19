@@ -44,17 +44,17 @@ Hoàn thành nhập kho, bán hàng, điều chuyển với đầy đủ StockTr
 
 ### Checklist
 
-- [ ] Chốt schema cho inventory, stock_document, stock_document_item, stock_transaction
-- [ ] Migration tiếp theo: tạo các bảng nghiệp vụ kho
+- [x] Chốt schema cho inventory, stock_document, stock_document_item, stock_transaction _(duyệt 2026-10-19)_
+- [x] Migration tiếp theo: tạo các bảng nghiệp vụ kho _(V6; `stock_document` mới mở loại `INBOUND`)_
 - [ ] Supplier + Customer CRUD (nếu cần) _(Supplier + liên kết NCC–SP xong 2026-10-16, migration V4; Customer làm cùng module bán hàng)_
-- [ ] Module nhập kho: API + service + test
+- [x] Module nhập kho: API + service + test _(backend 2026-10-19; giao diện ở Tuần 3)_
 - [ ] Module bán hàng/xuất kho: API + service + test
 - [ ] Module điều chuyển kho: API + service + test
-- [ ] StockTransaction ghi nhận đúng cho tất cả nghiệp vụ
-- [ ] Test: không xuất vượt tồn (unit test)
-- [ ] Test: race condition với concurrent requests
-- [ ] Test: điều chuyển rollback khi thất bại
-- [ ] Test: CHECK constraint ngăn tồn âm ở DB level
+- [ ] StockTransaction ghi nhận đúng cho tất cả nghiệp vụ _(nhập + đảo phiếu nhập xong)_
+- [ ] Test: không xuất vượt tồn (unit test) _(đã có cho đảo phiếu nhập; còn xuất kho)_
+- [x] Test: race condition với concurrent requests _(`InboundReceiptConcurrencyTest`: hoàn tất/đảo đồng thời, cộng tồn đồng thời)_
+- [ ] Test: điều chuyển rollback khi thất bại _(đã có rollback khi đảo phiếu 2 dòng; còn điều chuyển)_
+- [x] Test: CHECK constraint ngăn tồn âm ở DB level _(`InventoryPersistenceTest`)_
 - [ ] Commit sau mỗi module hoàn chỉnh
 
 ### Kiến thức cần nắm
