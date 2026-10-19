@@ -175,7 +175,7 @@ Ví dụ: `GET /api/products?keyword=heo&categoryId=1&active=true&page=0&size=20
 
 **Lọc nhà cung cấp, kho** (`GET /api/suppliers`, `GET /api/warehouses`, thêm 2026-10-19) — cùng quy ước với lọc sản phẩm, dùng chung `CommonSpecifications` ở backend.
 
-> **Quy ước tìm kiếm (2026-10-19):** danh sách dùng `GET` + query string, không dùng `POST .../search` — đọc dữ liệu thì F5, bookmark, cache được. Backend bind tham số lọc vào record `XxxSearchCriteria` (`@ModelAttribute`), phân trang/sắp xếp vẫn qua `page`, `size`, `sort`. Chỉ xem xét `POST` khi điều kiện lọc quá dài cho URL (ví dụ danh sách hàng trăm id).
+> **Quy ước tìm kiếm (2026-10-19):** danh sách dùng `GET` + query string, không dùng `POST .../search` — đọc dữ liệu thì F5, bookmark, cache được. Backend bind tham số lọc vào record `XxxSearchCriteria` (`@ModelAttribute`), phân trang/sắp xếp vẫn qua `page`, `size`, `sort`. Chỉ xem xét `POST` khi điều kiện lọc quá dài cho URL (ví dụ danh sách hàng trăm id). Chi tiết & checklist module mới: [search-pattern.md](../architecture/search-pattern.md).
 
 
 | Tham số | Kiểu | Ý nghĩa |

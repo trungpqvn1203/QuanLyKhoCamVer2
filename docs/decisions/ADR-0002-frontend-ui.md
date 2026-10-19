@@ -51,6 +51,7 @@ Frontend sẽ có nhiều màn hình cùng dạng (danh sách sản phẩm, kho,
 - `FormModal`: bấm ra ngoài không đóng; đóng khi form đã sửa thì hỏi lại; nhãn nút gửi theo thao tác (`submitText`); thân modal cuộn, nút luôn nhìn thấy.
 - `DetailDrawer`: thông tin chia nhóm (`sections`); dữ liệu liên quan nằm ở **tab** (`tabs`) thay cho `children`. **Thay quyết định 2026-10-17**: mục `⋯` "Sản phẩm cung cấp" / "Nhà cung cấp" không mở Drawer riêng nữa mà mở khung chi tiết ở đúng tab — một bản ghi một khung.
 - `RowActions`: bắt buộc `recordLabel` (aria-label "Thao tác cho NCC001"); thêm `reactivate` (mục "Mở lại", không cần xác nhận vì không mất dữ liệu) — gọi PUT với `active: true`.
+- `FilterBar` thêm loại ô `dateRange` (2026-10-19): `DatePicker.RangePicker` ghi 2 tham số `xxxFrom`/`xxxTo` dạng ISO; chạy uncontrolled để không import trực tiếp `dayjs` (chỉ là phụ thuộc gián tiếp của antd). Quy ước chung BE + FE: [search-pattern.md](../architecture/search-pattern.md).
 - `CodeLink` / `CodeText`: mã bản ghi font đơn cách; ở cột đầu là `Button type="link"` để Tab/Enter dùng được.
 
 ## Phương án thay thế đã xem xét

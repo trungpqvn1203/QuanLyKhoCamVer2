@@ -13,7 +13,8 @@ docs/
 │   └── glossary.md          # Bảng thuật ngữ Việt - Anh
 ├── architecture/           # Thiết kế kỹ thuật
 │   ├── system-design.md     # Kiến trúc tổng thể, module, transaction
-│   └── database.md          # Schema, constraints, concurrency
+│   ├── database.md          # Schema, constraints, concurrency
+│   └── search-pattern.md    # Quy ước tìm kiếm/lọc danh sách (BE + FE), checklist module mới
 ├── api/                    # Hợp đồng giao tiếp FE ↔ BE
 │   └── contract-spec.md     # Chuẩn ApiResponse, error code, pagination
 ├── roadmap/                # Kế hoạch phát triển
@@ -33,7 +34,7 @@ docs/
 
 | Mục đích công việc | Tài liệu cần đọc | Loại trừ |
 |---|---|---|
-| **Phát triển Module mới** (CRUD, nghiệp vụ) | `business/rules.md` (quy tắc module đó) · `api/contract-spec.md` (format API) · `architecture/database.md` (schema liên quan) · `architecture/system-design.md` (nếu liên quan cross-module) | `maintenance/*` · `roadmap/*` |
+| **Phát triển Module mới** (CRUD, nghiệp vụ) | `business/rules.md` (quy tắc module đó) · `api/contract-spec.md` (format API) · `architecture/database.md` (schema liên quan) · `architecture/search-pattern.md` (nếu có màn hình danh sách) · `architecture/system-design.md` (nếu liên quan cross-module) | `maintenance/*` · `roadmap/*` |
 | **Sửa lỗi nghiệp vụ / Bug Fix** | `business/rules.md` (check vi phạm quy tắc nào) · `architecture/system-design.md` (boundary transaction) · `architecture/database.md` (nếu liên quan data) | `api/*` (trừ khi bug ở tầng API) · `maintenance/*` · `roadmap/*` |
 | **Thay đổi Database / Migration** | `architecture/database.md` (quan hệ, index, CHECK) · `business/rules.md` (4 hard rules) | `api/*` · `maintenance/*` |
 | **Tích hợp FE với BE** (API client, form, error handling) | `api/contract-spec.md` (chuẩn Response/Error) · `business/glossary.md` (nếu cần mapping tên trường) | `architecture/database.md` · `maintenance/*` |

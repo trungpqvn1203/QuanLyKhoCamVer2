@@ -1,4 +1,4 @@
-package com.grainwarehouse.common.repository;
+package com.grainwarehouse.common.search;
 
 import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.Expression;
@@ -7,6 +7,9 @@ import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
 import org.springframework.data.jpa.domain.Specification;
 
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.Arrays;
 import java.util.Collection;
 
@@ -22,6 +25,9 @@ public final class CommonSpecifications {
 
     /** Hàm SQL tạo ở migration V5: bỏ dấu tiếng Việt, IMMUTABLE để sau này đánh index được. */
     private static final String UNACCENT_FUNCTION = "immutable_unaccent";
+
+    /** Ngày người dùng chọn là ngày theo giờ Việt Nam (giống utils/format.ts ở frontend). */
+    public static final ZoneId BUSINESS_ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
 
     private CommonSpecifications() {
     }
@@ -42,6 +48,11 @@ public final class CommonSpecifications {
                     .map(attribute -> cb.like(normalize(cb, root.get(attribute)), normalizedPattern, LIKE_ESCAPE))
                     .toArray(Predicate[]::new));
         };
+    }
+
+    /** Bản nhận thẳng tiêu chí: {@code keywordContains(criteria, "code", "name")}. */
+    public static <T> Specification<T> keywordContains(HasKeyword criteria, String... attributes) {
+        return keywordContains(criteria.keyword(), attributes);
     }
 
     /** Thuộc tính bằng giá trị; value null → không lọc. Hỗ trợ đường dẫn lồng như "category.id". */
@@ -76,9 +87,38 @@ public final class CommonSpecifications {
         };
     }
 
+    /**
+     * Cột thời điểm (Instant, ví dụ createdAt) nằm trong các NGÀY [from, to] theo giờ Việt Nam.
+     * Không dùng between(Instant) trực tiếp: "đến 15/10" phải gồm cả 23:59 ngày 15/10,
+     * và 00:00 ngày 15/10 giờ Việt Nam là 17:00 ngày 14/10 giờ UTC.
+     * Cài đặt: >= đầu ngày from, < đầu ngày (to + 1).
+     */
+    public static <T> Specification<T> instantWithinDates(String attribute, LocalDate from, LocalDate to) {
+        if (from == null && to == null) {
+            return null;
+        }
+        Instant start = from == null ? null : from.atStartOfDay(BUSINESS_ZONE).toInstant();
+        Instant endExclusive = to == null ? null : to.plusDays(1).atStartOfDay(BUSINESS_ZONE).toInstant();
+        return (root, query, cb) -> {
+            Path<Instant> path = path(root, attribute);
+            if (start == null) {
+                return cb.lessThan(path, endExclusive);
+            }
+            if (endExclusive == null) {
+                return cb.greaterThanOrEqualTo(path, start);
+            }
+            return cb.and(cb.greaterThanOrEqualTo(path, start), cb.lessThan(path, endExclusive));
+        };
+    }
+
     /** Trạng thái hoạt động — trường hợp hay dùng nhất của equal(). */
     public static <T> Specification<T> hasActive(Boolean active) {
         return equal("active", active);
+    }
+
+    /** Bản nhận thẳng tiêu chí: {@code hasActive(criteria)}. */
+    public static <T> Specification<T> hasActive(HasActive criteria) {
+        return hasActive(criteria.active());
     }
 
     private static Expression<String> normalize(CriteriaBuilder cb, Expression<String> value) {

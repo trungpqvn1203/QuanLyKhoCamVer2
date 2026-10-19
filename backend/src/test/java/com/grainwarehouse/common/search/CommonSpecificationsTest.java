@@ -1,4 +1,4 @@
-package com.grainwarehouse.common.repository;
+package com.grainwarehouse.common.search;
 
 import com.grainwarehouse.product.entity.Category;
 import com.grainwarehouse.product.entity.Product;
@@ -16,6 +16,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -91,22 +92,42 @@ class CommonSpecificationsTest {
     }
 
     @Test
+    @DisplayName("instantWithinDates: theo NGÀY giờ Việt Nam, ngày cuối tính trọn đến 23:59")
+    void shouldFilterInstantByVietnamDates() {
+        Product early = save("Cám mốc đầu ngày", ProductUnit.BAG, "25");
+        Product late = save("Cám mốc cuối ngày", ProductUnit.BAG, "25");
+        productRepository.flush();
+        // 00:00 ngày 15/10 giờ VN = 17:00 ngày 14/10 UTC; 23:59 ngày 15/10 giờ VN = 16:59 ngày 15/10 UTC
+        jdbcTemplate.update("UPDATE product SET created_at = '2026-10-14T17:00:00Z' WHERE id = ?", early.getId());
+        jdbcTemplate.update("UPDATE product SET created_at = '2026-10-15T16:59:00Z' WHERE id = ?", late.getId());
+        LocalDate oct14 = LocalDate.of(2026, 10, 14);
+        LocalDate oct15 = LocalDate.of(2026, 10, 15);
+
+        assertThat(names(CommonSpecifications.instantWithinDates("createdAt", oct15, oct15)))
+                .containsExactlyInAnyOrder("Cám mốc đầu ngày", "Cám mốc cuối ngày");
+        assertThat(names(CommonSpecifications.instantWithinDates("createdAt", oct14, oct14))).isEmpty();
+        assertThat(names(CommonSpecifications.instantWithinDates("createdAt", null, oct15)))
+                .containsExactlyInAnyOrder("Cám mốc đầu ngày", "Cám mốc cuối ngày");
+    }
+
+    @Test
     @DisplayName("Tham số rỗng → không lọc (trả null), không phải 'không khớp gì'")
     void shouldIgnoreEmptyParameters() {
         assertThat(CommonSpecifications.<Product>keywordContains("   ", "name")).isNull();
         assertThat(CommonSpecifications.<Product>equal("active", null)).isNull();
         assertThat(CommonSpecifications.<Product>in("unit", List.of())).isNull();
         assertThat(CommonSpecifications.<Product, BigDecimal>between("netWeightKg", null, null)).isNull();
+        assertThat(CommonSpecifications.<Product>instantWithinDates("createdAt", null, null)).isNull();
         assertThat(names(null)).hasSize(4);
     }
 
-    private void save(String name, ProductUnit unit, String netWeightKg) {
+    private Product save(String name, ProductUnit unit, String netWeightKg) {
         Product product = new Product();
         product.setName(name);
         product.setCategory(category);
         product.setUnit(unit);
         product.setNetWeightKg(new BigDecimal(netWeightKg));
-        productRepository.save(product);
+        return productRepository.save(product);
     }
 
     // Luôn kèm điều kiện danh mục của test → kết quả không phụ thuộc dữ liệu có sẵn trong DB test

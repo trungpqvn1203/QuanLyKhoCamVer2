@@ -1,6 +1,6 @@
 package com.grainwarehouse.product.repository;
 
-import com.grainwarehouse.common.repository.CommonSpecifications;
+import com.grainwarehouse.common.search.CommonSpecifications;
 import com.grainwarehouse.product.dto.ProductSearchCriteria;
 import com.grainwarehouse.product.entity.Product;
 import org.springframework.data.jpa.domain.Specification;
@@ -13,8 +13,8 @@ public final class ProductSpecifications {
 
     public static Specification<Product> from(ProductSearchCriteria criteria) {
         return Specification.allOf(
-                CommonSpecifications.keywordContains(criteria.keyword(), "code", "name"),
+                CommonSpecifications.keywordContains(criteria, "code", "name"),
                 CommonSpecifications.equal("category.id", criteria.categoryId()),
-                CommonSpecifications.hasActive(criteria.active()));
+                CommonSpecifications.hasActive(criteria));
     }
 }

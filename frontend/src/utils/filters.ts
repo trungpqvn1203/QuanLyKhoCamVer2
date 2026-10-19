@@ -19,3 +19,15 @@ export function toFilterParams(filters: FilterValues): Record<string, string | n
   }
   return params
 }
+
+/** Định dạng ngày hiển thị trên ô chọn ngày của thanh lọc. */
+export const DISPLAY_DATE_FORMAT = 'DD/MM/YYYY'
+
+/**
+ * "01/10/2026" (ô chọn ngày trả về) → "2026-10-01" (ISO, backend bind vào LocalDate).
+ * Chuỗi rỗng (đầu khoảng bị bỏ trống) hoặc sai định dạng → undefined = không lọc đầu đó.
+ */
+export function displayDateToIso(text: string): string | undefined {
+  const match = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(text.trim())
+  return match ? `${match[3]}-${match[2]}-${match[1]}` : undefined
+}

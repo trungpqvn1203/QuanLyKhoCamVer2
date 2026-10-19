@@ -1,6 +1,6 @@
 package com.grainwarehouse.supplier.repository;
 
-import com.grainwarehouse.common.repository.CommonSpecifications;
+import com.grainwarehouse.common.search.CommonSpecifications;
 import com.grainwarehouse.supplier.dto.SupplierSearchCriteria;
 import com.grainwarehouse.supplier.entity.Supplier;
 import org.springframework.data.jpa.domain.Specification;
@@ -13,7 +13,7 @@ public final class SupplierSpecifications {
 
     public static Specification<Supplier> from(SupplierSearchCriteria criteria) {
         return Specification.allOf(
-                CommonSpecifications.keywordContains(criteria.keyword(), "code", "name"),
-                CommonSpecifications.hasActive(criteria.active()));
+                CommonSpecifications.keywordContains(criteria, "code", "name"),
+                CommonSpecifications.hasActive(criteria));
     }
 }
