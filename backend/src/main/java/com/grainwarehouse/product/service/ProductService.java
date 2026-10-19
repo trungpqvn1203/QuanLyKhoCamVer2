@@ -53,6 +53,7 @@ public class ProductService {
         product.setUnit(request.unit());
         product.setNetWeightKg(request.netWeightKg());
         product.setDescription(request.description());
+        product.setMinStockQuantity(request.minStockQuantity());
         // Sau save(), code đã có giá trị nhờ @Generated (BR-PRD-02)
         return ProductResponse.from(productRepository.save(product));
     }
@@ -72,6 +73,7 @@ public class ProductService {
         product.setUnit(request.unit());
         product.setNetWeightKg(request.netWeightKg());
         product.setDescription(request.description());
+        product.setMinStockQuantity(request.minStockQuantity());
         product.setActive(request.active());
         return ProductResponse.from(productRepository.saveAndFlush(product));
     }

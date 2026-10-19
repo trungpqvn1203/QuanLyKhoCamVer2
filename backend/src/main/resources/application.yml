@@ -18,6 +18,9 @@ spring:
       pageable:
         max-page-size: 100
   jackson:
+    # Contract: trường null bị bỏ khỏi JSON, không trả "field": null — áp dụng cho MỌI DTO.
+    # @JsonInclude(NON_NULL) trên ApiResponse chỉ có tác dụng với trường của chính lớp đó, không lan vào data.
+    default-property-inclusion: non_null
     deserialization:
       # Mặc định Jackson âm thầm cắt 2.5 thành 2 khi field kiểu Integer.
       # Số lượng là số nguyên (BR-INV-07) → gửi 2.5 phải bị từ chối 400, không được thành 2 bao.

@@ -15,6 +15,7 @@ public record ProductResponse(
         ProductUnit unit,
         BigDecimal netWeightKg,
         String description,
+        Integer minStockQuantity,
         boolean active,
         Instant createdAt,
         Instant updatedAt) {
@@ -30,6 +31,7 @@ public record ProductResponse(
                 product.getUnit(),
                 product.getNetWeightKg(),
                 product.getDescription(),
+                product.getMinStockQuantity(),
                 product.isActive(),
                 product.getCreatedAt(),
                 product.getUpdatedAt());

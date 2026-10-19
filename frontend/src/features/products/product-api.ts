@@ -19,6 +19,8 @@ export interface Product {
   // JSON number: đủ chính xác cho khối lượng NUMERIC(10,3); tiền tệ sau này cần cân nhắc riêng
   netWeightKg: number
   description?: string // field null bị bỏ khỏi JSON (NON_NULL)
+  /** BR-STK-03: mức tồn tối thiểu; không có = không cảnh báo Sắp hết */
+  minStockQuantity?: number
   active: boolean
   createdAt: string
   updatedAt: string
@@ -37,6 +39,8 @@ export interface CreateProductInput {
   unit: ProductUnit
   netWeightKg: number
   description?: string
+  // null: người dùng xóa ô → gửi null → backend bỏ mức tối thiểu
+  minStockQuantity?: number | null
 }
 
 export interface UpdateProductInput extends CreateProductInput {

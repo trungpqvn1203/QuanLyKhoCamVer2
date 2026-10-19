@@ -5,6 +5,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -46,4 +48,21 @@ public interface InventoryRepository extends JpaRepository<Inventory, Long> {
     @Query(value = "SELECT quantity FROM inventory WHERE product_id = :productId AND warehouse_id = :warehouseId",
             nativeQuery = true)
     Optional<Integer> findQuantity(@Param("productId") Long productId, @Param("warehouseId") Long warehouseId);
+
+    /**
+     * Tổng tồn theo SP cho một trang danh sách — MỘT câu GROUP BY cho cả trang thay vì một câu mỗi SP (N+1).
+     * warehouseId null = mọi kho, kể cả kho đã ngừng (BR-STK-01). SP chưa có dòng tồn nào thì không có trong kết quả.
+     */
+    @Query("""
+            select i.product.id as id, sum(i.quantity) as quantity
+            from Inventory i
+            where i.product.id in :productIds and (:warehouseId is null or i.warehouse.id = :warehouseId)
+            group by i.product.id
+            """)
+    List<QuantityByKey> sumByProduct(@Param("productIds") Collection<Long> productIds,
+                                     @Param("warehouseId") Long warehouseId);
+
+    // Tồn từng kho của một SP — dùng index uk_inventory_product_warehouse (product_id đứng đầu)
+    @Query("select i from Inventory i join fetch i.warehouse where i.product.id = :productId")
+    List<Inventory> findByProductIdWithWarehouse(@Param("productId") Long productId);
 }

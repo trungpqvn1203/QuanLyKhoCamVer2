@@ -87,6 +87,21 @@ export function ProductFormModal({ open, editing, onClose, onSaved }: ProductFor
       >
         <InputNumber min={0.001} max={9_999_999.999} precision={3} style={{ width: '100%' }} />
       </Form.Item>
+      <Form.Item
+        name="minStockQuantity"
+        label="Tồn tối thiểu (tùy chọn)"
+        rules={[
+          {
+            // BR-INV-07: số nguyên; không dùng precision={0} vì nó âm thầm làm tròn
+            validator: async (_, value?: number | null) => {
+              if (value !== undefined && value !== null && !Number.isInteger(value)) throw new Error('Phải là số nguyên')
+            },
+          },
+        ]}
+        extra="Báo Sắp hết khi tổng tồn mọi kho ≤ mức này. Để trống nếu không cần cảnh báo."
+      >
+        <InputNumber min={0} style={{ width: '100%' }} placeholder="Ví dụ: 50" />
+      </Form.Item>
       <Form.Item name="description" label="Mô tả" rules={[{ max: 1000 }]}>
         <Input.TextArea rows={2} />
       </Form.Item>

@@ -5,6 +5,7 @@ import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
 
 import java.math.BigDecimal;
@@ -30,5 +31,9 @@ public record UpdateProductRequest(
         String description,
 
         @NotNull(message = "Trạng thái không được để trống")
-        Boolean active) {
+        Boolean active,
+
+        // BR-STK-03: PUT = cập nhật toàn bộ → không gửi nghĩa là bỏ mức tối thiểu
+        @PositiveOrZero(message = "Tồn tối thiểu không được âm")
+        Integer minStockQuantity) {
 }

@@ -52,6 +52,10 @@ public class Product extends AuditableEntity {
     @Column(columnDefinition = "TEXT")
     private String description;
 
+    // BR-STK-03: mức tồn tối thiểu (cùng đơn vị với unit); null = không cảnh báo Sắp hết
+    @Column(name = "min_stock_quantity")
+    private Integer minStockQuantity;
+
     @Column(nullable = false)
     private boolean active = true;
 }

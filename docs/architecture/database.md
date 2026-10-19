@@ -187,6 +187,12 @@ erDiagram
 - Bọc thành `IMMUTABLE` vì `unaccent()` gốc chỉ `STABLE` → không đánh index được. Hiện **chưa có index** (dữ liệu nhỏ, quét bảng đủ nhanh). Khi một bảng lên hàng chục nghìn dòng: thêm `pg_trgm` + `GIN (lower(immutable_unaccent(name)) gin_trgm_ops)` — `LIKE '%...%'` không dùng được B-tree.
 - Triển khai: user chạy migration cần quyền tạo extension (image `postgres` chính thức đã có gói contrib).
 
+### product.min_stock_quantity (✅ đã duyệt 2026-10-19 — migration V7)
+
+- `INTEGER NULL` + `CHECK ck_product_min_stock (min_stock_quantity >= 0)`. NULL = không cảnh báo Sắp hết (BR-STK-03).
+- Một mức cho mỗi SP, so với tổng tồn mọi kho. Phương án bị loại: mỗi cặp (SP, kho) một mức đặt ở `inventory`. Cách đó chính xác hơn khi mỗi kho bán một lượng khác nhau, nhưng cần màn hình đặt mức theo kho và phải tạo sẵn dòng tồn = 0.
+- Truy vấn tồn theo SP **không cần index mới**: `uk_inventory_product_warehouse` có `product_id` đứng đầu, phục vụ cả `SUM … WHERE product_id IN (…) GROUP BY product_id` lẫn subquery lọc tình trạng. "Đang về" đọc `stock_document_item` theo `product_id` và hiện chưa có index cho cột này (dữ liệu nhỏ); kiểm chứng bằng EXPLAIN ANALYZE ở Tuần 3.
+
 ### inventory (Tồn kho) (✅ đã duyệt — migration V6)
 
 - Mỗi bản ghi là cặp **(product_id, warehouse_id)**, `UNIQUE uk_inventory_product_warehouse`.

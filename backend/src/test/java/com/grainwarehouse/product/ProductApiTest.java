@@ -255,6 +255,47 @@ class ProductApiTest {
                 .andExpect(jsonPath("$.error.code").value("VALIDATION_FAILED"));
     }
 
+    @Test
+    @DisplayName("BR-STK-03: mức tồn tối thiểu - tùy chọn khi tạo, sửa được, PUT không gửi = bỏ mức")
+    void shouldManageMinStockQuantity() throws Exception {
+        createProduct(productJson("Cám vịt 25kg", "BAG", "25"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.minStockQuantity").doesNotExist());
+
+        Long id = createdId(createProduct("""
+                {"name": "Cám heo con 25kg", "categoryId": %d, "unit": "BAG", "netWeightKg": 25, "minStockQuantity": 50}
+                """.formatted(categoryId))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.minStockQuantity").value(50)));
+
+        mockMvc.perform(put("/api/products/{id}", id).contentType(MediaType.APPLICATION_JSON).content("""
+                        {"name": "Cám heo con 25kg", "categoryId": %d, "unit": "BAG", "netWeightKg": 25,
+                         "active": true, "minStockQuantity": 80}
+                        """.formatted(categoryId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.minStockQuantity").value(80));
+        mockMvc.perform(put("/api/products/{id}", id).contentType(MediaType.APPLICATION_JSON).content("""
+                        {"name": "Cám heo con 25kg", "categoryId": %d, "unit": "BAG", "netWeightKg": 25, "active": true}
+                        """.formatted(categoryId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.minStockQuantity").doesNotExist());
+    }
+
+    @Test
+    @DisplayName("BR-STK-03: tồn tối thiểu âm - 400; số lẻ - 400")
+    void shouldValidateMinStockQuantity() throws Exception {
+        createProduct("""
+                {"name": "Cám heo", "categoryId": %d, "unit": "BAG", "netWeightKg": 25, "minStockQuantity": -1}
+                """.formatted(categoryId))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.details[0].field").value("minStockQuantity"));
+        createProduct("""
+                {"name": "Cám heo", "categoryId": %d, "unit": "BAG", "netWeightKg": 25, "minStockQuantity": 2.5}
+                """.formatted(categoryId))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.details[0].field").value("minStockQuantity"));
+    }
+
     private Category saveCategory(String name, boolean active) {
         Category category = new Category();
         category.setName(name);

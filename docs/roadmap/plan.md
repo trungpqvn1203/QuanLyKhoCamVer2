@@ -78,7 +78,7 @@ Giao diện sử dụng được cho tất cả nghiệp vụ chính. Hệ thố
 - [ ] Giao diện bán hàng/xuất kho _(dùng lại mẫu phiếu của nhập kho)_
 - [ ] Giao diện điều chuyển kho _(các bước `Steps`: chọn kho nguồn → chọn hàng → xác nhận)_
 - [ ] Giao diện lịch sử biến động tồn kho _(lọc khoảng ngày `DatePicker.RangePicker`)_
-- [ ] Báo cáo tồn kho (theo kho, theo sản phẩm) _(rê chuột xem tồn từng kho bằng `Popover`; trang tổng quan `Card` + `Statistic`)_
+- [ ] Báo cáo tồn kho (theo kho, theo sản phẩm) _(rê chuột xem tồn từng kho bằng `Popover`; trang tổng quan `Card` + `Statistic`)_ — **theo sản phẩm xong 2026-10-19** (trang Sản phẩm: tồn tổng/theo kho, đang về, Sắp hết/Hết hàng, migration V7); còn trang tổng quan và xem theo kho
 - [ ] Phân trang cho danh sách dài
 - [ ] Xác thực và phân quyền cơ bản (nếu trong phạm vi)
 - [ ] Global error handling (backend + frontend)

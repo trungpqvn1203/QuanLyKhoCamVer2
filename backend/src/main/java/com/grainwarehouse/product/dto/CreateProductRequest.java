@@ -5,6 +5,7 @@ import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
 
 import java.math.BigDecimal;
@@ -27,5 +28,9 @@ public record CreateProductRequest(
         BigDecimal netWeightKg,
 
         @Size(max = 1000, message = "Mô tả tối đa 1000 ký tự")
-        String description) {
+        String description,
+
+        // BR-STK-03: tùy chọn; không gửi = không cảnh báo Sắp hết
+        @PositiveOrZero(message = "Tồn tối thiểu không được âm")
+        Integer minStockQuantity) {
 }

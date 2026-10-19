@@ -65,6 +65,12 @@ Frontend sẽ có nhiều màn hình cùng dạng (danh sách sản phẩm, kho,
 - `api/form-errors`: tên field backend `lines[0].orderedQuantity` → đường dẫn `['lines', 0, 'orderedQuantity']` của `Form.List`. Trước đây truyền nguyên chuỗi nên không khớp ô nào.
 - `RowActions.onEdit` thành tùy chọn: bản ghi không sửa được (phiếu đã hoàn tất) thì ẩn mục "Sửa".
 
+### Bổ sung (2026-10-19): tồn kho trên trang Sản phẩm
+
+- Bảng Sản phẩm lấy từ `GET /api/inventory/products` (đủ trường SP + số tồn) thay cho `/api/products`. Thêm/sửa vẫn qua `/api/products`.
+- Cột "Tồn kho": số tổng (hoặc số tại kho đang chọn) kèm số tấn. Rê chuột hoặc Tab tới số tồn → `Popover` hiện tồn từng kho. Popover **chỉ gọi API khi mở lần đầu** (không tải trước 20 request cho cả trang), và được đặt `key` theo số tồn để tạo lại khi dữ liệu đổi.
+- Khung chi tiết thêm tab "Tồn kho" (`Statistic` + bảng theo kho). `WarehouseStockTable` dùng chung cho tab này và popover (`compact`).
+
 ## Phương án thay thế đã xem xét
 
 | Phương án | Lý do không chọn |
