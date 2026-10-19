@@ -11,7 +11,7 @@
 | `warehouse` | Kho hàng | ✅ Đã duyệt 2026-10-16 (V3) |
 | `supplier` | Nhà cung cấp | ✅ Đã duyệt 2026-10-16 (V4) |
 | `product_supplier` | NCC được phép cung cấp SP nào (nhiều–nhiều) | ✅ Đã duyệt 2026-10-16 (V4) |
-| `customer` | Khách hàng (đại lý, trang trại) | Ứng viên |
+| `customer` | Khách hàng (đại lý, trang trại, khách lẻ) | ✅ Đã duyệt 2026-10-20 (V8) |
 | `inventory` | Tồn kho hiện tại (product × warehouse) | ✅ Đã duyệt 2026-10-19 (V6) |
 | `stock_document` | Chứng từ kho (phiếu nhập, phiếu xuất, phiếu điều chuyển) | ✅ Đã duyệt 2026-10-19 (V6) — mới mở loại `INBOUND` |
 | `stock_document_item` | Dòng chi tiết trong chứng từ | ✅ Đã duyệt 2026-10-19 (V6) |
@@ -77,14 +77,16 @@ erDiagram
 
     customer {
         bigint id PK
-        varchar code UK
-        varchar name
+        varchar code UK "KH0001, tự sinh"
+        varchar name "được trùng"
         varchar type "DEALER | FARM | RETAIL"
-        varchar phone
-        varchar address
+        varchar phone UK "NOT NULL, đã chuẩn hóa, CHECK ^0[0-9]{9,10}$"
+        varchar contact_name "nullable"
+        varchar address "nullable"
+        varchar note "nullable"
         boolean active
-        timestamp created_at
-        timestamp updated_at
+        timestamptz created_at
+        timestamptz updated_at
     }
 
     inventory {
