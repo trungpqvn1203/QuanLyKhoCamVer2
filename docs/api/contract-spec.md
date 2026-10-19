@@ -158,6 +158,7 @@ DELETE /api/products/:id          # Xóa (soft delete)
 | Sản phẩm | `GET/POST /api/products`, `GET/PUT/DELETE /api/products/{id}` | Không nhận `code` (tự sinh); response có `categoryName` |
 | Kho | `GET/POST /api/warehouses`, `GET/PUT/DELETE /api/warehouses/{id}` | Không nhận `code` (tự sinh `KHO001`); `type`: `CENTRAL` \| `RETAIL`; `address` bắt buộc; DELETE = `active=false`; PUT có `active` để mở lại |
 | Nhà cung cấp | `GET/POST /api/suppliers`, `GET/PUT/DELETE /api/suppliers/{id}` | Không nhận `code` (tự sinh `NCC001`); `contactName` bắt buộc; `phone`, `email`, `address` tùy chọn (rỗng → bỏ khỏi JSON); DELETE = `active=false`; PUT có `active` để mở lại |
+| Khách hàng | `GET/POST /api/customers`, `GET/PUT/DELETE /api/customers/{id}` | Không nhận `code` (tự sinh `KH0001`); bắt buộc `name`, `type` (`DEALER`/`FARM`/`RETAIL`, sai → 400), `phone`; `contactName`, `address`, `note` tùy chọn. `phone` được chuẩn hóa (bỏ khoảng trắng/chấm/gạch), sai định dạng → 400 field `phone`; trùng SĐT khách khác (kể cả đã ngừng) → 409 `DUPLICATE_RESOURCE`. DELETE = `active=false`; PUT có `active` để mở lại |
 | SP của NCC | `GET/POST /api/suppliers/{id}/products`, `DELETE /api/suppliers/{id}/products/{productId}` | GET: SP đang liên kết (phân trang, mặc định sort `product.code`). POST `{ productId }` → 201, gán mới hoặc bật lại liên kết đã gỡ; đang liên kết → 409 `DUPLICATE_RESOURCE`; NCC/SP ngừng hoạt động → 409 `BUSINESS_RULE_VIOLATION`. DELETE = gỡ (`active=false`) → 204 |
 | NCC của SP | `GET /api/products/{id}/suppliers` | Chiều ngược: NCC đang liên kết với SP (phân trang, mặc định sort `supplier.code`), item gồm `supplierId`, `supplierCode`, `supplierName`, `contactName`, `phone`, `supplierActive`. Chỉ đọc — gán/gỡ dùng API của NCC ở dòng trên. Code đặt trong module supplier để tránh phụ thuộc vòng |
 | Phiếu nhập | `GET/POST /api/inbound-receipts`, `GET/PUT /api/inbound-receipts/{id}`, `POST /api/inbound-receipts/{id}/complete`, `…/cancel`, `…/reverse` | Xem mục **Phiếu nhập kho** bên dưới. Không có DELETE → 405 |
@@ -217,6 +218,10 @@ Ví dụ: `GET /api/products?keyword=heo&categoryId=1&active=true&page=0&size=20
 | `active` | boolean | `true` đang hoạt động, `false` ngừng hoạt động. Sai kiểu → 400 `VALIDATION_FAILED` |
 
 Ví dụ: `GET /api/suppliers?keyword=cám&active=true&page=0&size=20`
+
+**Lọc khách hàng** (`GET /api/customers`, thêm 2026-10-20) — như trên, thêm: `keyword` khớp mã, tên **hoặc SĐT** (SĐT lưu dạng chỉ có chữ số, nên gõ `0901 234` sẽ không khớp — gõ liền); `type` = `DEALER`/`FARM`/`RETAIL` (sai → 400).
+
+Ví dụ: `GET /api/customers?keyword=0901&type=FARM&active=true`
 
 ---
 

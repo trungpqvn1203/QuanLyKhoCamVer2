@@ -184,3 +184,17 @@ Phân biệt 3 loại:
 - **BR-SUP-06:** Không gán SP **đã ngừng kinh doanh**, không gán SP cho NCC **đã ngừng hoạt động**.
 - **BR-SUP-07:** Ngừng hoạt động NCC **giữ nguyên** các liên kết (mở lại NCC không phải gán lại).
 - **BR-SUP-08:** **Chặn cứng** khi nhập kho: phiếu nhập từ NCC X chỉ được chứa SP đang liên kết `active = true` với X. _(Thực thi ở module nhập kho.)_
+
+---
+
+## Khách hàng
+
+### ✅ Đã xác nhận (2026-10-20)
+
+- **BR-CUS-01:** Mỗi khách có mã, tên, loại, **số điện thoại (bắt buộc)**; người liên hệ, địa chỉ, ghi chú **tùy chọn**.
+- **BR-CUS-02:** Mã khách do **hệ thống tự sinh** dạng `KH` + 4 chữ số (`KH0001`), duy nhất, **không sửa được**. Có thể nhảy số (rollback) — chấp nhận. Quá 9999 thì mã dài thêm (`KH10000`), vẫn duy nhất.
+- **BR-CUS-03:** Loại khách: Đại lý (`DEALER`), Trang trại (`FARM`), Khách lẻ (`RETAIL`).
+- **BR-CUS-04:** **SĐT là định danh chống trùng**, duy nhất trên toàn bộ khách (kể cả đã ngừng). **Tên được phép trùng** (hai "Trại heo Minh" ở hai xã).
+- **BR-CUS-05:** Khách không xóa cứng; ngừng hoạt động bằng `active = false`. Tạo khách mới bằng SĐT của khách đã ngừng → từ chối, hướng dẫn mở lại (giống BR-SUP-04).
+- **BR-CUS-06:** SĐT được **chuẩn hóa trước khi lưu và trước khi kiểm trùng**: bỏ khoảng trắng, dấu chấm, gạch ngang; kết quả phải là `0` + 9–10 chữ số (`0901 234 567` → `0901234567`). Chưa nhận `+84`. DB có CHECK chỉ cho lưu dạng đã chuẩn hóa.
+- Công nợ, giá theo loại khách: chưa quản lý — xem BR-SAL-Q01, BR-SAL-Q02 ở module bán hàng.
