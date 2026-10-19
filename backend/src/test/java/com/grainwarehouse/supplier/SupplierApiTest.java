@@ -188,6 +188,11 @@ class SupplierApiTest {
         mockMvc.perform(get("/api/suppliers").param("keyword", code.toLowerCase()))
                 .andExpect(jsonPath("$.data.pagination.totalElements").value(1))
                 .andExpect(jsonPath("$.data.items[0].code").value(code));
+
+        // Gõ không dấu (migration V5)
+        mockMvc.perform(get("/api/suppliers").param("keyword", "cam viet"))
+                .andExpect(jsonPath("$.data.pagination.totalElements").value(1))
+                .andExpect(jsonPath("$.data.items[0].name").value("Công ty CP Cám Việt"));
     }
 
     @Test

@@ -167,13 +167,16 @@ Danh sách nhận `page`, `size` (tối đa 100), `sort` (ví dụ `sort=name,as
 
 | Tham số | Kiểu | Ý nghĩa |
 |---|---|---|
-| `keyword` | string | Mã **hoặc** tên chứa từ khóa, không phân biệt hoa thường, tự cắt khoảng trắng hai đầu. `%`, `_` là ký tự thường. Chưa bỏ dấu tiếng Việt (`cam` không khớp `cám`). |
+| `keyword` | string | Mã **hoặc** tên chứa từ khóa, không phân biệt hoa thường, **không phân biệt dấu** (`cam` khớp `Cám`, `dong` khớp `Đồng` — từ 2026-10-19, migration V5), tự cắt khoảng trắng hai đầu. `%`, `_` là ký tự thường. |
 | `categoryId` | number | Thuộc danh mục này. Sai kiểu → 400 `VALIDATION_FAILED` |
 | `active` | boolean | `true` đang kinh doanh, `false` ngừng kinh doanh |
 
 Ví dụ: `GET /api/products?keyword=heo&categoryId=1&active=true&page=0&size=20`
 
-**Lọc nhà cung cấp, kho** (`GET /api/suppliers`, `GET /api/warehouses`, thêm 2026-10-19) — cùng quy ước với lọc sản phẩm, dùng chung `CommonSpecifications` ở backend:
+**Lọc nhà cung cấp, kho** (`GET /api/suppliers`, `GET /api/warehouses`, thêm 2026-10-19) — cùng quy ước với lọc sản phẩm, dùng chung `CommonSpecifications` ở backend.
+
+> **Quy ước tìm kiếm (2026-10-19):** danh sách dùng `GET` + query string, không dùng `POST .../search` — đọc dữ liệu thì F5, bookmark, cache được. Backend bind tham số lọc vào record `XxxSearchCriteria` (`@ModelAttribute`), phân trang/sắp xếp vẫn qua `page`, `size`, `sort`. Chỉ xem xét `POST` khi điều kiện lọc quá dài cho URL (ví dụ danh sách hàng trăm id).
+
 
 | Tham số | Kiểu | Ý nghĩa |
 |---|---|---|

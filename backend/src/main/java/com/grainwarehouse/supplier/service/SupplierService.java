@@ -3,7 +3,6 @@ package com.grainwarehouse.supplier.service;
 import com.grainwarehouse.common.exception.BusinessException;
 import com.grainwarehouse.common.exception.DuplicateResourceException;
 import com.grainwarehouse.common.exception.ResourceNotFoundException;
-import com.grainwarehouse.common.repository.CommonSpecifications;
 import com.grainwarehouse.common.response.PageResponse;
 import com.grainwarehouse.product.entity.Product;
 import com.grainwarehouse.product.repository.ProductRepository;
@@ -12,15 +11,16 @@ import com.grainwarehouse.supplier.dto.LinkProductRequest;
 import com.grainwarehouse.supplier.dto.ProductSupplierResponse;
 import com.grainwarehouse.supplier.dto.SupplierProductResponse;
 import com.grainwarehouse.supplier.dto.SupplierResponse;
+import com.grainwarehouse.supplier.dto.SupplierSearchCriteria;
 import com.grainwarehouse.supplier.dto.UpdateSupplierRequest;
 import com.grainwarehouse.supplier.entity.ProductSupplier;
 import com.grainwarehouse.supplier.entity.ProductSupplierId;
 import com.grainwarehouse.supplier.entity.Supplier;
 import com.grainwarehouse.supplier.repository.ProductSupplierRepository;
 import com.grainwarehouse.supplier.repository.SupplierRepository;
+import com.grainwarehouse.supplier.repository.SupplierSpecifications;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -33,11 +33,9 @@ public class SupplierService {
     private final ProductSupplierRepository productSupplierRepository;
     private final ProductRepository productRepository;
 
-    public PageResponse<SupplierResponse> list(String keyword, Boolean active, Pageable pageable) {
-        Specification<Supplier> spec = Specification.allOf(
-                CommonSpecifications.keywordContains(keyword, "code", "name"),
-                CommonSpecifications.hasActive(active));
-        return PageResponse.from(supplierRepository.findAll(spec, pageable), SupplierResponse::from);
+    public PageResponse<SupplierResponse> list(SupplierSearchCriteria criteria, Pageable pageable) {
+        return PageResponse.from(
+                supplierRepository.findAll(SupplierSpecifications.from(criteria), pageable), SupplierResponse::from);
     }
 
     public SupplierResponse get(Long id) {

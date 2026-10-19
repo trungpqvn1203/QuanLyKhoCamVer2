@@ -6,6 +6,7 @@ import com.grainwarehouse.supplier.dto.CreateSupplierRequest;
 import com.grainwarehouse.supplier.dto.LinkProductRequest;
 import com.grainwarehouse.supplier.dto.SupplierProductResponse;
 import com.grainwarehouse.supplier.dto.SupplierResponse;
+import com.grainwarehouse.supplier.dto.SupplierSearchCriteria;
 import com.grainwarehouse.supplier.dto.UpdateSupplierRequest;
 import com.grainwarehouse.supplier.service.SupplierService;
 import jakarta.validation.Valid;
@@ -16,12 +17,12 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -31,13 +32,12 @@ public class SupplierController {
 
     private final SupplierService supplierService;
 
-    // Tham số lọc tùy chọn: không gửi = không lọc (request cũ vẫn chạy như trước)
+    // Tiêu chí lọc bind từ query string vào record; không gửi = không lọc (request cũ vẫn chạy như trước)
     @GetMapping
     public ResponseEntity<ApiResponse<PageResponse<SupplierResponse>>> list(
-            @RequestParam(required = false) String keyword,
-            @RequestParam(required = false) Boolean active,
+            @ModelAttribute SupplierSearchCriteria criteria,
             @PageableDefault(size = 20, sort = "id") Pageable pageable) {
-        return ResponseEntity.ok(ApiResponse.ok(supplierService.list(keyword, active, pageable)));
+        return ResponseEntity.ok(ApiResponse.ok(supplierService.list(criteria, pageable)));
     }
 
     @GetMapping("/{id}")

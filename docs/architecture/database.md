@@ -172,6 +172,12 @@ erDiagram
 - `product_supplier` dùng **khóa chính kép** `(supplier_id, product_id)` thay vì cột `id` riêng: mỗi cặp chỉ có một dòng, gỡ/gán lại chỉ đổi `active` (BR-SUP-05). Phương án thay thế `id` + `UNIQUE(supplier_id, product_id)` chỉ cần khi dòng nối có vòng đời riêng hoặc bảng khác trỏ tới nó.
 - `idx_product_supplier_product (product_id)`: khóa chính chỉ phục vụ truy vấn bắt đầu bằng `supplier_id`; index này phục vụ chiều ngược "SP Y do những NCC nào cung cấp".
 
+### Tìm kiếm không dấu (✅ đã duyệt 2026-10-19 — migration V5)
+
+- `CREATE EXTENSION unaccent` + hàm `immutable_unaccent(text)`: bỏ dấu tiếng Việt, xử lý thêm `đ`/`Đ` bằng `replace`. Dùng bởi `CommonSpecifications.keywordContains`: `lower(immutable_unaccent(cột)) LIKE lower(immutable_unaccent(:pattern))`.
+- Bọc thành `IMMUTABLE` vì `unaccent()` gốc chỉ `STABLE` → không đánh index được. Hiện **chưa có index** (dữ liệu nhỏ, quét bảng đủ nhanh). Khi một bảng lên hàng chục nghìn dòng: thêm `pg_trgm` + `GIN (lower(immutable_unaccent(name)) gin_trgm_ops)` — `LIKE '%...%'` không dùng được B-tree.
+- Triển khai: user chạy migration cần quyền tạo extension (image `postgres` chính thức đã có gói contrib).
+
 ### inventory (Tồn kho)
 
 - Mỗi bản ghi là cặp **(product_id, warehouse_id)**, có UNIQUE constraint.

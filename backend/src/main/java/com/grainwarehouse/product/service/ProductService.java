@@ -6,6 +6,7 @@ import com.grainwarehouse.common.exception.ResourceNotFoundException;
 import com.grainwarehouse.common.response.PageResponse;
 import com.grainwarehouse.product.dto.CreateProductRequest;
 import com.grainwarehouse.product.dto.ProductResponse;
+import com.grainwarehouse.product.dto.ProductSearchCriteria;
 import com.grainwarehouse.product.dto.UpdateProductRequest;
 import com.grainwarehouse.product.entity.Category;
 import com.grainwarehouse.product.entity.Product;
@@ -15,7 +16,6 @@ import com.grainwarehouse.product.repository.ProductRepository;
 import com.grainwarehouse.product.repository.ProductSpecifications;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -31,12 +31,9 @@ public class ProductService {
     private final CategoryRepository categoryRepository;
 
     /** Tham số lọc đều tùy chọn; null = không lọc theo tiêu chí đó. */
-    public PageResponse<ProductResponse> list(String keyword, Long categoryId, Boolean active, Pageable pageable) {
-        Specification<Product> spec = Specification.allOf(
-                ProductSpecifications.keywordContains(keyword),
-                ProductSpecifications.inCategory(categoryId),
-                ProductSpecifications.hasActive(active));
-        return PageResponse.from(productRepository.findAll(spec, pageable), ProductResponse::from);
+    public PageResponse<ProductResponse> list(ProductSearchCriteria criteria, Pageable pageable) {
+        return PageResponse.from(
+                productRepository.findAll(ProductSpecifications.from(criteria), pageable), ProductResponse::from);
     }
 
     public ProductResponse get(Long id) {
