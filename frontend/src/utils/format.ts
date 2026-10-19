@@ -28,6 +28,27 @@ export function formatDateTime(iso: string): string {
   return `${dateFormat.format(date)} ${timeFormat.format(date)}`
 }
 
+/** "2026-10-19" (LocalDate từ backend, không có giờ) → "19/10/2026". Không qua Date để khỏi lệch múi giờ. */
+export function formatDate(isoDate: string): string {
+  const [year, month, day] = isoDate.split('-')
+  return `${day}/${month}/${year}`
+}
+
+const isoDateFormat = new Intl.DateTimeFormat('en-CA', {
+  timeZone: TIME_ZONE,
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+})
+
+/**
+ * Hôm nay theo giờ Việt Nam, dạng "YYYY-MM-DD" (en-CA định dạng sẵn kiểu này).
+ * Không dùng new Date().toISOString(): đó là ngày UTC — trước 7h sáng ở VN vẫn ra "hôm qua".
+ */
+export function todayIso(now: Date = new Date()): string {
+  return isoDateFormat.format(now)
+}
+
 /** Ký hiệu thống nhất cho trường trống (trường tùy chọn bị bỏ khỏi JSON khi NULL — contract-spec). */
 export const EMPTY_TEXT = '—'
 

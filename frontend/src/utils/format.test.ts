@@ -1,5 +1,19 @@
 import { describe, expect, it } from 'vitest'
-import { EMPTY_TEXT, formatDateTime, orEmpty } from './format'
+import { EMPTY_TEXT, formatDate, formatDateTime, orEmpty, todayIso } from './format'
+
+describe('formatDate', () => {
+  it('LocalDate từ backend → dd/mm/yyyy, không lệch ngày', () => {
+    expect(formatDate('2026-10-19')).toBe('19/10/2026')
+  })
+})
+
+describe('todayIso', () => {
+  it('ngày theo giờ Việt Nam, không theo UTC', () => {
+    // 18:30 UTC ngày 19/10 = 01:30 sáng 20/10 ở Việt Nam
+    expect(todayIso(new Date('2026-10-19T18:30:00Z'))).toBe('2026-10-20')
+    expect(todayIso(new Date('2026-10-19T10:00:00Z'))).toBe('2026-10-19')
+  })
+})
 
 describe('formatDateTime', () => {
   it('đổi giờ UTC từ backend sang giờ Việt Nam (+7), ngày trước giờ sau', () => {

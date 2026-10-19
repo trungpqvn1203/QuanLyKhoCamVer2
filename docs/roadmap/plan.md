@@ -74,7 +74,7 @@ Giao diện sử dụng được cho tất cả nghiệp vụ chính. Hệ thố
 
 ### Checklist
 
-- [ ] Giao diện nhập kho _(form phiếu trong `Drawer`; dòng hàng động `Form.List`; dòng tổng `Table.Summary`; chọn SP có tìm kiếm gọi API khi gõ)_
+- [x] Giao diện nhập kho _(2026-10-19: form phiếu trong `Drawer`; dòng hàng động `Form.List`; dòng tổng `Table.Summary`; ô SP lấy từ SP đang gán cho NCC — xem ADR-0002)_
 - [ ] Giao diện bán hàng/xuất kho _(dùng lại mẫu phiếu của nhập kho)_
 - [ ] Giao diện điều chuyển kho _(các bước `Steps`: chọn kho nguồn → chọn hàng → xác nhận)_
 - [ ] Giao diện lịch sử biến động tồn kho _(lọc khoảng ngày `DatePicker.RangePicker`)_

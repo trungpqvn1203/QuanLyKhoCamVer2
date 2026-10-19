@@ -15,7 +15,8 @@ interface RowActionsProps {
   /** Mã bản ghi của dòng, ví dụ "NCC001" — để trình đọc màn hình phân biệt nút ⋯ giữa các dòng */
   recordLabel: string
   onView: () => void
-  onEdit: () => void
+  /** Không truyền = bản ghi không sửa được (ví dụ phiếu nhập đã hoàn tất) → ẩn mục "Sửa" */
+  onEdit?: () => void
   extraActions?: RowExtraAction[]
   /** Chỉ truyền khi bản ghi đang hoạt động → hiện mục ngừng (chữ đỏ, hỏi xác nhận) */
   deactivate?: {
@@ -40,7 +41,7 @@ export function RowActions({ recordLabel, onView, onEdit, extraActions = [], dea
 
   const items: MenuProps['items'] = [
     { key: 'view', icon: <EyeOutlined />, label: 'Xem chi tiết' },
-    { key: 'edit', icon: <EditOutlined />, label: 'Sửa' },
+    ...(onEdit ? [{ key: 'edit', icon: <EditOutlined />, label: 'Sửa' }] : []),
     ...extraActions.map(({ key, label, icon }) => ({ key, label, icon })),
     ...(reactivate ? [{ key: 'reactivate', icon: <CheckCircleOutlined />, label: reactivate.label }] : []),
     ...(deactivate
@@ -53,7 +54,7 @@ export function RowActions({ recordLabel, onView, onEdit, extraActions = [], dea
 
   const handleClick: MenuProps['onClick'] = ({ key }) => {
     if (key === 'view') onView()
-    if (key === 'edit') onEdit()
+    if (key === 'edit') onEdit?.()
     extraActions.find((action) => action.key === key)?.onClick()
     if (key === 'reactivate' && reactivate) void reactivate.onConfirm()
     if (key === 'deactivate' && deactivate) {

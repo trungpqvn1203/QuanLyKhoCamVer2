@@ -54,6 +54,17 @@ Frontend sẽ có nhiều màn hình cùng dạng (danh sách sản phẩm, kho,
 - `FilterBar` thêm loại ô `dateRange` (2026-10-19): `DatePicker.RangePicker` ghi 2 tham số `xxxFrom`/`xxxTo` dạng ISO; chạy uncontrolled để không import trực tiếp `dayjs` (chỉ là phụ thuộc gián tiếp của antd). Quy ước chung BE + FE: [search-pattern.md](../architecture/search-pattern.md).
 - `CodeLink` / `CodeText`: mã bản ghi font đơn cách; ở cột đầu là `Button type="link"` để Tab/Enter dùng được.
 
+### Bổ sung (2026-10-19): màn hình chứng từ (phiếu nhập) — vẫn **không thêm thư viện**
+
+- **Một phiếu một khung `Drawer` rộng (1080px)** cho cả vòng đời: tạo → sửa nháp → hoàn tất → xem / đảo. Nội dung đổi theo trạng thái: Nháp = form; Hoàn tất / Đã hủy / Đã đảo = chỉ xem. Không dùng `FormModal` vì bảng dòng hàng cần chỗ rộng và nút thao tác thay đổi theo trạng thái. Không làm trang riêng `/inbound-receipts/:id`, vì giữ được danh sách phía sau và cùng mẫu "một bản ghi một khung" với `DetailDrawer`. Trang danh sách đổi `key` mỗi lần mở để state của khung luôn sạch.
+- **Dòng hàng**: `Form.List` vẽ bằng `Table` (mỗi ô là một `Form.Item`), dòng tổng bằng `Table.Summary`. **Thay ý định cũ** "chọn SP có tìm kiếm gọi API khi gõ": ô SP chỉ gồm các SP đang gán cho NCC đã chọn (tải một lần, tối đa 100, lọc trên trình duyệt). Lý do: đúng quy tắc BR-SUP-08 ngay từ lúc chọn, và mỗi NCC chỉ có ít SP. Khi NCC có hơn 100 SP thì chuyển sang tìm phía backend.
+- Thành tiền và tổng trên form là **số tạm** (`utils/money.ts`, tính bằng xu để tránh sai số số thực, cùng quy tắc HALF_UP với backend). Số chính thức là số backend trả về sau khi lưu.
+- **Ngày chứng từ dùng `<Input type="date">`** (ô ngày gốc của trình duyệt, giá trị `YYYY-MM-DD`, `max` = hôm nay theo giờ VN) thay cho `DatePicker`. `DatePicker` trong form điều khiển (controlled) bắt buộc truyền object `dayjs`, tức phải import trực tiếp một thư viện chưa khai báo. Đánh đổi: giao diện ô ngày theo trình duyệt, khác ô lọc ngày. Khi muốn thống nhất thì khai báo `dayjs` trong `package.json` (cần duyệt).
+- Số lượng không dùng `precision={0}` của `InputNumber`, vì nó âm thầm làm tròn 2,5 thành 3. Thay vào đó dùng rule "phải là số nguyên" để người dùng thấy lỗi (BR-INV-07).
+- Đổi trạng thái: nút ở chân khung theo trạng thái. Hoàn tất hỏi xác nhận bằng `modal.confirm`. Hủy / Đảo mở `ReasonModal` (dùng lại `FormModal`, nên lỗi như "không đủ tồn" hiện ngay trong hộp). "Lưu & hoàn tất" cho phiếu mới, vì hàng thường về cùng lúc lập phiếu.
+- `api/form-errors`: tên field backend `lines[0].orderedQuantity` → đường dẫn `['lines', 0, 'orderedQuantity']` của `Form.List`. Trước đây truyền nguyên chuỗi nên không khớp ô nào.
+- `RowActions.onEdit` thành tùy chọn: bản ghi không sửa được (phiếu đã hoàn tất) thì ẩn mục "Sửa".
+
 ## Phương án thay thế đã xem xét
 
 | Phương án | Lý do không chọn |
