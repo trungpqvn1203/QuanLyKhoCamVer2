@@ -98,6 +98,15 @@ class ProductPersistenceTest {
                 .hasMessageContaining("uk_category_name");
     }
 
+    @Test
+    @DisplayName("BR-STK-03: DB chặn tồn tối thiểu âm (V7)")
+    void dbShouldRejectNegativeMinStock() {
+        assertThatThrownBy(() -> jdbcTemplate.update("INSERT INTO product (name, category_id, unit, net_weight_kg,"
+                + " min_stock_quantity) VALUES ('Cám heo', ?, 'BAG', 25, -1)", category.getId()))
+                .isInstanceOf(DataIntegrityViolationException.class)
+                .hasMessageContaining("ck_product_min_stock");
+    }
+
     private void insertProduct(String name, String unit, String netWeightKg) {
         jdbcTemplate.update(
                 "INSERT INTO product (name, category_id, unit, net_weight_kg) VALUES (?, ?, ?, ?)",

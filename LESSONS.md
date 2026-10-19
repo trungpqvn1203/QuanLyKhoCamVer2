@@ -5,6 +5,23 @@ Ghi dồn sau mỗi module, ôn tập ở cuối dự án. Mỗi mục: **khái 
 
 ---
 
+## Module: Tồn kho trên trang Sản phẩm (2026-10-19)
+
+- **Hướng phụ thuộc quyết định chỗ đặt code** — `inventory` đã dùng `Product` (dòng tồn trỏ tới SP). Nếu `ProductService` gọi ngược `InventoryRepository` để lấy số tồn, hai module phụ thuộc vòng: sửa module nào cũng phải biên dịch lại module kia, và không tách riêng được. Vì vậy API "SP kèm tồn" đặt ở `inventory` (`/api/inventory/products`), dùng lại nguyên `ProductSpecifications`. Phương án khác là *đảo phụ thuộc*: `product` khai báo interface `ProductStockReader`, `inventory` cài đặt nó. Cách đó đúng hơn khi product *bắt buộc* phải trả số tồn, nhưng thêm một lớp trừu tượng.
+- **Tránh N+1 bằng GROUP BY theo trang** — trang 20 SP mà mỗi SP chạy một câu `SUM` thì thành 1 + 20 câu. Ở đây chỉ chạy một câu `SUM … WHERE product_id IN (20 id) GROUP BY product_id`, rồi ghép theo id trong Java. Số câu SQL cố định, không phụ thuộc số SP trên trang.
+- **Lọc theo số tính toán phải làm trong SQL** — "Sắp hết" phụ thuộc tổng tồn, mà tổng không phải một cột. Nếu lọc sau khi tải trang thì tổng số kết quả và phân trang sai (giống bài học bộ lọc trước). Giải pháp là subquery trong `Specification`: `(SELECT COALESCE(SUM(quantity),0) FROM inventory WHERE product_id = p.id) <= p.min_stock_quantity`. `COALESCE` cần cho SP chưa từng nhập (SUM của 0 dòng là NULL, không phải 0).
+- **Một quy tắc viết hai nơi thì phải có test giữ chúng khớp** — `StockStatus.of` (Java, để trả về) và `hasStockStatus` (SQL, để lọc) cùng diễn đạt "≤ mức tối thiểu". Đã thử đổi `≤` thành `<` trong SQL → `shouldFilterByStockStatus` fail (Cám heo tồn đúng 50 = mức 50 không còn được lọc ra là Sắp hết).
+- **PUT = thay toàn bộ → thêm trường là phải rà mọi chỗ gọi PUT** — nút "Mở bán lại" tự dựng body PUT từ dữ liệu dòng. Thêm `minStockQuantity` vào API mà quên thêm ở đây thì mỗi lần mở bán lại sẽ âm thầm xóa mức tồn tối thiểu. `grep "productApi.update"` để tìm hết các chỗ.
+- **Tải khi cần (lazy) cho popover** — 20 dòng × tồn từng kho mà tải sẵn thì tốn 20 request, trong khi người dùng thường chỉ rê chuột vài dòng. Gọi API ở `onOpenChange` lần đầu, rồi giữ kết quả. Đặt `key` theo số tồn để dữ liệu cũ không bị giữ sau khi danh sách tải lại.
+
+### Câu hỏi ôn tập (để cuối dự án)
+
+1. Vì sao `COALESCE(SUM(quantity), 0)` chứ không chỉ `SUM(quantity)` trong bộ lọc "Hết hàng"?
+2. Nếu đặt endpoint tồn kho trong module product thì phụ thuộc vòng xuất hiện ở đâu? Có những cách nào để tránh?
+3. "Đang về" lấy SL đặt của phiếu Nháp. Khi phiếu đó hoàn tất với SL thực nhận khác SL đặt, con số nào thay đổi và thay đổi bao nhiêu?
+
+---
+
 ## Module: Nhập kho — giao diện (2026-10-19)
 
 - **Giao diện chỉ gợi ý, backend mới quyết định** — nút "Hoàn tất" chỉ hiện khi phiếu đang Nháp, nhưng đó là để người dùng đỡ bấm nhầm, không phải lớp bảo vệ. Ví dụ: anh A mở PN000005 lúc còn Nháp, trong lúc đó chị B hoàn tất. Anh A bấm "Hoàn tất" → backend trả 409 (khóa + kiểm tra lại trạng thái) → khung hiện lỗi. Không bao giờ dựa vào việc "ẩn nút" để giữ quy tắc nghiệp vụ.

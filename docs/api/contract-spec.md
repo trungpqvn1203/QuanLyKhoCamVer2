@@ -183,6 +183,17 @@ Lọc `GET /api/inbound-receipts` (tất cả tùy chọn):
 | `warehouseId`, `supplierId` | number | Kho nhận / NCC |
 | `documentDateFrom`, `documentDateTo` | `YYYY-MM-DD` | Ngày chứng từ trong khoảng, hai đầu đều tính |
 
+**Tồn kho theo sản phẩm** (thêm 2026-10-19, BR-STK-01..06) — chỉ đọc; đặt trong module inventory để không tạo phụ thuộc vòng product ↔ inventory:
+
+| Endpoint | Kết quả |
+|---|---|
+| `GET /api/inventory/products` | Trang SP, mỗi item = **đủ trường của `/api/products`** + `stockQuantity` (tổng mọi kho, kể cả kho ngừng), `stockTons`, `incomingQuantity` (SL đặt trên phiếu nhập Nháp), `stockStatus` (`IN_STOCK` \| `LOW` \| `OUT`, theo tổng). Có `warehouseId` thì thêm `warehouseId`, `warehouseStockQuantity`, `warehouseStockTons`, `warehouseIncomingQuantity` |
+| `GET /api/inventory/products/{productId}` | `productId, productCode, productName, unit, netWeightKg, minStockQuantity?, stockQuantity, stockTons, incomingQuantity, stockStatus, warehouses: [{ warehouseId, warehouseCode, warehouseName, warehouseActive, quantity, tons, incomingQuantity, updatedAt? }]`. Chỉ liệt kê kho có tồn > 0 hoặc có hàng đang về, sắp theo mã kho. SP không tồn tại → 404 |
+
+Tham số lọc của danh sách: `keyword`, `categoryId`, `active` (giống `/api/products`) + `warehouseId` (không bớt SP, chỉ thêm số tại kho đó) + `stockStatus` (lọc trong SQL; sai giá trị → 400). `sort` nhận thuộc tính của sản phẩm, chưa sắp theo số tồn.
+
+`/api/products` (POST/PUT) có thêm `minStockQuantity` (số nguyên ≥ 0, tùy chọn). PUT không gửi trường này = bỏ mức tối thiểu.
+
 Danh sách nhận `page`, `size` (tối đa 100), `sort` (ví dụ `sort=name,asc`). `sort` sai thuộc tính → 400.
 
 **Lọc sản phẩm** (`GET /api/products`, thêm 2026-10-16) — tất cả tùy chọn, không gửi = không lọc; lọc trong SQL nên `pagination` phản ánh kết quả đã lọc:

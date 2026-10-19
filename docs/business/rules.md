@@ -33,6 +33,19 @@ Phân biệt 3 loại:
 
 ---
 
+## Xem tồn kho theo sản phẩm
+
+### ✅ Đã xác nhận (2026-10-19)
+
+- **BR-STK-01:** Tổng tồn của một SP = cộng tồn ở **mọi kho, kể cả kho đã ngừng hoạt động** (hàng vẫn nằm đó cho đến khi điều chuyển đi). Phần chi tiết theo kho ghi rõ kho nào đã ngừng.
+- **BR-STK-02:** Hiển thị kèm số tấn: `tấn = số lượng × net_weight_kg / 1000`, làm tròn `HALF_UP`, 3 chữ số lẻ (tức đến kg). Chỉ để xem/báo cáo, không dùng trong giao dịch.
+- **BR-STK-03:** Mỗi SP có thể đặt **một mức tồn tối thiểu** (`min_stock_quantity`, số nguyên ≥ 0, tùy chọn), so với tổng tồn mọi kho. Không đặt = không cảnh báo Sắp hết.
+- **BR-STK-04:** Tình trạng tồn, luôn tính trên **tổng** mọi kho: **Hết hàng** khi tổng = 0; **Sắp hết** khi 0 < tổng **≤** mức tối thiểu; còn lại là **Còn hàng**.
+- **BR-STK-05:** Chọn một kho ở trang Sản phẩm: cột tồn hiện số **tại kho đó** kèm tổng mọi kho. Không bớt SP nào khỏi danh sách, và tình trạng tồn vẫn tính theo tổng (theo BR-STK-04).
+- **BR-STK-06:** **Đang về** = tổng SL đặt trên các phiếu nhập còn **Nháp**. Hiện riêng, **không cộng vào tồn**. Phiếu Hoàn tất (đã vào tồn) và phiếu Đã hủy không tính.
+
+---
+
 ## Tiền tệ
 
 ### ✅ Đã xác nhận
