@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatPriceInput, formatVnd, lineAmount, parsePriceInput } from './money'
+import { formatPriceInput, formatVnd, hasAtMostTwoDecimals, lineAmount, parsePriceInput } from './money'
 
 describe('lineAmount - cùng quy tắc HALF_UP với backend (BR-MON-05)', () => {
   // Cùng bộ số với StockDocumentItemTest ở backend
@@ -42,5 +42,14 @@ describe('ô nhập đơn giá', () => {
 
   it('format(parse(x)) giữ nguyên chuỗi người dùng thấy', () => {
     expect(formatPriceInput(parsePriceInput('250.000,25'))).toBe('250.000,25')
+  })
+})
+
+describe('hasAtMostTwoDecimals', () => {
+  it('nhận 0, 1 hoặc 2 chữ số lẻ; từ chối 3 chữ số lẻ', () => {
+    expect(hasAtMostTwoDecimals(300000)).toBe(true)
+    expect(hasAtMostTwoDecimals(52500.5)).toBe(true)
+    expect(hasAtMostTwoDecimals(0.1)).toBe(true)
+    expect(hasAtMostTwoDecimals(1000.123)).toBe(false)
   })
 })

@@ -198,3 +198,20 @@ Phân biệt 3 loại:
 - **BR-CUS-05:** Khách không xóa cứng; ngừng hoạt động bằng `active = false`. Tạo khách mới bằng SĐT của khách đã ngừng → từ chối, hướng dẫn mở lại (giống BR-SUP-04).
 - **BR-CUS-06:** SĐT được **chuẩn hóa trước khi lưu và trước khi kiểm trùng**: bỏ khoảng trắng, dấu chấm, gạch ngang; kết quả phải là `0` + 9–10 chữ số (`0901 234 567` → `0901234567`). Chưa nhận `+84`. DB có CHECK chỉ cho lưu dạng đã chuẩn hóa.
 - Công nợ, giá theo loại khách: chưa quản lý — xem BR-SAL-Q01, BR-SAL-Q02 ở module bán hàng.
+
+---
+
+## Nhân viên, chấm công, bảng lương
+
+> Bổ sung ngoài phạm vi MVP ban đầu theo yêu cầu (2026-10-20). Quản lý nhập công hộ, chưa có đăng nhập.
+
+### ✅ Đã xác nhận (2026-10-20)
+
+- **BR-EMP-01:** Mã nhân viên `NV` + 3 chữ số (`NV001`), tự sinh, không sửa được. Không xóa cứng: nghỉ việc = `active = false`; chấm công, bảng lương cũ vẫn giữ.
+- **BR-EMP-02:** Mỗi nhân viên có **lương ngày công**, **đơn giá tấn bốc vác**, hoặc **cả hai** (ít nhất một), mỗi đơn giá ≥ 0, 2 chữ số lẻ (BR-MON-04). Để trống = không hưởng theo cách đó.
+- **BR-EMP-03:** Tên được trùng. SĐT tùy chọn, **không** chặn trùng; có nhập thì chuẩn hóa như BR-CUS-06.
+- **BR-ATT-01:** Mỗi nhân viên mỗi ngày một dòng chấm công: trạng thái ngày Cả ngày (1 công) / Nửa ngày (0,5) / Nghỉ (0) + số tấn bốc vác (≥ 0, tối đa 3 chữ số lẻ). Quản lý nhập tay.
+- **BR-ATT-02:** Ngày Nghỉ thì số tấn = 0. Không chấm công ngày tương lai (giờ VN). Không chấm công cho nhân viên đã nghỉ.
+- **BR-PAY-01:** Lương tháng = tổng công × lương ngày + tổng tấn × đơn giá tấn; **mỗi phần làm tròn `HALF_UP` về đồng**, tổng = tổng hai phần đã làm tròn. Ví dụ 41,235 tấn × 52.500 = 2.164.837,5 → 2.164.838.
+- **BR-PAY-02:** Chưa chốt: bảng lương tính trực tiếp từ chấm công với đơn giá hiện tại. **Chốt lương** lưu bản chụp (công, tấn, **đơn giá lúc chốt**) — đổi đơn giá sau không đổi lương đã chốt.
+- **BR-PAY-03:** Tháng đã chốt thì **khóa chấm công** của tháng đó. Sửa = **Hủy chốt** (bắt buộc lý do) → bảng lương cũ giữ lại với trạng thái Đã hủy, tháng mở lại để sửa và chốt lại. Mỗi tháng chỉ một bảng lương còn hiệu lực.
