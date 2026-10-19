@@ -56,14 +56,16 @@ public class AttendanceService {
                 .sorted(Comparator.comparing(Employee::getCode))
                 .map(employee -> toRow(employee, daysByEmployee.getOrDefault(employee.getId(), List.of())))
                 .toList();
-        return new MonthlyAttendanceResponse(month, month.lengthOfMonth(), today(), rows);
+        return new MonthlyAttendanceResponse(month, month.lengthOfMonth(), today(),
+                monthLock.isPayrollFinalized(month), rows);
     }
 
     /** Ghi (tạo hoặc ghi đè) một ô. BR-ATT-01..02. */
     @Transactional
     public AttendanceDay record(Long employeeId, LocalDate date, AttendanceRequest request) {
-        // Khóa tháng TRƯỚC khi đọc ô: hai người cùng ghi một ô mới sẽ xếp hàng, người sau thấy ô người trước vừa tạo
-        monthLock.lock(YearMonth.from(date));
+        // Khóa tháng TRƯỚC khi đọc ô: hai người cùng ghi một ô mới sẽ xếp hàng, người sau thấy ô người trước vừa tạo;
+        // và chốt lương (cùng khóa) không thể chen vào giữa lúc kiểm tra "chưa chốt" và lúc ghi
+        lockMonthForChange(YearMonth.from(date));
         Employee employee = writableEmployee(employeeId, date);
         if (request.status() == DayStatus.ABSENT && request.effectiveTons().signum() > 0) {
             throw new InvalidRequestException("tons", "Ngày nghỉ thì không có tấn bốc vác");
@@ -78,12 +80,21 @@ public class AttendanceService {
     /** Xóa ô ghi nhầm — ngày đó trở về "chưa chấm". */
     @Transactional
     public void clear(Long employeeId, LocalDate date) {
-        monthLock.lock(YearMonth.from(date));
+        lockMonthForChange(YearMonth.from(date));
         writableEmployee(employeeId, date);
         Attendance attendance = attendanceRepository.findByEmployeeIdAndWorkDate(employeeId, date)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Nhân viên id=" + employeeId + " chưa được chấm công ngày " + date));
         attendanceRepository.delete(attendance);
+    }
+
+    /** BR-PAY-03: khóa tháng rồi mới kiểm tra đã chốt — kiểm tra trước khi khóa thì kết quả có thể cũ ngay lập tức. */
+    private void lockMonthForChange(YearMonth month) {
+        monthLock.lock(month);
+        if (monthLock.isPayrollFinalized(month)) {
+            throw new BusinessException(String.format("Tháng %02d/%d đã chốt lương, không sửa được chấm công."
+                    + " Hủy chốt bảng lương tháng này trước nếu cần sửa", month.getMonthValue(), month.getYear()));
+        }
     }
 
     /** BR-ATT-02: không chấm ngày tương lai (giờ VN), không chấm cho nhân viên đã nghỉ. */

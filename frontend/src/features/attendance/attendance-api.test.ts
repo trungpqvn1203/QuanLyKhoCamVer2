@@ -1,21 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { attendanceApi, dayIso, shiftMonth, weekdayLabel } from './attendance-api'
-
-describe('shiftMonth', () => {
-  it('lùi / tiến tháng, qua năm đúng', () => {
-    expect(shiftMonth('2026-10', -1)).toBe('2026-09')
-    expect(shiftMonth('2026-01', -1)).toBe('2025-12')
-    expect(shiftMonth('2026-12', 1)).toBe('2027-01')
-  })
-})
-
-describe('dayIso / weekdayLabel', () => {
-  it('ghép ngày có số 0 đầu; thứ đúng theo lịch', () => {
-    expect(dayIso('2026-10', 5)).toBe('2026-10-05')
-    expect(weekdayLabel('2026-10-20')).toBe('T3')
-    expect(weekdayLabel('2026-10-25')).toBe('CN')
-  })
-})
+import { attendanceApi } from './attendance-api'
 
 describe('attendanceApi', () => {
   afterEach(() => {

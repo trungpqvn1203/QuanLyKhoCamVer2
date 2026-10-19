@@ -8,11 +8,13 @@ import java.util.List;
 /**
  * Bảng công một tháng: mỗi nhân viên một dòng, kèm các ô đã chấm và tổng.
  * today: ngày hôm nay giờ VN — frontend khóa các ô tương lai mà không phải tự đoán múi giờ.
+ * payrollFinalized: tháng đã chốt lương → cả bảng công chỉ xem (BR-PAY-03).
  */
 public record MonthlyAttendanceResponse(
         YearMonth month,
         int daysInMonth,
         LocalDate today,
+        boolean payrollFinalized,
         List<Row> employees) {
 
     /**

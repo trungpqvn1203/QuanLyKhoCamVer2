@@ -45,6 +45,8 @@ export interface MonthlyAttendance {
   daysInMonth: number
   /** Hôm nay theo giờ VN do backend trả — ô sau ngày này bị khóa (BR-ATT-02) */
   today: string
+  /** Tháng đã chốt lương → bảng công chỉ xem (BR-PAY-03) */
+  payrollFinalized: boolean
   employees: AttendanceRow[]
 }
 
@@ -52,26 +54,6 @@ export interface AttendanceInput {
   status: DayStatus
   tons?: number
   note?: string
-}
-
-/** "2026-10" + 5 → "2026-10-05" */
-export function dayIso(month: string, day: number): string {
-  return `${month}-${String(day).padStart(2, '0')}`
-}
-
-/** "2026-01" lùi 1 → "2025-12". Tính bằng số, không qua Date để khỏi lệch múi giờ. */
-export function shiftMonth(month: string, delta: number): string {
-  const [year, monthValue] = month.split('-').map(Number)
-  const index = year * 12 + (monthValue - 1) + delta
-  return `${Math.floor(index / 12)}-${String((index % 12) + 1).padStart(2, '0')}`
-}
-
-const WEEKDAY_LABELS = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7']
-
-/** "2026-10-05" → "T2". Date.UTC: thứ của một NGÀY không phụ thuộc múi giờ máy người dùng. */
-export function weekdayLabel(isoDate: string): string {
-  const [year, month, day] = isoDate.split('-').map(Number)
-  return WEEKDAY_LABELS[new Date(Date.UTC(year, month - 1, day)).getUTCDay()]
 }
 
 const BASE = '/api/attendance'

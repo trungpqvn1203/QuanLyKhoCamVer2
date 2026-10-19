@@ -14,7 +14,7 @@
 | `customer` | Khách hàng (đại lý, trang trại, khách lẻ) | ✅ Đã duyệt 2026-10-20 (V8) |
 | `employee` | Nhân viên + đơn giá lương ngày / tấn bốc vác | ✅ Đã duyệt 2026-10-20 (V9) |
 | `attendance` | Chấm công: nhân viên × ngày (trạng thái ngày + tấn bốc vác) | ✅ Đã duyệt 2026-10-20 (V11) |
-| `payroll`, `payroll_item` | Bảng lương tháng đã chốt (bản chụp đơn giá) | ✅ Đã duyệt 2026-10-20 — chưa tạo migration |
+| `payroll`, `payroll_item` | Bảng lương tháng đã chốt (bản chụp đơn giá) | ✅ Đã duyệt 2026-10-20 (V12) |
 | `inventory` | Tồn kho hiện tại (product × warehouse) | ✅ Đã duyệt 2026-10-19 (V6) |
 | `stock_document` | Chứng từ kho (phiếu nhập, phiếu xuất, phiếu điều chuyển) | ✅ Đã duyệt 2026-10-19 (V6) — mới mở loại `INBOUND` |
 | `stock_document_item` | Dòng chi tiết trong chứng từ | ✅ Đã duyệt 2026-10-19 (V6) |

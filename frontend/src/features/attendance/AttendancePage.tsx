@@ -1,16 +1,33 @@
-import { LeftOutlined, ReloadOutlined, RightOutlined } from '@ant-design/icons'
-import { Alert, Button, Flex, Input, Space, Table, Tag, Tooltip, Typography, theme } from 'antd'
+import { LockOutlined } from '@ant-design/icons'
+import { Alert, Button, Flex, Space, Table, Tag, Tooltip, Typography, theme } from 'antd'
 import type { TableProps } from 'antd'
 import { useEffect, useMemo, useState } from 'react'
 import { ApiError } from '../../api/client'
+import { Link } from 'react-router-dom'
 import { PageHeader } from '../../components/layout/PageHeader'
-import { formatDate, todayIso } from '../../utils/format'
-import { DAY_STATUS_LABELS, DAY_STATUS_SYMBOLS, attendanceApi, dayIso, shiftMonth, weekdayLabel } from './attendance-api'
+import { MonthNavigator } from '../../components/ui/MonthNavigator'
+import { formatDate } from '../../utils/format'
+import { currentMonth, dayIso, formatMonth, weekdayLabel } from '../../utils/month'
+import { DAY_STATUS_LABELS, DAY_STATUS_SYMBOLS, attendanceApi } from './attendance-api'
 import type { AttendanceDay, AttendanceRow, DayStatus, MonthlyAttendance } from './attendance-api'
 import { AttendanceCellModal } from './AttendanceCellModal'
 
 const tonsFormat = new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 3 })
 const unitsFormat = new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 1 })
+
+/** Mô tả ô cho tooltip / trình đọc màn hình: nội dung đã chấm + lý do bị khóa nếu có. */
+function cellTooltip(
+  day: AttendanceDay | undefined,
+  { future, payrollLocked, inactive }: { future: boolean; payrollLocked: boolean; inactive: boolean },
+): string {
+  if (future) return 'Chưa đến ngày'
+  const content = day
+    ? `${DAY_STATUS_LABELS[day.status]}${day.tons > 0 ? ` · ${tonsFormat.format(day.tons)} tấn` : ''}${day.note ? ` · ${day.note}` : ''}`
+    : 'Chưa chấm'
+  if (payrollLocked) return `${content} — tháng đã chốt lương, không sửa được`
+  if (inactive) return `${content} — nhân viên đã nghỉ việc, cho làm lại nếu cần sửa công`
+  return day ? content : 'Chưa chấm — bấm để chấm công'
+}
 
 interface EditingCell {
   row: AttendanceRow
@@ -24,7 +41,7 @@ interface EditingCell {
  */
 export function AttendancePage() {
   const { token } = theme.useToken()
-  const [month, setMonth] = useState(() => todayIso().slice(0, 7))
+  const [month, setMonth] = useState(currentMonth)
   const [reloadCount, setReloadCount] = useState(0)
   const [sheet, setSheet] = useState<MonthlyAttendance | null>(null)
   const [loading, setLoading] = useState(true)
@@ -53,7 +70,6 @@ export function AttendancePage() {
   }, [month, reloadCount])
 
   const goTo = (next: string) => {
-    if (!next || next === month) return
     setLoading(true)
     setMonth(next)
   }
@@ -79,14 +95,9 @@ export function AttendancePage() {
   const renderCell = (row: AttendanceRow, date: string) => {
     const day = cells.get(`${row.employeeId}|${date}`)
     const future = sheet != null && date > sheet.today
-    const locked = future || !row.active
-    const tooltip = future
-      ? 'Chưa đến ngày'
-      : !row.active
-        ? 'Nhân viên đã nghỉ việc — cho làm lại nếu cần sửa công'
-        : day
-          ? `${DAY_STATUS_LABELS[day.status]}${day.tons > 0 ? ` · ${tonsFormat.format(day.tons)} tấn` : ''}${day.note ? ` · ${day.note}` : ''}`
-          : 'Chưa chấm — bấm để chấm công'
+    const payrollLocked = sheet?.payrollFinalized ?? false
+    const locked = future || !row.active || payrollLocked
+    const tooltip = cellTooltip(day, { future, payrollLocked, inactive: !row.active })
     return (
       <Tooltip title={tooltip} mouseEnterDelay={0.4}>
         <button
@@ -193,19 +204,7 @@ export function AttendancePage() {
     <>
       <PageHeader title="Chấm công" description="Bảng công tháng: ngày công và tấn bốc vác của từng nhân viên" />
       <Flex justify="space-between" align="center" wrap gap="small" style={{ marginBottom: 12 }}>
-        <Space>
-          <Button icon={<LeftOutlined />} onClick={() => goTo(shiftMonth(month, -1))} aria-label="Tháng trước" />
-          <Input
-            type="month"
-            value={month}
-            onChange={(event) => goTo(event.target.value)}
-            style={{ width: 170 }}
-            aria-label="Chọn tháng"
-          />
-          <Button icon={<RightOutlined />} onClick={() => goTo(shiftMonth(month, 1))} aria-label="Tháng sau" />
-          <Button onClick={() => goTo(todayIso().slice(0, 7))}>Tháng này</Button>
-          <Button icon={<ReloadOutlined />} onClick={reload} aria-label="Tải lại" />
-        </Space>
+        <MonthNavigator value={month} onChange={goTo} onReload={reload} />
         <Space size="middle" wrap>
           {(Object.keys(DAY_STATUS_SYMBOLS) as DayStatus[]).map((status) => (
             <Typography.Text key={status} type="secondary">
@@ -216,6 +215,20 @@ export function AttendancePage() {
           <Typography.Text type="secondary">· Chưa chấm · số nhỏ dưới ký hiệu = tấn bốc vác</Typography.Text>
         </Space>
       </Flex>
+      {sheet?.payrollFinalized && (
+        <Alert
+          type="info"
+          showIcon
+          icon={<LockOutlined />}
+          title={`Tháng ${formatMonth(sheet.month)} đã chốt lương — bảng công chỉ xem`}
+          description={
+            <>
+              Muốn sửa chấm công, vào <Link to="/payroll">Bảng lương</Link> và hủy chốt tháng này (cần ghi lý do).
+            </>
+          }
+          style={{ marginBottom: 12 }}
+        />
+      )}
       {error && (
         <Alert
           type="error"

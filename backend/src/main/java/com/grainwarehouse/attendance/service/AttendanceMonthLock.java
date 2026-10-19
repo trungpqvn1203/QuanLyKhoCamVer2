@@ -14,7 +14,7 @@ import java.time.YearMonth;
  * Vì sao không dùng SELECT ... FOR UPDATE như phiếu nhập: chấm công một ô mới thì chưa có dòng nào để khóa,
  * và chốt lương cần chặn cả việc THÊM ô mới vào tháng. pg_advisory_xact_lock khóa một "con số" do ta tự đặt
  * (ở đây: loại khóa + yyyymm), tự nhả khi transaction kết thúc (commit hay rollback đều nhả).
- * Mọi đường ghi phải đi qua đây thì khóa mới có tác dụng.
+ * Mọi đường ghi (chấm công, xóa ô, chốt lương, hủy chốt) phải đi qua đây thì khóa mới có tác dụng.
  */
 @Component
 @RequiredArgsConstructor
@@ -30,5 +30,16 @@ public class AttendanceMonthLock {
     public void lock(YearMonth month) {
         int key = month.getYear() * 100 + month.getMonthValue();
         jdbcTemplate.queryForObject("SELECT pg_advisory_xact_lock(?, ?)::text", String.class, LOCK_SPACE, key);
+    }
+
+    /**
+     * BR-PAY-03: tháng đã chốt lương thì khóa chấm công. Đọc thẳng bảng payroll bằng SQL thay vì gọi module payroll:
+     * payroll đã phụ thuộc attendance (đọc chấm công để tính lương), gọi ngược lại sẽ thành phụ thuộc vòng.
+     * Chỉ chính xác khi gọi SAU lock(month) — trước đó, kết quả có thể đổi ngay sau khi đọc.
+     */
+    public boolean isPayrollFinalized(YearMonth month) {
+        return Boolean.TRUE.equals(jdbcTemplate.queryForObject(
+                "SELECT EXISTS (SELECT 1 FROM payroll WHERE period = ? AND status = 'FINALIZED')",
+                Boolean.class, month.atDay(1)));
     }
 }

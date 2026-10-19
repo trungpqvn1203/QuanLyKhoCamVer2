@@ -1,5 +1,5 @@
 import { Form, Input, Typography } from 'antd'
-import { FormModal } from '../../components/ui/FormModal'
+import { FormModal } from './FormModal'
 
 interface ReasonValues {
   reason?: string
@@ -18,7 +18,7 @@ interface ReasonModalProps {
   onClose: () => void
 }
 
-/** Hộp nhập lý do cho Hủy phiếu / Đảo phiếu — dùng lại FormModal để có sẵn xử lý lỗi và chống mất dữ liệu. */
+/** Hộp nhập lý do (hủy/đảo phiếu nhập, hủy chốt lương) — dùng lại FormModal để có sẵn xử lý lỗi và chống mất dữ liệu. */
 export function ReasonModal({ open, title, description, submitText, required, onSubmit, onClose }: ReasonModalProps) {
   const [form] = Form.useForm<ReasonValues>()
 
