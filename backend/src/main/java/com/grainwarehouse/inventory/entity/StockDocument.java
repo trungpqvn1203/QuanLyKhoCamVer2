@@ -125,9 +125,12 @@ public class StockDocument extends AuditableEntity {
         totalAmount = items.stream().map(StockDocumentItem::getLineAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
-    /** BR-SAL-10: số còn nợ = tổng phiếu − đã thu. */
+    /**
+     * BR-SAL-10: số còn nợ = tổng phiếu − đã thu, CHỈ với phiếu Hoàn tất. Nháp chưa giao, Đã hủy không giao,
+     * Đã đảo thì hàng đã về kho — cả ba đều không phát sinh nợ (trước đây phiếu Đã đảo hiện nhầm "còn nợ 620.000 đ").
+     */
     public BigDecimal getOutstandingAmount() {
-        return totalAmount.subtract(paidAmount);
+        return status == StockDocumentStatus.COMPLETED ? totalAmount.subtract(paidAmount) : BigDecimal.ZERO;
     }
 
     /**

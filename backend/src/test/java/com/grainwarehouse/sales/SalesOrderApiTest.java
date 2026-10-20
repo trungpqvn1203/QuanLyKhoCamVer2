@@ -116,6 +116,7 @@ class SalesOrderApiTest {
                 .andExpect(jsonPath("$.data.lines[0].orderedQuantity").doesNotExist())
                 .andExpect(jsonPath("$.data.totalAmount").value(2537037))
                 .andExpect(jsonPath("$.data.paidAmount").value(0))
+                .andExpect(jsonPath("$.data.outstandingAmount").value(0))
                 .andExpect(jsonPath("$.data.payments.length()").value(0));
 
         assertThat(stock(pigFeed)).isEqualTo(100);
@@ -253,7 +254,8 @@ class SalesOrderApiTest {
         reverse(id, "Giao sai loại cám")
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.status").value("REVERSED"))
-                .andExpect(jsonPath("$.data.reason").value("Giao sai loại cám"));
+                .andExpect(jsonPath("$.data.reason").value("Giao sai loại cám"))
+                .andExpect(jsonPath("$.data.outstandingAmount").value(0)); // hàng đã về kho → không còn nợ
 
         assertThat(stock(pigFeed)).isEqualTo(100);
         assertThat(stock(chickenFeed)).isEqualTo(50);
