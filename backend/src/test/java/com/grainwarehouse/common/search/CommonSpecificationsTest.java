@@ -73,6 +73,13 @@ class CommonSpecificationsTest {
     }
 
     @Test
+    @DisplayName("keywordContains: nhận đường dẫn lồng (thuộc tính của quan hệ)")
+    void shouldMatchNestedAttribute() {
+        assertThat(names(CommonSpecifications.keywordContains("danh muc test", "category.name"))).hasSize(4);
+        assertThat(names(CommonSpecifications.keywordContains("khong co", "category.name"))).isEmpty();
+    }
+
+    @Test
     @DisplayName("keywordContains: % và _ là ký tự thường, không phải ký tự đại diện")
     void shouldEscapeLikeWildcards() {
         assertThat(names(CommonSpecifications.keywordContains("100%", "code", "name")))

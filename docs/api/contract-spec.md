@@ -168,6 +168,7 @@ DELETE /api/products/:id          # Xóa (soft delete)
 | Phiếu bán | `GET/POST /api/sales-orders`, `GET/PUT /api/sales-orders/{id}`, `POST …/{id}/complete`, `…/cancel`, `…/reverse`, `POST …/{id}/payments`, `POST …/{id}/payments/{paymentId}/reverse` | Xem mục **Phiếu bán, thanh toán, công nợ** bên dưới. Không có DELETE → 405 |
 | Giá riêng của khách | `GET /api/customers/{id}/prices`, `PUT/DELETE /api/customers/{id}/prices/{productId}` | Xem mục **Phiếu bán, thanh toán, công nợ** |
 | Công nợ khách | `GET /api/customer-debts?customerId=` | Xem mục **Phiếu bán, thanh toán, công nợ** |
+| Lịch sử biến động tồn | `GET /api/inventory/transactions` | Chỉ đọc (POST → 405). Xem mục **Lịch sử biến động tồn** bên dưới |
 
 **Phiếu nhập kho** (thêm 2026-10-19, BR-IMP-01..14):
 
@@ -221,6 +222,18 @@ Lọc `GET /api/sales-orders`: `keyword` (mã phiếu), `status`, `warehouseId`,
 | `GET /api/inventory/products/{productId}` | `productId, productCode, productName, unit, netWeightKg, minStockQuantity?, stockQuantity, stockTons, incomingQuantity, stockStatus, warehouses: [{ warehouseId, warehouseCode, warehouseName, warehouseActive, quantity, tons, incomingQuantity, updatedAt? }]`. Chỉ liệt kê kho có tồn > 0 hoặc có hàng đang về, sắp theo mã kho. SP không tồn tại → 404 |
 
 Tham số lọc của danh sách: `keyword`, `categoryId`, `active` (giống `/api/products`) + `warehouseId` (không bớt SP, chỉ thêm số tại kho đó) + `stockStatus` (lọc trong SQL; sai giá trị → 400). `sort` nhận thuộc tính của sản phẩm, chưa sắp theo số tồn.
+
+**Lịch sử biến động tồn** (thêm 2026-10-20, BR-INV-04..06) — đọc `stock_transaction`, mặc định `id` giảm dần (mới ghi sổ trước; không sắp theo `createdAt` vì các dòng của một lần hoàn tất phiếu trùng thời điểm):
+
+| Tham số | Kiểu | Ý nghĩa |
+|---|---|---|
+| `productId`, `warehouseId` | number | SP / kho |
+| `type` | `IN` \| `OUT` | Chiều tăng/giảm; sai giá trị → 400 |
+| `documentType` | `INBOUND` \| `OUTBOUND` | Loại chứng từ gây ra biến động; sai giá trị → 400 |
+| `keyword` | string | Mã chứng từ chứa từ khóa, không phân biệt hoa thường |
+| `createdFrom`, `createdTo` | `YYYY-MM-DD` | Ngày **ghi sổ** (lúc hoàn tất / đảo phiếu) theo giờ VN, hai đầu đều tính — không phải ngày chứng từ |
+
+Item: `id, createdAt, type, quantity, quantityBefore, quantityAfter, reversalOfId?, productId, productCode, productName, unit, warehouseId, warehouseCode, warehouseName, documentId, documentCode, documentType, documentDate, supplierId?, supplierName?, customerId?, customerName?`. `quantityBefore/After` là tồn **tại kho của dòng đó**. `reversalOfId` có giá trị = giao dịch đảo. Lọc một SP + một kho: `quantityAfter` dòng đầu = tồn hiện tại, `quantityBefore` mỗi dòng = `quantityAfter` dòng ngay sau.
 
 `/api/products` (POST/PUT) có thêm `minStockQuantity` (số nguyên ≥ 0, tùy chọn). PUT không gửi trường này = bỏ mức tối thiểu.
 

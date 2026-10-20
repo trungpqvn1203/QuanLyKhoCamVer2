@@ -35,6 +35,7 @@ public final class CommonSpecifications {
     /**
      * Một trong các thuộc tính chứa từ khóa — không phân biệt hoa thường, không phân biệt dấu
      * ("cam" khớp "Cám", "DONG" khớp "Đồng"), tự cắt khoảng trắng hai đầu. "%", "_" là ký tự thường.
+     * Nhận cả đường dẫn lồng như "documentItem.document.code".
      */
     public static <T> Specification<T> keywordContains(String keyword, String... attributes) {
         if (keyword == null || keyword.isBlank()) {
@@ -45,7 +46,8 @@ public final class CommonSpecifications {
             // Chuẩn hóa cả hai vế trong SQL bằng cùng một hàm → kết quả nhất quán, không phụ thuộc Java
             Expression<String> normalizedPattern = normalize(cb, cb.literal(pattern));
             return cb.or(Arrays.stream(attributes)
-                    .map(attribute -> cb.like(normalize(cb, root.get(attribute)), normalizedPattern, LIKE_ESCAPE))
+                    .map(attribute -> cb.like(normalize(cb, CommonSpecifications.<String>path(root, attribute)),
+                            normalizedPattern, LIKE_ESCAPE))
                     .toArray(Predicate[]::new));
         };
     }

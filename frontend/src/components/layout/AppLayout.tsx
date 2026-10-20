@@ -1,4 +1,4 @@
-import { AccountBookOutlined, AppstoreOutlined, CalendarOutlined, DollarOutlined, ExportOutlined, HomeOutlined, IdcardOutlined, ImportOutlined, ShopOutlined, TeamOutlined } from '@ant-design/icons'
+import { AccountBookOutlined, AppstoreOutlined, CalendarOutlined, DollarOutlined, ExportOutlined, HistoryOutlined, HomeOutlined, IdcardOutlined, ImportOutlined, ShopOutlined, TeamOutlined } from '@ant-design/icons'
 import { Breadcrumb, Flex, Layout, Menu, Typography, theme } from 'antd'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { SIDER_DIVIDER } from '../../theme/theme'
@@ -13,6 +13,7 @@ const MENU_ITEMS = [
   { key: '/inbound-receipts', icon: <ImportOutlined />, label: 'Nhập kho' },
   { key: '/sales-orders', icon: <ExportOutlined />, label: 'Bán hàng' },
   { key: '/customer-debts', icon: <AccountBookOutlined />, label: 'Công nợ' },
+  { key: '/stock-transactions', icon: <HistoryOutlined />, label: 'Lịch sử kho' },
   { key: '/employees', icon: <IdcardOutlined />, label: 'Nhân viên' },
   { key: '/attendance', icon: <CalendarOutlined />, label: 'Chấm công' },
   { key: '/payroll', icon: <DollarOutlined />, label: 'Bảng lương' },
