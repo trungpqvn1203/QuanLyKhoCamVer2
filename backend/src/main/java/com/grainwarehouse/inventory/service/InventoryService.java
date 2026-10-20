@@ -14,7 +14,7 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Cửa duy nhất làm thay đổi tồn kho — dùng chung cho nhập, (sau này) xuất và điều chuyển.
+ * Cửa duy nhất làm thay đổi tồn kho — dùng chung cho nhập, xuất (bán) và (sau này) điều chuyển.
  * Mỗi lần đổi tồn luôn đi kèm đúng một StockTransaction (BR-INV-04).
  * MANDATORY: bắt buộc chạy trong transaction của nghiệp vụ gọi tới (ví dụ hoàn tất phiếu) —
  * gọi ngoài transaction thì lỗi ngay, để cộng tồn của dòng 1 không thể commit riêng
@@ -31,6 +31,11 @@ public class InventoryService {
     /** Tăng tồn theo một dòng chứng từ (phiếu nhập hoàn tất). */
     public StockTransaction stockIn(StockDocumentItem item, Warehouse warehouse, int quantity) {
         return increase(item, warehouse, quantity, null);
+    }
+
+    /** Giảm tồn theo một dòng chứng từ (phiếu bán hoàn tất). Không đủ tồn → BusinessException (BR-INV-01). */
+    public StockTransaction stockOut(StockDocumentItem item, Warehouse warehouse, int quantity) {
+        return decrease(item, warehouse, quantity, null);
     }
 
     /** Ghi giao dịch ngược chiều với giao dịch gốc, trỏ về giao dịch gốc (BR-INV-06). */

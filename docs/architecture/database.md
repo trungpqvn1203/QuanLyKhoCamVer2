@@ -16,9 +16,11 @@
 | `attendance` | Chấm công: nhân viên × ngày (trạng thái ngày + tấn bốc vác) | ✅ Đã duyệt 2026-10-20 (V11) |
 | `payroll`, `payroll_item` | Bảng lương tháng đã chốt (bản chụp đơn giá) | ✅ Đã duyệt 2026-10-20 (V12) |
 | `inventory` | Tồn kho hiện tại (product × warehouse) | ✅ Đã duyệt 2026-10-19 (V6) |
-| `stock_document` | Chứng từ kho (phiếu nhập, phiếu xuất, phiếu điều chuyển) | ✅ Đã duyệt 2026-10-19 (V6) — mới mở loại `INBOUND` |
+| `stock_document` | Chứng từ kho (phiếu nhập, phiếu bán/xuất, phiếu điều chuyển) | ✅ Đã duyệt 2026-10-19 (V6) — `INBOUND`; V13 (2026-10-20) mở `OUTBOUND` + `customer_id`, `paid_amount` |
 | `stock_document_item` | Dòng chi tiết trong chứng từ | ✅ Đã duyệt 2026-10-19 (V6) |
 | `stock_transaction` | Lịch sử biến động tồn kho (bất biến) | ✅ Đã duyệt 2026-10-19 (V6) |
+| `customer_product_price` | Giá bán riêng hiện hành theo (khách, SP) — chỉ để điền sẵn | ✅ Đã duyệt 2026-10-20 (V13) |
+| `sale_payment` | Lịch sử thanh toán của phiếu bán (bất biến) | ✅ Đã duyệt 2026-10-20 (V13) |
 
 > **Mã tự sinh (từ V10):** mọi cột `code` dùng `DEFAULT format_code('<tiền tố>', nextval('<seq>'), <độ rộng>)` — đệm số 0 khi ngắn hơn, giữ nguyên khi dài hơn (`KHO1050`). Không dùng `lpad` trực tiếp: `lpad` **cắt** chuỗi dài hơn độ rộng (`lpad('1050', 3)` = `'105'`) → mã trùng. Bảng mới có mã tự sinh phải dùng `format_code` (test `CodeGenerationPersistenceTest` kiểm mọi cột).
 
@@ -105,14 +107,16 @@ erDiagram
 
     stock_document {
         bigint id PK
-        varchar code UK "PN000001 (service sinh từ inbound_code_seq)"
-        varchar type "INBOUND (OUTBOUND, TRANSFER mở sau)"
+        varchar code UK "PN000001 / PX000001 (service sinh từ inbound_code_seq / outbound_code_seq)"
+        varchar type "INBOUND | OUTBOUND (TRANSFER mở sau)"
         varchar status "DRAFT | COMPLETED | CANCELLED | REVERSED"
         bigint warehouse_id FK "Kho chính (nhập/xuất)"
         bigint supplier_id FK "bắt buộc khi INBOUND"
+        bigint customer_id FK "bắt buộc khi OUTBOUND (V13)"
         date document_date "Ngày chứng từ, lùi được, không tương lai"
         varchar note
         numeric total_amount "NUMERIC(18,0)"
+        numeric paid_amount "NUMERIC(18,0), 0 <= paid <= total (V13)"
         varchar reason "Lý do hủy/đảo"
         timestamptz completed_at
         timestamptz cancelled_at
@@ -146,6 +150,27 @@ erDiagram
         timestamptz created_at
     }
 
+    customer_product_price {
+        bigint id PK
+        bigint customer_id FK "UK (customer_id, product_id)"
+        bigint product_id FK
+        numeric unit_price "NUMERIC(15,2), >= 0"
+        timestamptz created_at
+        timestamptz updated_at
+    }
+
+    sale_payment {
+        bigint id PK
+        bigint document_id FK "Phiếu bán"
+        varchar type "PAYMENT | REVERSAL"
+        varchar method "CASH | BANK_TRANSFER"
+        numeric amount "NUMERIC(18,0), > 0"
+        date payment_date
+        varchar note "Ghi chú / lý do hoàn"
+        bigint reversal_of_id FK "UK; bắt buộc khi REVERSAL"
+        timestamptz created_at
+    }
+
     category ||--o{ product : "phân nhóm"
     product ||--o{ inventory : "tồn tại các kho"
     warehouse ||--o{ inventory : "chứa sản phẩm"
@@ -159,6 +184,9 @@ erDiagram
     stock_document_item ||--|{ stock_transaction : "tạo giao dịch"
     product ||--o{ stock_transaction : "biến động"
     warehouse ||--o{ stock_transaction : "tại kho"
+    customer ||--o{ customer_product_price : "có giá riêng"
+    product ||--o{ customer_product_price : "được định giá"
+    stock_document ||--o{ sale_payment : "được thanh toán"
 ```
 
 ## Giải thích thiết kế
@@ -210,7 +238,9 @@ erDiagram
 
 ### stock_document (Chứng từ) (✅ đã duyệt — migration V6)
 
-- Dùng chung cho phiếu nhập / xuất / điều chuyển, phân biệt bằng `type`. V6 chỉ mở `CHECK (type IN ('INBOUND'))`; module xuất/điều chuyển sẽ nới CHECK và thêm cột (`customer_id`, `target_warehouse_id`) bằng migration mới.
+- Dùng chung cho phiếu nhập / xuất / điều chuyển, phân biệt bằng `type`. V6 mở `INBOUND`; **V13 mở `OUTBOUND`** và thêm `customer_id`, `paid_amount`. Điều chuyển sẽ nới CHECK và thêm `target_warehouse_id` sau.
+- `ck_stock_document_customer` (V13): phiếu nhập không có khách; phiếu bán bắt buộc có khách, không có NCC (BR-SAL-01).
+- `paid_amount` (V13): tổng đã thu — **snapshot** của `sale_payment`, giống `inventory` ↔ `stock_transaction`. `ck_stock_document_paid`: `0 <= paid_amount <= total_amount` (BR-SAL-11). Chỉ đổi khi thu/hoàn tiền, sau khi khóa phiếu `FOR UPDATE`. Còn nợ = `total_amount − paid_amount` (không lưu).
 - `code`: **không** có DEFAULT ở DB (khác `product`/`supplier`) vì các loại phiếu khác tiền tố (`PN`, `PX`, `PC`). Service gọi `nextval('inbound_code_seq')` rồi format `PN%06d`.
 - `status`: `DRAFT → COMPLETED`, `DRAFT → CANCELLED`, `COMPLETED → REVERSED` (BR-IMP-11, 12). CHECK đảm bảo mốc thời gian đi kèm trạng thái (`completed_at` khi COMPLETED/REVERSED, `cancelled_at`, `reversed_at`).
 - `ck_stock_document_supplier`: phiếu nhập bắt buộc có NCC.
@@ -233,6 +263,20 @@ erDiagram
 - `reversal_of_id` (FK tự tham chiếu, **UNIQUE**): giao dịch đảo trỏ về giao dịch gốc; mỗi giao dịch chỉ bị đảo một lần (BR-INV-06, BR-IMP-12).
 - **Chặn sửa/xóa ở DB**: trigger `trg_stock_transaction_immutable` (BEFORE UPDATE OR DELETE, FOR EACH ROW) và `trg_stock_transaction_no_truncate` (BEFORE TRUNCATE) → `RAISE EXCEPTION … ERRCODE restrict_violation`. Phía Java thêm `@Immutable`, không setter.
 - So với thiết kế ứng viên: **bỏ cột `reason`** (PURCHASE/SALE...) — loại nghiệp vụ suy ra từ `stock_document.type` qua dòng chứng từ; đổi tên `reference_transaction_id` → `reversal_of_id` cho rõ nghĩa.
+
+### customer_product_price (Bảng giá riêng theo khách) (✅ đã duyệt — migration V13)
+
+- Một giá **hiện hành** cho mỗi cặp (khách, SP), `UNIQUE (customer_id, product_id)` — index này cũng phục vụ "bảng giá của khách X".
+- Chỉ để **điền sẵn** giá khi lập phiếu (BR-SAL-07). Giá thực bán chụp trên `stock_document_item.unit_price` → không cần lịch sử giá ở đây. Khi nào cần "giá áp dụng từ ngày X" mới thêm `effective_from`.
+- Ghi bằng `INSERT … ON CONFLICT DO UPDATE` (một câu SQL) — hai người cùng đặt giá lần đầu không lỗi trùng UNIQUE. Xóa giá = xóa cứng dòng (không phải lịch sử).
+
+### sale_payment (Thanh toán phiếu bán — BẤT BIẾN) (✅ đã duyệt — migration V13)
+
+- Mỗi dòng là một khoản thu (`PAYMENT`) hoặc một lần hoàn khoản thu (`REVERSAL`) của **một** phiếu bán. `amount > 0`, chiều nằm ở `type`.
+- Thu kết hợp tiền mặt + chuyển khoản = **hai dòng** cùng transaction, mỗi dòng một `method` (BR-SAL-12).
+- `reversal_of_id` UNIQUE + `ck_sale_payment_reversal` (REVERSAL ⇔ có `reversal_of_id`): mỗi khoản hoàn đúng một lần.
+- Trigger `trg_sale_payment_immutable` / `trg_sale_payment_no_truncate` chặn UPDATE/DELETE/TRUNCATE như `stock_transaction`.
+- Công nợ khách = `SUM(total_amount − paid_amount)` của phiếu `OUTBOUND` + `COMPLETED` còn nợ, `GROUP BY customer_id` — không có bảng số dư.
 
 Ví dụ (khi có module điều chuyển): phiếu điều chuyển 100 bao cám A từ kho K1 sang K2 tạo:
 1. StockTransaction: product=A, warehouse=K1, type=OUT, quantity=100
@@ -308,6 +352,9 @@ Cả hai transaction đều lock theo thứ tự ID tăng dần → không deadl
 | Hai phiếu cùng nhập SP mới vào cùng kho | `INSERT … ON CONFLICT (product_id, warehouse_id) DO UPDATE` — không lỗi trùng UNIQUE, không mất lần cộng | Chuỗi `quantity_before → after` của 5 giao dịch nối liền |
 | Đảo phiếu khi hàng đã xuất bớt | `UPDATE … WHERE quantity >= :q`; 0 dòng → `BusinessException` → rollback mọi dòng đã trừ | Phiếu 2 dòng, dòng 2 thiếu → dòng 1 không bị trừ, không có OUT nào |
 | Nhiều dòng cùng phiếu | Xử lý theo `product_id` tăng dần (lock ordering) | — |
+| Nhiều phiếu bán cùng trừ một SP (V13) | `UPDATE … WHERE quantity >= :q` | `SalesOrderConcurrencyTest`: 5 phiếu × 30 bao, tồn 100 → đúng 3 thành công, tồn còn 10 |
+| Phiếu bán 2 dòng, dòng 2 thiếu tồn | Lỗi → rollback cả dòng 1 đã trừ | Tồn dòng 1 nguyên vẹn, 0 giao dịch, phiếu vẫn `DRAFT` |
+| Hai người cùng thu tiền một phiếu | Khóa phiếu `FOR UPDATE` rồi mới so với số còn nợ; CHECK `paid <= total` dự phòng | 5 luồng × 400.000 cho phiếu nợ 1.000.000 → đúng 2 thành công |
 
 ## Index dự kiến
 
@@ -321,6 +368,10 @@ Cả hai transaction đều lock theo thứ tự ID tăng dần → không deadl
 | UK | `stock_transaction` | `reversal_of_id` | Chặn đảo hai lần (V6) |
 | IDX | `stock_transaction` | `(product_id, warehouse_id, created_at)` | Lịch sử tồn theo sản phẩm + kho + thời gian (V6) |
 | IDX | `stock_transaction` | `document_item_id` | Tìm giao dịch theo dòng chứng từ (V6) |
+| IDX | `stock_document` | `(customer_id, document_date)` | Phiếu bán / công nợ theo khách (V13) |
+| UK | `customer_product_price` | `(customer_id, product_id)` | Bảng giá của khách; chặn trùng (V13) |
+| IDX | `sale_payment` | `document_id` | Lịch sử thanh toán của phiếu (V13) |
+| UK | `sale_payment` | `reversal_of_id` | Chặn hoàn hai lần (V13) |
 | IDX | `stock_document` | `(type, document_date)` | Lọc chứng từ theo loại + ngày chứng từ (V6 — đổi từ `created_at` vì danh sách lọc theo ngày chứng từ) |
 
 > ⚠️ Index đã tạo nhưng chưa kiểm chứng bằng EXPLAIN ANALYZE với dữ liệu thực tế (việc của Tuần 3).

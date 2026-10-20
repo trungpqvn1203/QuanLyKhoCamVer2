@@ -49,10 +49,10 @@ Hoàn thành nhập kho, bán hàng, điều chuyển với đầy đủ StockTr
 - [x] Supplier + Customer CRUD _(Supplier + liên kết NCC–SP xong 2026-10-16, V4; Customer BE + FE xong 2026-10-20, V8)_
 - [x] Module nhập kho: API + service + test _(backend 2026-10-19; giao diện ở Tuần 3)_
 - [x] Nhân viên + chấm công (ngày công, tấn bốc vác) + bảng lương tháng _(bổ sung ngoài MVP theo yêu cầu, 2026-10-20, V9 + V11 + V12)_
-- [ ] Module bán hàng/xuất kho: API + service + test
+- [x] Module bán hàng/xuất kho: API + service + test _(2026-10-20, V13 — kèm bảng giá theo khách, thanh toán, công nợ)_
 - [ ] Module điều chuyển kho: API + service + test
-- [ ] StockTransaction ghi nhận đúng cho tất cả nghiệp vụ _(nhập + đảo phiếu nhập xong)_
-- [ ] Test: không xuất vượt tồn (unit test) _(đã có cho đảo phiếu nhập; còn xuất kho)_
+- [ ] StockTransaction ghi nhận đúng cho tất cả nghiệp vụ _(nhập, bán + đảo hai loại phiếu xong; còn điều chuyển)_
+- [x] Test: không xuất vượt tồn _(đảo phiếu nhập; bán hàng: `SalesOrderConcurrencyTest` 5 phiếu × 30 bao trên tồn 100 → đúng 3 thành công)_
 - [x] Test: race condition với concurrent requests _(`InboundReceiptConcurrencyTest`: hoàn tất/đảo đồng thời, cộng tồn đồng thời)_
 - [ ] Test: điều chuyển rollback khi thất bại _(đã có rollback khi đảo phiếu 2 dòng; còn điều chuyển)_
 - [x] Test: CHECK constraint ngăn tồn âm ở DB level _(`InventoryPersistenceTest`)_

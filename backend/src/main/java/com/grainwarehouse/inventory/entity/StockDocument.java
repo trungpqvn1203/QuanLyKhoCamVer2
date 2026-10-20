@@ -1,6 +1,7 @@
 package com.grainwarehouse.inventory.entity;
 
 import com.grainwarehouse.common.entity.AuditableEntity;
+import com.grainwarehouse.customer.entity.Customer;
 import com.grainwarehouse.supplier.entity.Supplier;
 import com.grainwarehouse.warehouse.entity.Warehouse;
 import jakarta.persistence.CascadeType;
@@ -61,6 +62,12 @@ public class StockDocument extends AuditableEntity {
     @JoinColumn(name = "supplier_id")
     private Supplier supplier;
 
+    // Chỉ phiếu bán (BR-SAL-01); CHECK ck_stock_document_customer ở DB
+    @Setter
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "customer_id")
+    private Customer customer;
+
     @Setter
     @Column(name = "document_date", nullable = false)
     private LocalDate documentDate;
@@ -71,6 +78,10 @@ public class StockDocument extends AuditableEntity {
 
     @Column(name = "total_amount", nullable = false, precision = 18, scale = 0)
     private BigDecimal totalAmount = BigDecimal.ZERO;
+
+    // BR-SAL-10: tổng đã thu của phiếu bán (snapshot của sale_payment); phiếu nhập luôn 0
+    @Column(name = "paid_amount", nullable = false, precision = 18, scale = 0)
+    private BigDecimal paidAmount = BigDecimal.ZERO;
 
     // Lý do hủy hoặc đảo
     @Column(length = 500)
@@ -112,6 +123,19 @@ public class StockDocument extends AuditableEntity {
     /** BR-MON-05: tổng phiếu = tổng thành tiền các dòng (mỗi dòng đã làm tròn), không làm tròn thêm. */
     public void recalculateTotal() {
         totalAmount = items.stream().map(StockDocumentItem::getLineAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    /** BR-SAL-10: số còn nợ = tổng phiếu − đã thu. */
+    public BigDecimal getOutstandingAmount() {
+        return totalAmount.subtract(paidAmount);
+    }
+
+    /**
+     * Cộng (thu) hoặc trừ (hoàn) vào tổng đã thu. Không tự kiểm tra vượt nợ — service kiểm tra sau khi
+     * khóa phiếu; CHECK ck_stock_document_paid ở DB là tuyến phòng thủ cuối.
+     */
+    public void addPaidAmount(BigDecimal delta) {
+        paidAmount = paidAmount.add(delta);
     }
 
     public void markCompleted(Instant at) {
