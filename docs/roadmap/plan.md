@@ -48,6 +48,7 @@ Hoàn thành nhập kho, bán hàng, điều chuyển với đầy đủ StockTr
 - [x] Migration tiếp theo: tạo các bảng nghiệp vụ kho _(V6; `stock_document` mới mở loại `INBOUND`)_
 - [x] Supplier + Customer CRUD _(Supplier + liên kết NCC–SP xong 2026-10-16, V4; Customer BE + FE xong 2026-10-20, V8)_
 - [x] Module nhập kho: API + service + test _(backend 2026-10-19; giao diện ở Tuần 3)_
+- [x] Nhân viên + chấm công (ngày công, tấn bốc vác) + bảng lương tháng _(bổ sung ngoài MVP theo yêu cầu, 2026-10-20, V9 + V11 + V12)_
 - [ ] Module bán hàng/xuất kho: API + service + test
 - [ ] Module điều chuyển kho: API + service + test
 - [ ] StockTransaction ghi nhận đúng cho tất cả nghiệp vụ _(nhập + đảo phiếu nhập xong)_

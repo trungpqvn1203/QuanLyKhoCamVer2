@@ -1,4 +1,4 @@
-import { AppstoreOutlined, HomeOutlined, ImportOutlined, ShopOutlined, TeamOutlined } from '@ant-design/icons'
+import { AppstoreOutlined, CalendarOutlined, DollarOutlined, HomeOutlined, IdcardOutlined, ImportOutlined, ShopOutlined, TeamOutlined } from '@ant-design/icons'
 import { Breadcrumb, Flex, Layout, Menu, Typography, theme } from 'antd'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { SIDER_DIVIDER } from '../../theme/theme'
@@ -11,6 +11,9 @@ const MENU_ITEMS = [
   { key: '/suppliers', icon: <ShopOutlined />, label: 'Nhà cung cấp' },
   { key: '/customers', icon: <TeamOutlined />, label: 'Khách hàng' },
   { key: '/inbound-receipts', icon: <ImportOutlined />, label: 'Nhập kho' },
+  { key: '/employees', icon: <IdcardOutlined />, label: 'Nhân viên' },
+  { key: '/attendance', icon: <CalendarOutlined />, label: 'Chấm công' },
+  { key: '/payroll', icon: <DollarOutlined />, label: 'Bảng lương' },
 ]
 
 /** Cao bằng Header mặc định của Ant Design để logo thẳng hàng với breadcrumb. */

@@ -1,6 +1,7 @@
 import { Form, Input, Select, Switch } from 'antd'
 import { FormModal } from '../../components/ui/FormModal'
-import { CUSTOMER_TYPE_OPTIONS, customerApi, isValidPhone } from './customer-api'
+import { PHONE_FORMAT_MESSAGE, isValidPhone } from '../../utils/phone'
+import { CUSTOMER_TYPE_OPTIONS, customerApi } from './customer-api'
 import type { Customer, UpdateCustomerInput } from './customer-api'
 
 interface CustomerFormModalProps {
@@ -51,7 +52,7 @@ export function CustomerFormModal({ open, editing, onClose, onSaved }: CustomerF
             validator: (_, value?: string) =>
               !value?.trim() || isValidPhone(value)
                 ? Promise.resolve()
-                : Promise.reject(new Error('Số điện thoại phải bắt đầu bằng 0 và có 10–11 chữ số')),
+                : Promise.reject(new Error(PHONE_FORMAT_MESSAGE)),
           },
         ]}
       >

@@ -38,3 +38,8 @@ export function formatPriceInput(value: string | number | undefined): string {
 export function parsePriceInput(text: string | undefined): string {
   return (text ?? '').replace(/\./g, '').replace(',', '.')
 }
+
+/** BR-MON-04: đơn giá tối đa 2 chữ số lẻ. So qua "xu" có dung sai vì 0.1 * 100 trong JavaScript ra 10.000000000000002. */
+export function hasAtMostTwoDecimals(value: number): boolean {
+  return Math.abs(value * 100 - Math.round(value * 100)) <= 1e-6
+}

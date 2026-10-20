@@ -40,7 +40,7 @@ class SearchConventionTest {
     void shouldFindExistingModules() {
         assertThat(criteriaClasses).extracting(Class::getSimpleName)
                 .contains("ProductSearchCriteria", "SupplierSearchCriteria", "WarehouseSearchCriteria",
-                        "InboundReceiptSearchCriteria", "CustomerSearchCriteria");
+                        "InboundReceiptSearchCriteria", "CustomerSearchCriteria", "EmployeeSearchCriteria");
     }
 
     @Test

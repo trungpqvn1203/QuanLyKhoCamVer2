@@ -50,6 +50,10 @@ Hàng hóa nhập từ NCC vào kho tập kết, sau đó được:
 11. Docker Compose chạy local
 12. Triển khai VPS + Nginx + HTTPS
 13. Backup và hướng dẫn khôi phục database
+
+### Bổ sung theo yêu cầu (2026-10-20)
+
+- Nhân viên, chấm công (ngày công + tấn bốc vác), bảng lương tháng — quy tắc BR-EMP / BR-ATT / BR-PAY trong `rules.md`. Chưa có đăng nhập: quản lý nhập công hộ.
 14. CI/CD cơ bản bằng GitHub Actions
 
 ### Xem xét nếu còn thời gian

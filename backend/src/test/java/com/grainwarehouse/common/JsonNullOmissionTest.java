@@ -44,6 +44,7 @@ class JsonNullOmissionTest {
         jdbcTemplate.update("INSERT INTO supplier (name, contact_name) VALUES ('NCC test', 'A')");
         jdbcTemplate.update("INSERT INTO warehouse (name, type, address) VALUES ('Kho test', 'CENTRAL', 'Hà Nội')");
         jdbcTemplate.update("INSERT INTO customer (name, type, phone) VALUES ('Khách test', 'RETAIL', '0901234567')");
+        jdbcTemplate.update("INSERT INTO employee (name, ton_rate) VALUES ('NV test', 50000)");
     }
 
     @ParameterizedTest(name = "{0}")
@@ -54,7 +55,8 @@ class JsonNullOmissionTest {
             "/api/warehouses",
             "/api/categories",
             "/api/inbound-receipts",
-            "/api/customers"
+            "/api/customers",
+            "/api/employees"
     })
     @DisplayName("Danh sách không chứa \"field\": null")
     void listShouldOmitNullFields(String url) throws Exception {
