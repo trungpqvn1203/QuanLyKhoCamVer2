@@ -1,5 +1,5 @@
-import { Col, Form, Input, InputNumber, Row, Switch, Typography } from 'antd'
-import type { FormRule } from 'antd'
+import { Flex, Form, Input, InputNumber, Switch, Typography } from 'antd'
+import type { FormRule, InputNumberProps } from 'antd'
 import { FormModal } from '../../components/ui/FormModal'
 import { formatPriceInput, hasAtMostTwoDecimals, parsePriceInput } from '../../utils/money'
 import { PHONE_FORMAT_MESSAGE, isValidPhone } from '../../utils/phone'
@@ -29,15 +29,18 @@ const atLeastOneRateRule: FormRule = ({ getFieldValue }) => ({
   },
 })
 
-function PriceInput({ suffix, ariaLabel }: { suffix: string; ariaLabel: string }) {
+/**
+ * Form.Item gắn value/onChange vào component con TRỰC TIẾP của nó — ở đây là PriceInput, nên phải chuyển tiếp
+ * xuống InputNumber ({...props}). Thiếu dòng đó thì ô vẫn gõ được nhưng form không nhận giá trị nào.
+ */
+function PriceInput(props: InputNumberProps<number>) {
   return (
     <InputNumber<number>
+      {...props}
       min={0}
       style={{ width: '100%' }}
       formatter={formatPriceInput}
       parser={(text) => Number(parsePriceInput(text))}
-      suffix={suffix}
-      aria-label={ariaLabel}
       placeholder="Không hưởng"
     />
   )
@@ -80,23 +83,21 @@ export function EmployeeFormModal({ open, editing, onClose, onSaved }: EmployeeF
       >
         <Input placeholder="Không bắt buộc" inputMode="tel" />
       </Form.Item>
-      <Row gutter={16}>
-        <Col span={12}>
-          <Form.Item
-            name="dailyWage"
-            label="Lương ngày công"
-            dependencies={['tonRate']}
-            rules={[priceRule, atLeastOneRateRule]}
-          >
-            <PriceInput suffix="đ/ngày" ariaLabel="Lương ngày công" />
-          </Form.Item>
-        </Col>
-        <Col span={12}>
-          <Form.Item name="tonRate" label="Đơn giá bốc vác" rules={[priceRule]}>
-            <PriceInput suffix="đ/tấn" ariaLabel="Đơn giá bốc vác" />
-          </Form.Item>
-        </Col>
-      </Row>
+      {/* Flex + gap thay vì Row gutter: gutter dùng margin âm → thân modal (overflow: auto) hiện thanh cuộn ngang */}
+      <Flex gap={16}>
+        <Form.Item
+          name="dailyWage"
+          label="Lương ngày công"
+          dependencies={['tonRate']}
+          rules={[priceRule, atLeastOneRateRule]}
+          style={{ flex: 1 }}
+        >
+          <PriceInput suffix="đ/ngày" aria-label="Lương ngày công" />
+        </Form.Item>
+        <Form.Item name="tonRate" label="Đơn giá bốc vác" rules={[priceRule]} style={{ flex: 1 }}>
+          <PriceInput suffix="đ/tấn" aria-label="Đơn giá bốc vác" />
+        </Form.Item>
+      </Flex>
       <Typography.Paragraph type="secondary" style={{ marginTop: -8 }}>
         Để trống ô nào thì nhân viên không hưởng lương theo cách đó. Đổi đơn giá chỉ áp dụng cho các tháng chưa chốt lương.
       </Typography.Paragraph>

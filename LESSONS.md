@@ -18,6 +18,9 @@ Ghi dồn sau mỗi module, ôn tập ở cuối dự án. Mỗi mục: **khái 
 
 - **Test đọc dữ liệu cũ trong bộ nhớ đệm Hibernate**: test dùng `UPDATE employee SET active = false` bằng JdbcTemplate, rồi gọi API bảng công, nhưng kết quả vẫn ra `active: true`. Nguyên nhân: test chạy trong một transaction duy nhất, và Hibernate đã nạp nhân viên đó vào persistence context từ lần gọi trước. Câu UPDATE viết tay đi thẳng xuống DB nên Hibernate không biết. Ở môi trường thật, mỗi request có persistence context riêng nên không gặp lỗi này. Cách sửa: thao tác qua API (cho nghỉ việc bằng `DELETE /api/employees/{id}`), đúng như người dùng làm.
 
+- **Form báo "chưa nhập đơn giá" dù đã gõ đủ (bạn phát hiện khi chạy thử)**: `Form.Item` gắn `value`/`onChange` vào component con *trực tiếp* của nó. Ô tiền được bọc trong `PriceInput` tự viết, nhưng `PriceInput` không chuyển tiếp hai prop này xuống `InputNumber`. Vì vậy ô vẫn hiện số người dùng gõ, còn form thì luôn thấy `undefined`. Cách sửa: `PriceInput(props)` rồi `<InputNumber {...props} />`. Quy tắc chung: component tự viết đặt trong `Form.Item` phải nhận và chuyển tiếp `value`/`onChange`. Test hiện có không bắt được lỗi này vì chỉ test hàm API, không test component. Muốn bắt được thì cần thư viện test giao diện (React Testing Library), mà thư viện này chưa có trong dự án.
+- **Thanh cuộn ngang trong modal**: `Row gutter` tạo khoảng cách bằng margin âm hai bên. Thân modal lại đặt `overflow: auto`, nên phần margin thừa ra sinh thanh cuộn ngang. Trong modal nên dùng `Flex gap` thay cho `Row gutter`.
+
 ### Câu hỏi ôn tập (để cuối dự án)
 
 1. Vì sao bảng lương đã chốt phải lưu đơn giá, chứ không JOIN sang `employee`?
