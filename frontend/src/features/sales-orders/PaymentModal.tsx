@@ -98,17 +98,10 @@ export function PaymentModal({ open, order, onSubmit, onClose }: PaymentModalPro
           <Form.Item
             name="paymentDate"
             label="Ngày thu"
-            rules={[
-              { required: true, message: 'Chọn ngày thu' },
-              {
-                validator: async (_, value?: string) => {
-                  if (value && value > todayIso()) throw new Error('Không được chọn ngày tương lai')
-                  if (value && value < order.documentDate) throw new Error('Không được trước ngày bán')
-                },
-              },
-            ]}
+            // BR-SAL-12 (đổi 2026-10-20): chọn ngày tự do — không giới hạn tương lai hay trước ngày bán
+            rules={[{ required: true, message: 'Chọn ngày thu' }]}
           >
-            <Input type="date" min={order.documentDate} max={todayIso()} />
+            <Input type="date" />
           </Form.Item>
         </Col>
         <Col span={14}>

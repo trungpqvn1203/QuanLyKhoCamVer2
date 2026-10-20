@@ -13,7 +13,7 @@ import java.time.LocalDate;
  * Tiền thu tính đến đồng — không có phần lẻ.
  */
 public record RecordPaymentRequest(
-        // Không gửi = hôm nay (giờ VN); không ở tương lai, không trước ngày phiếu
+        // Không gửi = hôm nay (giờ VN); chọn ngày nào cũng được (BR-SAL-12)
         LocalDate paymentDate,
 
         @PositiveOrZero(message = "Tiền mặt không được âm")

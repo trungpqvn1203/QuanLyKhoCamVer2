@@ -348,7 +348,7 @@ class SalesOrderApiTest {
     }
 
     @Test
-    @DisplayName("BR-SAL-12: số tiền 0/âm/lẻ, ngày thu tương lai hoặc trước ngày phiếu - 400")
+    @DisplayName("BR-SAL-12: số tiền 0/âm/lẻ - 400; ngày thu chọn tự do (tương lai, trước ngày phiếu đều được)")
     void shouldValidatePayment() throws Exception {
         long id = createDraftFrom(body(dealer.getId(), today().minusDays(3), line(pigFeed.getId(), 10, "100000")))
                 .get("id").asLong();
@@ -364,14 +364,11 @@ class SalesOrderApiTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error.details[0].field").value("cashAmount"));
         payRequest(id, Map.of("cashAmount", 1000, "paymentDate", today().plusDays(1).toString()))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.error.details[0].field").value("paymentDate"));
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.payments[0].paymentDate").value(today().plusDays(1).toString()));
         payRequest(id, Map.of("cashAmount", 1000, "paymentDate", today().minusDays(4).toString()))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.error.details[0].field").value("paymentDate"));
-        // Ghi lùi về đúng ngày phiếu: được
-        payRequest(id, Map.of("cashAmount", 1000, "paymentDate", today().minusDays(3).toString()))
-                .andExpect(status().isCreated());
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.payments[1].paymentDate").value(today().minusDays(4).toString()));
     }
 
     @Test

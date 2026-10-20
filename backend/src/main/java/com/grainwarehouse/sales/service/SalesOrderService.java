@@ -164,7 +164,8 @@ public class SalesOrderService {
         }
 
         StockDocument document = lockForChange(id, COMPLETED, "thu tiền");
-        LocalDate paymentDate = resolvePaymentDate(request.paymentDate(), document);
+        // BR-SAL-12: ngày thu chọn tự do (kể cả trước ngày bán hoặc tương lai); không gửi = hôm nay
+        LocalDate paymentDate = request.paymentDate() == null ? today() : request.paymentDate();
         if (total.compareTo(document.getOutstandingAmount()) > 0) {
             throw new BusinessException("Số tiền thu " + money(total) + " vượt số còn nợ "
                     + money(document.getOutstandingAmount()) + " của " + label(document).toLowerCase());
@@ -256,19 +257,6 @@ public class SalesOrderService {
             throw new InvalidRequestException("documentDate", "Ngày chứng từ không được ở tương lai");
         }
         return requested;
-    }
-
-    // BR-SAL-12: ngày thu mặc định hôm nay, không ở tương lai, không trước ngày phiếu (chưa bán thì chưa thu)
-    private static LocalDate resolvePaymentDate(LocalDate requested, StockDocument document) {
-        LocalDate date = requested == null ? today() : requested;
-        if (date.isAfter(today())) {
-            throw new InvalidRequestException("paymentDate", "Ngày thu không được ở tương lai");
-        }
-        if (date.isBefore(document.getDocumentDate())) {
-            throw new InvalidRequestException("paymentDate",
-                    "Ngày thu không được trước ngày phiếu bán (" + document.getDocumentDate() + ")");
-        }
-        return date;
     }
 
     // Mỗi SP một dòng (như BR-IMP-A05)

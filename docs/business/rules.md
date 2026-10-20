@@ -119,7 +119,7 @@ _(Trả lời BR-SAL-Q01: có công nợ, chỉ ở mức phiếu bán + lịch 
 - **BR-SAL-09:** Chỉ phiếu **Hoàn tất** mới thu tiền (khách trả **sau khi nhận hàng**). Lúc hoàn tất không có ô "trả ngay".
 - **BR-SAL-10:** Còn nợ của phiếu = tổng phiếu − đã thu. Công nợ của khách = tổng còn nợ các phiếu Hoàn tất. Không có số dư nợ lưu riêng ở khách, không có phiếu thu gộp nhiều phiếu.
 - **BR-SAL-11:** Một lần thu **không được vượt số còn nợ** của phiếu.
-- **BR-SAL-12:** Một lần thu có thể **kết hợp tiền mặt + chuyển khoản**; mỗi hình thức có số tiền > 0 thành một dòng riêng, ghi cùng transaction. Tiền tính đến đồng. Ngày thu mặc định hôm nay, không ở tương lai, không trước ngày phiếu.
+- **BR-SAL-12:** Một lần thu có thể **kết hợp tiền mặt + chuyển khoản**; mỗi hình thức có số tiền > 0 thành một dòng riêng, ghi cùng transaction. Tiền tính đến đồng. Ngày thu mặc định hôm nay, **chọn tự do** — được ghi trước ngày bán hoặc ngày tương lai _(đổi 2026-10-20 theo yêu cầu; trước đó chặn cả hai)_.
 - **BR-SAL-13:** Lịch sử thanh toán **bất biến**. Thu nhầm → **hoàn** toàn bộ khoản đó (lý do bắt buộc) bằng một dòng hoàn trỏ về khoản gốc; mỗi khoản hoàn một lần.
 - **BR-SAL-14:** Phiếu **đã thu tiền** (đã thu > 0) **không được đảo** — phải hoàn hết các khoản thu trước. Trường hợp khách trả trước rồi trả hàng: để sau.
 
