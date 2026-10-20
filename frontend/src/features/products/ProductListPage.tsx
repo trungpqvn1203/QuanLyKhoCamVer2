@@ -1,7 +1,8 @@
-import { DatabaseOutlined, PlusOutlined, ShopOutlined } from '@ant-design/icons'
+import { DatabaseOutlined, HistoryOutlined, PlusOutlined, ShopOutlined } from '@ant-design/icons'
 import { App, Button, Flex, Typography } from 'antd'
 import type { TableProps } from 'antd'
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { ApiError } from '../../api/client'
 import { PageHeader } from '../../components/layout/PageHeader'
 import { CodeLink, CodeText } from '../../components/ui/CodeLink'
@@ -46,6 +47,7 @@ const unitText = (product: Pick<Product, 'unit'>) => PRODUCT_UNIT_LABELS[product
  */
 export function ProductListPage() {
   const { message, notification } = App.useApp()
+  const navigate = useNavigate()
   const { page, loading, error, changePage, reload, filters, applyFilters, filtering } = useFilteredList(
     productStockApi.list,
   )
@@ -251,6 +253,12 @@ export function ProductListPage() {
               label: 'Tồn theo kho',
               icon: <DatabaseOutlined />,
               onClick: () => openDetail(product, STOCK_TAB),
+            },
+            {
+              key: 'history',
+              label: 'Lịch sử tồn kho',
+              icon: <HistoryOutlined />,
+              onClick: () => navigate(`/stock-transactions?productId=${product.id}`),
             },
             {
               key: 'suppliers',

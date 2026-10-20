@@ -9,6 +9,7 @@ import { InboundReceiptListPage } from './features/inbound-receipts/InboundRecei
 import { PayrollPage } from './features/payroll/PayrollPage'
 import { ProductListPage } from './features/products/ProductListPage'
 import { SalesOrderListPage } from './features/sales-orders/SalesOrderListPage'
+import { StockTransactionPage } from './features/stock-transactions/StockTransactionPage'
 import { SupplierListPage } from './features/suppliers/SupplierListPage'
 import { WarehouseListPage } from './features/warehouses/WarehouseListPage'
 
@@ -25,6 +26,7 @@ export const router = createBrowserRouter([
       { path: 'inbound-receipts', element: <InboundReceiptListPage /> },
       { path: 'sales-orders', element: <SalesOrderListPage /> },
       { path: 'customer-debts', element: <CustomerDebtPage /> },
+      { path: 'stock-transactions', element: <StockTransactionPage /> },
       { path: 'employees', element: <EmployeeListPage /> },
       { path: 'attendance', element: <AttendancePage /> },
       { path: 'payroll', element: <PayrollPage /> },
