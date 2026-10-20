@@ -165,6 +165,9 @@ DELETE /api/products/:id          # Xóa (soft delete)
 | SP của NCC | `GET/POST /api/suppliers/{id}/products`, `DELETE /api/suppliers/{id}/products/{productId}` | GET: SP đang liên kết (phân trang, mặc định sort `product.code`). POST `{ productId }` → 201, gán mới hoặc bật lại liên kết đã gỡ; đang liên kết → 409 `DUPLICATE_RESOURCE`; NCC/SP ngừng hoạt động → 409 `BUSINESS_RULE_VIOLATION`. DELETE = gỡ (`active=false`) → 204 |
 | NCC của SP | `GET /api/products/{id}/suppliers` | Chiều ngược: NCC đang liên kết với SP (phân trang, mặc định sort `supplier.code`), item gồm `supplierId`, `supplierCode`, `supplierName`, `contactName`, `phone`, `supplierActive`. Chỉ đọc — gán/gỡ dùng API của NCC ở dòng trên. Code đặt trong module supplier để tránh phụ thuộc vòng |
 | Phiếu nhập | `GET/POST /api/inbound-receipts`, `GET/PUT /api/inbound-receipts/{id}`, `POST /api/inbound-receipts/{id}/complete`, `…/cancel`, `…/reverse` | Xem mục **Phiếu nhập kho** bên dưới. Không có DELETE → 405 |
+| Phiếu bán | `GET/POST /api/sales-orders`, `GET/PUT /api/sales-orders/{id}`, `POST …/{id}/complete`, `…/cancel`, `…/reverse`, `POST …/{id}/payments`, `POST …/{id}/payments/{paymentId}/reverse` | Xem mục **Phiếu bán, thanh toán, công nợ** bên dưới. Không có DELETE → 405 |
+| Giá riêng của khách | `GET /api/customers/{id}/prices`, `PUT/DELETE /api/customers/{id}/prices/{productId}` | Xem mục **Phiếu bán, thanh toán, công nợ** |
+| Công nợ khách | `GET /api/customer-debts?customerId=` | Xem mục **Phiếu bán, thanh toán, công nợ** |
 
 **Phiếu nhập kho** (thêm 2026-10-19, BR-IMP-01..14):
 
@@ -186,6 +189,29 @@ Lọc `GET /api/inbound-receipts` (tất cả tùy chọn):
 | `status` | `DRAFT` \| `COMPLETED` \| `CANCELLED` \| `REVERSED` | Sai giá trị → 400 |
 | `warehouseId`, `supplierId` | number | Kho nhận / NCC |
 | `documentDateFrom`, `documentDateTo` | `YYYY-MM-DD` | Ngày chứng từ trong khoảng, hai đầu đều tính |
+
+**Phiếu bán, thanh toán, công nợ** (thêm 2026-10-20, BR-SAL-01..15):
+
+| Endpoint | Body | Kết quả / lỗi |
+|---|---|---|
+| `POST /api/sales-orders` | `{ customerId, warehouseId, documentDate?, note?, lines: [{ productId, quantity, unitPrice }] }` | 201, phiếu `DRAFT` mã `PX…`, chưa đổi tồn, không giữ chỗ tồn. Thiếu `customerId` → 400. `quantity` nguyên > 0. Ngày tương lai → 400 field `documentDate`. SP lặp dòng → 400 field `lines[i].productId`. Khách/kho/SP ngừng hoạt động → 409 |
+| `PUT /api/sales-orders/{id}` | như POST | Chỉ `DRAFT`; thay toàn bộ dòng |
+| `POST …/{id}/complete` | — | Chỉ `DRAFT` → `COMPLETED`: trừ tồn mọi dòng, mỗi dòng một giao dịch OUT. Thiếu tồn ở bất kỳ dòng nào → 409 (nêu SP và tồn hiện tại), **không trừ dòng nào** |
+| `POST …/{id}/cancel` | `{ reason? }` | Chỉ `DRAFT` → `CANCELLED` |
+| `POST …/{id}/reverse` | `{ reason }` (bắt buộc) | Chỉ `COMPLETED` → `REVERSED`: mỗi OUT có một IN trỏ về nó. **Đã thu tiền (`paidAmount > 0`) → 409**, phải hoàn các khoản thu trước. Đã đảo → 409 |
+| `POST …/{id}/payments` | `{ paymentDate?, cashAmount?, transferAmount?, note? }` | 201. Chỉ phiếu `COMPLETED`. Mỗi phần > 0 thành một dòng (`CASH` / `BANK_TRANSFER`). Cả hai trống/0 → 400 field `cashAmount`; số âm hoặc có phần lẻ → 400 field tương ứng; `paymentDate` không gửi = hôm nay, chọn ngày nào cũng được. Tổng vượt số còn nợ → 409 |
+| `POST …/{id}/payments/{paymentId}/reverse` | `{ reason }` (bắt buộc) | Ghi dòng `REVERSAL` cùng hình thức, cùng số tiền, ngày = hôm nay. Khoản thu của phiếu khác → 404; đã hoàn / là dòng hoàn → 409 |
+
+Response chi tiết phiếu bán: `id, code, status, documentDate, warehouseId/Code/Name, customerId/Code/Name, customerPhone, note, totalAmount, paidAmount, outstandingAmount, reason, completedAt, cancelledAt, reversedAt, createdAt, updatedAt, lines: [{ id, productId, productCode, productName, unit, quantity, unitPrice, lineAmount }], payments: [{ id, type (PAYMENT|REVERSAL), method (CASH|BANK_TRANSFER), amount, paymentDate, note, reversalOfId?, reversed, createdAt }]`. `outstandingAmount` = `totalAmount − paidAmount` khi `COMPLETED`, còn lại luôn `0` (nháp/hủy/đảo không phát sinh nợ). Mọi hành động (complete, reverse, payments…) trả lại response này. Danh sách trả bản tóm tắt (không `lines`, `payments`, `note`, `reason`, `customerPhone`), mặc định `id` giảm dần.
+
+Lọc `GET /api/sales-orders`: `keyword` (mã phiếu), `status`, `warehouseId`, `customerId`, `documentDateFrom`, `documentDateTo` (như phiếu nhập) + `unpaidOnly=true` (chỉ phiếu `COMPLETED` còn nợ).
+
+| Endpoint | Body | Kết quả / lỗi |
+|---|---|---|
+| `GET /api/customers/{id}/prices` | — | `[{ productId, productCode, productName, unit, productActive, unitPrice, updatedAt }]` sắp theo mã SP (không phân trang). Khách không tồn tại → 404 |
+| `PUT /api/customers/{id}/prices/{productId}` | `{ unitPrice }` (≥ 0, 2 chữ số lẻ) | 200, đặt hoặc ghi đè giá; trả lại **cả bảng giá** của khách. Khách/SP không tồn tại → 404 |
+| `DELETE /api/customers/{id}/prices/{productId}` | — | 204. Chưa có giá riêng → 404 |
+| `GET /api/customer-debts` | `?customerId=` tùy chọn | `[{ customerId, customerCode, customerName, customerType, customerPhone, customerActive, outstandingAmount, openOrderCount, oldestDocumentDate }]` — chỉ khách còn nợ, nợ nhiều nhất trước (không phân trang) |
 
 **Tồn kho theo sản phẩm** (thêm 2026-10-19, BR-STK-01..06) — chỉ đọc; đặt trong module inventory để không tạo phụ thuộc vòng product ↔ inventory:
 

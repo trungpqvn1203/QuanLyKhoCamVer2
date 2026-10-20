@@ -95,17 +95,39 @@ Phân biệt 3 loại:
 
 ## Bán hàng / Xuất kho
 
-### ⚠️ Giả định tạm thời
+### ✅ Đã xác nhận (2026-10-20)
 
-- **BR-SAL-A01:** Một phiếu bán/xuất có thể chứa nhiều dòng hàng.
-- **BR-SAL-A02:** Bán hàng tạo phiếu bán kèm thông tin khách hàng (đại lý hoặc trang trại), kho xuất, ngày bán.
-- **BR-SAL-A03:** Khi bán hàng thành công, tồn kho tại kho xuất giảm tương ứng.
+_(Trả lời BR-SAL-Q01: có công nợ, chỉ ở mức phiếu bán + lịch sử thanh toán. BR-SAL-Q02: giá nhập tay, có bảng giá riêng theo **từng khách**. BR-SAL-Q03: đảo toàn phiếu khi giao sai / hàng không đạt.)_
+
+**Phiếu bán**
+
+- **BR-SAL-01:** Phiếu bán ghi **khách hàng (bắt buộc — để xác minh ai mua, ai nợ)**, kho xuất, ngày chứng từ và nhiều dòng hàng. Mỗi dòng có SP, số lượng **> 0** (nguyên) và đơn giá bán. Mỗi SP một dòng.
+- **BR-SAL-02:** Trạng thái **Nháp → Hoàn tất**. Nháp **không ảnh hưởng tồn và không giữ chỗ tồn** (lập nháp vượt tồn vẫn được). Hoàn tất: trừ tồn và ghi `StockTransaction` OUT cho mọi dòng **trong một transaction**; một dòng thiếu tồn → từ chối, rollback toàn bộ, phiếu vẫn là Nháp.
+- **BR-SAL-03:** Mã phiếu tự sinh `PX` + 6 chữ số (`PX000001`), có thể nhảy số.
+- **BR-SAL-04:** Áp dụng như phiếu nhập: ngày chứng từ mặc định hôm nay, lùi được, không ở tương lai (BR-IMP-08); chỉ Nháp được sửa/hủy/hoàn tất, chỉ Hoàn tất được đảo (BR-IMP-11, 12); không xóa phiếu (BR-IMP-13); mọi thao tác thay đổi phiếu — **kể cả thu tiền** — khóa phiếu `FOR UPDATE` rồi mới kiểm tra trạng thái (BR-IMP-14).
+- **BR-SAL-05:** Giao sai hoặc hàng không đạt → **đảo toàn phiếu** (lý do bắt buộc): Đã đảo, mỗi OUT gốc có một IN trỏ về nó, hàng về lại đúng kho đã xuất. Mỗi phiếu đảo một lần. **Chưa hỗ trợ trả một phần.**
+- **BR-SAL-15:** Kho, khách, SP phải đang hoạt động, kiểm tra cả khi lưu nháp lẫn khi hoàn tất.
+
+**Giá bán**
+
+- **BR-SAL-06:** Mỗi khách có thể có **bảng giá riêng**: một giá hiện hành cho mỗi SP (≥ 0, 2 chữ số lẻ). Không lưu lịch sử giá trong bảng giá.
+- **BR-SAL-07:** Khi thêm dòng vào phiếu, giá **điền sẵn** từ bảng giá của khách (nếu có); người bán **sửa tay được**. Không có giá riêng → nhập tay.
+- **BR-SAL-08:** Giá thực bán **chụp lại trên dòng phiếu**. Đổi/xóa bảng giá không làm đổi phiếu đã lập. Backend không ép giá dòng phải bằng bảng giá. (BR-PRD-07 vẫn đúng: giá không lưu trong SP.)
+
+**Thanh toán & công nợ**
+
+- **BR-SAL-09:** Chỉ phiếu **Hoàn tất** mới thu tiền (khách trả **sau khi nhận hàng**). Lúc hoàn tất không có ô "trả ngay".
+- **BR-SAL-10:** Còn nợ của phiếu = tổng phiếu − đã thu. Công nợ của khách = tổng còn nợ các phiếu Hoàn tất. Không có số dư nợ lưu riêng ở khách, không có phiếu thu gộp nhiều phiếu.
+- **BR-SAL-11:** Một lần thu **không được vượt số còn nợ** của phiếu.
+- **BR-SAL-12:** Một lần thu có thể **kết hợp tiền mặt + chuyển khoản**; mỗi hình thức có số tiền > 0 thành một dòng riêng, ghi cùng transaction. Tiền tính đến đồng. Ngày thu mặc định hôm nay, **chọn tự do** — được ghi trước ngày bán hoặc ngày tương lai _(đổi 2026-10-20 theo yêu cầu; trước đó chặn cả hai)_.
+- **BR-SAL-13:** Lịch sử thanh toán **bất biến**. Thu nhầm → **hoàn** toàn bộ khoản đó (lý do bắt buộc) bằng một dòng hoàn trỏ về khoản gốc; mỗi khoản hoàn một lần.
+- **BR-SAL-14:** Phiếu **đã thu tiền** (đã thu > 0) **không được đảo** — phải hoàn hết các khoản thu trước. Trường hợp khách trả trước rồi trả hàng: để sau.
 
 ### ❓ Câu hỏi mở
 
-- **BR-SAL-Q01:** Có cần quản lý công nợ khách hàng không? Hay MVP chỉ ghi nhận đã bán?
-- **BR-SAL-Q02:** Giá bán có khác nhau theo từng kho hoặc từng loại khách không?
-- **BR-SAL-Q03:** Có cho phép trả hàng không? Nếu có, quy trình như thế nào?
+- **BR-SAL-Q04:** Trả hàng một phần (vài bao trong phiếu) — khi nào cần?
+- **BR-SAL-Q05:** Khách trả trước / tiền thừa — có cần số dư có của khách không?
+- **BR-SAL-Q06:** Có chặn ngừng hoạt động khách đang còn nợ không? (Hiện: không chặn, vẫn thu nợ được.)
 
 ---
 
@@ -197,7 +219,7 @@ Phân biệt 3 loại:
 - **BR-CUS-04:** **SĐT là định danh chống trùng**, duy nhất trên toàn bộ khách (kể cả đã ngừng). **Tên được phép trùng** (hai "Trại heo Minh" ở hai xã).
 - **BR-CUS-05:** Khách không xóa cứng; ngừng hoạt động bằng `active = false`. Tạo khách mới bằng SĐT của khách đã ngừng → từ chối, hướng dẫn mở lại (giống BR-SUP-04).
 - **BR-CUS-06:** SĐT được **chuẩn hóa trước khi lưu và trước khi kiểm trùng**: bỏ khoảng trắng, dấu chấm, gạch ngang; kết quả phải là `0` + 9–10 chữ số (`0901 234 567` → `0901234567`). Chưa nhận `+84`. DB có CHECK chỉ cho lưu dạng đã chuẩn hóa.
-- Công nợ, giá theo loại khách: chưa quản lý — xem BR-SAL-Q01, BR-SAL-Q02 ở module bán hàng.
+- Công nợ và giá riêng theo khách: xem BR-SAL-06..14 ở module bán hàng.
 
 ---
 

@@ -49,10 +49,10 @@ Hoàn thành nhập kho, bán hàng, điều chuyển với đầy đủ StockTr
 - [x] Supplier + Customer CRUD _(Supplier + liên kết NCC–SP xong 2026-10-16, V4; Customer BE + FE xong 2026-10-20, V8)_
 - [x] Module nhập kho: API + service + test _(backend 2026-10-19; giao diện ở Tuần 3)_
 - [x] Nhân viên + chấm công (ngày công, tấn bốc vác) + bảng lương tháng _(bổ sung ngoài MVP theo yêu cầu, 2026-10-20, V9 + V11 + V12)_
-- [ ] Module bán hàng/xuất kho: API + service + test
+- [x] Module bán hàng/xuất kho: API + service + test _(2026-10-20, V13 — kèm bảng giá theo khách, thanh toán, công nợ)_
 - [ ] Module điều chuyển kho: API + service + test
-- [ ] StockTransaction ghi nhận đúng cho tất cả nghiệp vụ _(nhập + đảo phiếu nhập xong)_
-- [ ] Test: không xuất vượt tồn (unit test) _(đã có cho đảo phiếu nhập; còn xuất kho)_
+- [ ] StockTransaction ghi nhận đúng cho tất cả nghiệp vụ _(nhập, bán + đảo hai loại phiếu xong; còn điều chuyển)_
+- [x] Test: không xuất vượt tồn _(đảo phiếu nhập; bán hàng: `SalesOrderConcurrencyTest` 5 phiếu × 30 bao trên tồn 100 → đúng 3 thành công)_
 - [x] Test: race condition với concurrent requests _(`InboundReceiptConcurrencyTest`: hoàn tất/đảo đồng thời, cộng tồn đồng thời)_
 - [ ] Test: điều chuyển rollback khi thất bại _(đã có rollback khi đảo phiếu 2 dòng; còn điều chuyển)_
 - [x] Test: CHECK constraint ngăn tồn âm ở DB level _(`InventoryPersistenceTest`)_
@@ -76,7 +76,7 @@ Giao diện sử dụng được cho tất cả nghiệp vụ chính. Hệ thố
 ### Checklist
 
 - [x] Giao diện nhập kho _(2026-10-19: form phiếu trong `Drawer`; dòng hàng động `Form.List`; dòng tổng `Table.Summary`; ô SP lấy từ SP đang gán cho NCC — xem ADR-0002)_
-- [ ] Giao diện bán hàng/xuất kho _(dùng lại mẫu phiếu của nhập kho)_
+- [x] Giao diện bán hàng/xuất kho _(2026-10-20: phiếu bán, thu tiền, hoàn khoản thu, trang Công nợ, bảng giá riêng trong menu ⋯ của Khách hàng)_
 - [ ] Giao diện điều chuyển kho _(các bước `Steps`: chọn kho nguồn → chọn hàng → xác nhận)_
 - [ ] Giao diện lịch sử biến động tồn kho _(lọc khoảng ngày `DatePicker.RangePicker`)_
 - [ ] Báo cáo tồn kho (theo kho, theo sản phẩm) _(rê chuột xem tồn từng kho bằng `Popover`; trang tổng quan `Card` + `Statistic`)_ — **theo sản phẩm xong 2026-10-19** (trang Sản phẩm: tồn tổng/theo kho, đang về, Sắp hết/Hết hàng, migration V7); còn trang tổng quan và xem theo kho

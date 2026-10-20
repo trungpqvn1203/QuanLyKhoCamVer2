@@ -54,11 +54,12 @@ Hàng hóa nhập từ NCC vào kho tập kết, sau đó được:
 ### Bổ sung theo yêu cầu (2026-10-20)
 
 - Nhân viên, chấm công (ngày công + tấn bốc vác), bảng lương tháng — quy tắc BR-EMP / BR-ATT / BR-PAY trong `rules.md`. Chưa có đăng nhập: quản lý nhập công hộ.
+- Bán hàng kèm **bảng giá riêng theo từng khách** và **công nợ khách hàng** (phiếu bán + lịch sử thanh toán, chưa có phiếu thu gộp) — BR-SAL-06..14.
 14. CI/CD cơ bản bằng GitHub Actions
 
 ### Xem xét nếu còn thời gian
 
-- Giá bán theo kho và đối tượng khách hàng
+- Giá bán theo kho / theo loại khách _(giá riêng theo từng khách đã làm — BR-SAL-06)_
 - Kiểm kê và điều chỉnh tồn kho
 - Xác thực và phân quyền chi tiết
 - Báo cáo nâng cao
