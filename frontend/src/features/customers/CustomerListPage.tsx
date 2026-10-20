@@ -1,4 +1,4 @@
-import { PlusOutlined } from '@ant-design/icons'
+import { PlusOutlined, TagsOutlined } from '@ant-design/icons'
 import { App, Button, Typography } from 'antd'
 import type { TableProps } from 'antd'
 import { useState } from 'react'
@@ -19,6 +19,7 @@ import { formatPhone } from '../../utils/phone'
 import { CUSTOMER_TYPE_OPTIONS, customerApi } from './customer-api'
 import type { Customer, CustomerFilters, CustomerType } from './customer-api'
 import { CustomerFormModal } from './CustomerFormModal'
+import { CustomerPriceDrawer } from './CustomerPriceDrawer'
 import { CustomerTypeTag } from './CustomerTypeTag'
 
 const FILTER_FIELDS: FilterField<CustomerFilters>[] = [
@@ -37,6 +38,8 @@ export function CustomerListPage() {
   // Tách cờ mở khỏi bản ghi: đóng khung thì nội dung vẫn còn trong lúc chạy hiệu ứng trượt ra
   const [detailOpen, setDetailOpen] = useState(false)
   const [viewing, setViewing] = useState<Customer | null>(null)
+  const [pricesOpen, setPricesOpen] = useState(false)
+  const [pricing, setPricing] = useState<Customer | null>(null)
 
   const openCreate = () => {
     setEditing(null)
@@ -127,6 +130,17 @@ export function CustomerListPage() {
           recordLabel={customer.code}
           onView={() => openDetail(customer)}
           onEdit={() => openEdit(customer)}
+          extraActions={[
+            {
+              key: 'prices',
+              label: 'Bảng giá riêng',
+              icon: <TagsOutlined />,
+              onClick: () => {
+                setPricing(customer)
+                setPricesOpen(true)
+              },
+            },
+          ]}
           deactivate={
             customer.active
               ? {
@@ -213,6 +227,7 @@ export function CustomerListPage() {
           reload()
         }}
       />
+      <CustomerPriceDrawer open={pricesOpen} customer={pricing} onClose={() => setPricesOpen(false)} />
       <DetailDrawer
         open={detailOpen}
         title={viewing ? `${viewing.code} · ${viewing.name}` : ''}
