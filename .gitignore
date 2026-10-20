@@ -22,7 +22,9 @@ build/
 .env
 .env.local
 .env.*.local
+.env.prod
 !.env.example
+!.env.prod.example
 
 # === Docker ===
 docker-compose.override.yml

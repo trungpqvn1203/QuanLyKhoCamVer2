@@ -1,0 +1,6 @@
+# Context = thư mục gốc dự án: chỉ cho phép đúng những gì frontend.Dockerfile cần
+*
+!frontend/
+!infra/nginx/
+frontend/node_modules
+frontend/dist
