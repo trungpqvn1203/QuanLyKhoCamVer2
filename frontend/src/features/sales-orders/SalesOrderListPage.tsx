@@ -13,6 +13,7 @@ import { STATUS_COLUMN_WIDTH } from '../../components/ui/StatusTag'
 import { useFilteredList } from '../../hooks/use-filtered-list'
 import { EMPTY_TEXT, formatDate } from '../../utils/format'
 import { formatVnd } from '../../utils/money'
+import { useCan } from '../auth/auth-context'
 import { RECEIPT_STATUS_LABELS } from '../inbound-receipts/inbound-receipt-api'
 import { ReceiptStatusTag } from '../inbound-receipts/ReceiptStatusTag'
 import { salesOrderApi } from './sales-order-api'
@@ -31,6 +32,7 @@ const STATUS_OPTIONS = (Object.keys(RECEIPT_STATUS_LABELS) as SalesOrderStatus[]
  */
 export function SalesOrderListPage() {
   const references = useSalesReferences()
+  const canWrite = useCan('sales.write')
   const { page, loading, error, changePage, reload, filters, applyFilters, filtering } = useFilteredList(salesOrderApi.list)
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [openedId, setOpenedId] = useState<number | null>(null)
@@ -114,7 +116,7 @@ export function SalesOrderListPage() {
         <RowActions
           recordLabel={order.code}
           onView={() => openOrder(order.id)}
-          onEdit={order.status === 'DRAFT' ? () => openOrder(order.id) : undefined}
+          onEdit={canWrite && order.status === 'DRAFT' ? () => openOrder(order.id) : undefined}
         />
       ),
     },
@@ -126,9 +128,11 @@ export function SalesOrderListPage() {
         title="Phiếu bán hàng"
         description="Lập phiếu nháp, hoàn tất khi giao hàng để trừ tồn kho, thu tiền sau khi khách nhận hàng"
         actions={
-          <Button type="primary" icon={<PlusOutlined />} onClick={() => openOrder(null)}>
-            Tạo phiếu bán
-          </Button>
+          canWrite && (
+            <Button type="primary" icon={<PlusOutlined />} onClick={() => openOrder(null)}>
+              Tạo phiếu bán
+            </Button>
+          )
         }
       />
       <FilterBar<SalesOrderFilters> fields={filterFields} value={filters} onChange={applyFilters} />
@@ -146,7 +150,7 @@ export function SalesOrderListPage() {
             noun="phiếu bán"
             filtering={filtering}
             onClearFilters={() => applyFilters({})}
-            onCreate={() => openOrder(null)}
+            onCreate={canWrite ? () => openOrder(null) : undefined}
             createLabel="Tạo phiếu bán"
           />
         }

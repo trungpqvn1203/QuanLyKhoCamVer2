@@ -237,3 +237,18 @@ _(Trả lời BR-SAL-Q01: có công nợ, chỉ ở mức phiếu bán + lịch 
 - **BR-PAY-01:** Lương tháng = tổng công × lương ngày + tổng tấn × đơn giá tấn; **mỗi phần làm tròn `HALF_UP` về đồng**, tổng = tổng hai phần đã làm tròn. Ví dụ 41,235 tấn × 52.500 = 2.164.837,5 → 2.164.838.
 - **BR-PAY-02:** Chưa chốt: bảng lương tính trực tiếp từ chấm công với đơn giá hiện tại. **Chốt lương** lưu bản chụp (công, tấn, **đơn giá lúc chốt**) — đổi đơn giá sau không đổi lương đã chốt.
 - **BR-PAY-03:** Tháng đã chốt thì **khóa chấm công** của tháng đó. Sửa = **Hủy chốt** (bắt buộc lý do) → bảng lương cũ giữ lại với trạng thái Đã hủy, tháng mở lại để sửa và chốt lại. Mỗi tháng chỉ một bảng lương còn hiệu lực.
+
+## Tài khoản, đăng nhập, phân quyền
+
+> Thiết kế kỹ thuật: [ADR-0003](../decisions/ADR-0003-authentication.md).
+
+### ✅ Đã xác nhận (2026-10-20)
+
+- **BR-AUTH-01:** Tên đăng nhập 3–50 ký tự (chữ không dấu, số, `.` `_` `-`), lưu chữ thường, duy nhất, không đổi được sau khi tạo. Không xóa tài khoản: khóa bằng `active = false`.
+- **BR-AUTH-02:** Ba vai trò: Quản lý kho, Nhân viên bán hàng, Quản lý hệ thống. Một người có **một hoặc nhiều** vai trò; quyền = hợp quyền các vai trò (ma trận ở ADR-0003 mục 5, kiểm ở backend).
+- **BR-AUTH-03:** Mật khẩu tối thiểu 8 ký tự, tối đa 72 byte (giới hạn BCrypt); chỉ lưu dạng băm BCrypt.
+- **BR-AUTH-04:** Sai tên hoặc sai mật khẩu → cùng một thông báo. Tài khoản bị khóa chỉ được báo "bị khóa" khi mật khẩu đúng.
+- **BR-AUTH-05:** Luôn còn ít nhất một Quản lý hệ thống đang hoạt động. Không tự khóa tài khoản đang đăng nhập.
+- **BR-AUTH-06:** Phiên hết hạn sau 8 giờ không thao tác, tối đa 24 giờ từ lúc đăng nhập. Đăng nhập nhiều thiết bị được phép; đăng xuất chỉ ảnh hưởng thiết bị đó. Đổi vai trò / khóa tài khoản → mọi phiên của người đó bị thu hồi, quyền cũ còn tối đa 15 phút.
+- **BR-AUTH-07:** Tự đổi mật khẩu (cần mật khẩu cũ) → các thiết bị khác phải đăng nhập lại. Quản lý hệ thống đặt lại mật khẩu → người đó đăng nhập lại trên mọi thiết bị.
+- **BR-AUTH-08:** Tài khoản Quản lý hệ thống đầu tiên được tạo khi khởi động nếu chưa có tài khoản nào, từ `BOOTSTRAP_ADMIN_USERNAME` / `BOOTSTRAP_ADMIN_PASSWORD` trong `.env`.

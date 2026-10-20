@@ -29,6 +29,14 @@ spring:
 server:
   port: ${SERVER_PORT:8080}
 
+# Xác thực (ADR-0003). Thời hạn mặc định ở AuthProperties: access 15m, không thao tác 8h, tối đa 24h
+grain:
+  auth:
+    jwt-secret: ${JWT_SECRET:}
+    cookie-secure: ${COOKIE_SECURE:true}
+    bootstrap-admin-username: ${BOOTSTRAP_ADMIN_USERNAME:}
+    bootstrap-admin-password: ${BOOTSTRAP_ADMIN_PASSWORD:}
+
 management:
   endpoints:
     web:

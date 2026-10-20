@@ -10,6 +10,7 @@ import type { FilterField } from '../../components/ui/FilterBar'
 import { ListEmpty } from '../../components/ui/ListEmpty'
 import { useFilteredList } from '../../hooks/use-filtered-list'
 import { EMPTY_TEXT, formatDate, formatDateTime, formatQuantity } from '../../utils/format'
+import { useCan } from '../auth/auth-context'
 import { InboundReceiptDrawer } from '../inbound-receipts/InboundReceiptDrawer'
 import { useReceiptReferences } from '../inbound-receipts/use-receipt-references'
 import { PRODUCT_UNIT_LABELS, productApi } from '../products/product-api'
@@ -67,6 +68,7 @@ type OpenedDocument = { type: StockDocumentType; id: number }
  */
 export function StockTransactionPage() {
   const { token } = theme.useToken()
+  const canSeeInbound = useCan('inbound')
   const [searchParams] = useSearchParams()
   const receiptReferences = useReceiptReferences()
   const salesReferences = useSalesReferences()
@@ -166,7 +168,12 @@ export function StockTransactionPage() {
       width: 140,
       render: (_, transaction) => (
         <Flex vertical align="flex-start">
-          <CodeLink code={transaction.documentCode} onClick={() => openDocument(transaction)} />
+          {/* Nhân viên bán hàng không xem được phiếu nhập (ADR-0003) → hiện mã, không mở khung */}
+          {transaction.documentType === 'INBOUND' && !canSeeInbound ? (
+            <CodeText code={transaction.documentCode} />
+          ) : (
+            <CodeLink code={transaction.documentCode} onClick={() => openDocument(transaction)} />
+          )}
           <Typography.Text type="secondary">{formatDate(transaction.documentDate)}</Typography.Text>
         </Flex>
       ),

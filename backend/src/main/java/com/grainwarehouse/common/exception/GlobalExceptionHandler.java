@@ -10,6 +10,8 @@ import org.springframework.data.mapping.PropertyReferenceException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.security.authentication.DisabledException;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -84,6 +86,18 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiResponse<Void>> handleMethodNotAllowed(HttpRequestMethodNotSupportedException ex) {
         return error(HttpStatus.METHOD_NOT_ALLOWED, "METHOD_NOT_ALLOWED",
                 "Phương thức " + ex.getMethod() + " không được hỗ trợ", null);
+    }
+
+    // POST /api/auth/login: đúng mật khẩu nhưng tài khoản bị khóa (chỉ báo sau khi mật khẩu đúng — SecurityConfig)
+    @ExceptionHandler(DisabledException.class)
+    public ResponseEntity<ApiResponse<Void>> handleDisabled(DisabledException ex) {
+        return error(HttpStatus.UNAUTHORIZED, "UNAUTHORIZED", "Tài khoản đã bị khóa. Liên hệ quản lý hệ thống", null);
+    }
+
+    // Sai tên đăng nhập HOẶC sai mật khẩu — cùng một thông báo để không lộ tên đăng nhập nào tồn tại
+    @ExceptionHandler(AuthenticationException.class)
+    public ResponseEntity<ApiResponse<Void>> handleAuthentication(AuthenticationException ex) {
+        return error(HttpStatus.UNAUTHORIZED, "UNAUTHORIZED", "Sai tên đăng nhập hoặc mật khẩu", null);
     }
 
     @ExceptionHandler(DuplicateResourceException.class)

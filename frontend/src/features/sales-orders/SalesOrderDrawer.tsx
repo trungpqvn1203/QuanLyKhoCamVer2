@@ -6,6 +6,7 @@ import { toFormFieldErrors } from '../../api/form-errors'
 import { ReasonModal } from '../../components/ui/ReasonModal'
 import { formatDate } from '../../utils/format'
 import { formatVnd } from '../../utils/money'
+import { useCan } from '../auth/auth-context'
 import { ReceiptStatusTag } from '../inbound-receipts/ReceiptStatusTag'
 import { PAYMENT_METHOD_LABELS, salesOrderApi } from './sales-order-api'
 import type { PaymentInput, SalePayment, SalesOrder } from './sales-order-api'
@@ -69,7 +70,9 @@ export function SalesOrderDrawer({ open, orderId, references, onClose, onChanged
     }
   }, [orderId, reloadCount])
 
-  const editable = order ? order.status === 'DRAFT' : orderId === null
+  // Quản lý kho chỉ xem phiếu bán (ADR-0003): không hiện form và nút thao tác — backend vẫn chặn nếu gọi thẳng API
+  const canWrite = useCan('sales.write')
+  const editable = canWrite && (order ? order.status === 'DRAFT' : orderId === null)
   const showForm = !loading && !loadError && editable
   const initialValues = useMemo(() => (order ? toSalesFormValues(order) : emptySalesOrderForm()), [order])
 
@@ -233,12 +236,12 @@ export function SalesOrderDrawer({ open, orderId, references, onClose, onChanged
     loading || loadError ? null : (
       <Flex justify="space-between" gap={8} wrap>
         <Flex gap={8}>
-          {order?.status === 'DRAFT' && (
+          {canWrite && order?.status === 'DRAFT' && (
             <Button danger icon={<StopOutlined />} disabled={busy !== null} onClick={() => setReasonAction({ kind: 'cancel' })}>
               Hủy phiếu
             </Button>
           )}
-          {order?.status === 'COMPLETED' && (
+          {canWrite && order?.status === 'COMPLETED' && (
             <Button danger icon={<RollbackOutlined />} onClick={() => setReasonAction({ kind: 'reverse' })}>
               Đảo phiếu
             </Button>
@@ -248,7 +251,7 @@ export function SalesOrderDrawer({ open, orderId, references, onClose, onChanged
           <Button onClick={requestClose} disabled={busy !== null}>
             Đóng
           </Button>
-          {order?.status === 'COMPLETED' && order.outstandingAmount > 0 && (
+          {canWrite && order?.status === 'COMPLETED' && order.outstandingAmount > 0 && (
             <Button type="primary" icon={<DollarOutlined />} onClick={() => setPaying(true)}>
               Thu tiền
             </Button>
@@ -338,7 +341,7 @@ export function SalesOrderDrawer({ open, orderId, references, onClose, onChanged
               <SalesOrderView
                 order={order}
                 onReversePayment={
-                  order.status === 'COMPLETED' ? (payment) => setReasonAction({ kind: 'reversePayment', payment }) : undefined
+                  canWrite && order.status === 'COMPLETED' ? (payment) => setReasonAction({ kind: 'reversePayment', payment }) : undefined
                 }
               />
             )

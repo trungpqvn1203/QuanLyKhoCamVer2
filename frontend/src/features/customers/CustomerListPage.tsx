@@ -16,6 +16,7 @@ import { STATUS_COLUMN_WIDTH, StatusTag } from '../../components/ui/StatusTag'
 import { useFilteredList } from '../../hooks/use-filtered-list'
 import { formatDateTime, orEmpty } from '../../utils/format'
 import { formatPhone } from '../../utils/phone'
+import { useCan } from '../auth/auth-context'
 import { CUSTOMER_TYPE_OPTIONS, customerApi } from './customer-api'
 import type { Customer, CustomerFilters, CustomerType } from './customer-api'
 import { CustomerFormModal } from './CustomerFormModal'
@@ -30,6 +31,8 @@ const FILTER_FIELDS: FilterField<CustomerFilters>[] = [
 
 export function CustomerListPage() {
   const { message, notification } = App.useApp()
+  // Quản lý kho chỉ xem khách hàng; bán hàng + quản lý hệ thống mới sửa / đặt bảng giá (ADR-0003)
+  const canWrite = useCan('customers.write')
   const { page, loading, error, changePage, reload, filters, applyFilters, filtering } = useFilteredList(
     customerApi.list,
   )
@@ -129,20 +132,24 @@ export function CustomerListPage() {
         <RowActions
           recordLabel={customer.code}
           onView={() => openDetail(customer)}
-          onEdit={() => openEdit(customer)}
-          extraActions={[
-            {
-              key: 'prices',
-              label: 'Bảng giá riêng',
-              icon: <TagsOutlined />,
-              onClick: () => {
-                setPricing(customer)
-                setPricesOpen(true)
-              },
-            },
-          ]}
+          onEdit={canWrite ? () => openEdit(customer) : undefined}
+          extraActions={
+            canWrite
+              ? [
+                  {
+                    key: 'prices',
+                    label: 'Bảng giá riêng',
+                    icon: <TagsOutlined />,
+                    onClick: () => {
+                      setPricing(customer)
+                      setPricesOpen(true)
+                    },
+                  },
+                ]
+              : []
+          }
           deactivate={
-            customer.active
+            canWrite && customer.active
               ? {
                   label: 'Ngừng hoạt động',
                   confirmTitle: `Ngừng hoạt động khách hàng ${customer.name}?`,
@@ -150,7 +157,7 @@ export function CustomerListPage() {
                 }
               : undefined
           }
-          reactivate={customer.active ? undefined : { label: 'Mở lại hoạt động', onConfirm: () => reactivate(customer) }}
+          reactivate={!canWrite || customer.active ? undefined : { label: 'Mở lại hoạt động', onConfirm: () => reactivate(customer) }}
         />
       ),
     },
@@ -193,9 +200,11 @@ export function CustomerListPage() {
         title="Khách hàng"
         description="Đại lý, trang trại và khách lẻ mua cám"
         actions={
-          <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
-            Thêm khách hàng
-          </Button>
+          canWrite && (
+            <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
+              Thêm khách hàng
+            </Button>
+          )
         }
       />
       <FilterBar<CustomerFilters> fields={FILTER_FIELDS} value={filters} onChange={applyFilters} />
@@ -213,7 +222,7 @@ export function CustomerListPage() {
             noun="khách hàng"
             filtering={filtering}
             onClearFilters={() => applyFilters({})}
-            onCreate={openCreate}
+            onCreate={canWrite ? openCreate : undefined}
             createLabel="Thêm khách hàng"
           />
         }
@@ -234,10 +243,14 @@ export function CustomerListPage() {
         size={640}
         sections={detailSections}
         onClose={() => setDetailOpen(false)}
-        onEdit={() => {
-          setDetailOpen(false)
-          if (viewing) openEdit(viewing)
-        }}
+        onEdit={
+          canWrite
+            ? () => {
+                setDetailOpen(false)
+                if (viewing) openEdit(viewing)
+              }
+            : undefined
+        }
       />
     </>
   )

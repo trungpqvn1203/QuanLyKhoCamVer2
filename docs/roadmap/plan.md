@@ -81,7 +81,7 @@ Giao diện sử dụng được cho tất cả nghiệp vụ chính. Hệ thố
 - [x] Giao diện lịch sử biến động tồn kho _(2026-10-20: menu "Lịch sử kho", `GET /api/inventory/transactions`; lọc SP/kho/loại chứng từ/tăng-giảm/mã phiếu/ngày ghi sổ; bấm mã mở khung phiếu; menu ⋯ của Sản phẩm → "Lịch sử tồn kho")_
 - [ ] Báo cáo tồn kho (theo kho, theo sản phẩm) _(rê chuột xem tồn từng kho bằng `Popover`; trang tổng quan `Card` + `Statistic`)_ — **theo sản phẩm xong 2026-10-19** (trang Sản phẩm: tồn tổng/theo kho, đang về, Sắp hết/Hết hàng, migration V7); còn trang tổng quan và xem theo kho
 - [ ] Phân trang cho danh sách dài
-- [ ] Xác thực và phân quyền cơ bản (nếu trong phạm vi)
+- [x] Xác thực và phân quyền _(2026-10-20, V14, ADR-0003: JWT trong cookie HttpOnly, refresh token xoay vòng + phát hiện dùng lại, CSRF double-submit, 3 vai trò kiêm được nhiều, trang Người dùng)_
 - [ ] Global error handling (backend + frontend)
 - [ ] EXPLAIN ANALYZE cho truy vấn chính
 - [ ] Tối ưu index nếu cần

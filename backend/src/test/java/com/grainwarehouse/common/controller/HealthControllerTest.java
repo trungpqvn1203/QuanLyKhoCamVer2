@@ -3,6 +3,7 @@ package com.grainwarehouse.common.controller;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
@@ -16,7 +17,10 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+// Test lát cắt chỉ nạp controller, KHÔNG nạp SecurityConfig (cần JPA) → tắt filter bảo mật, chỉ kiểm logic health.
+// /api/health công khai được kiểm ở AuthorizationMatrixTest với cấu hình bảo mật thật.
 @WebMvcTest(HealthController.class)
+@AutoConfigureMockMvc(addFilters = false)
 class HealthControllerTest {
 
     @Autowired
