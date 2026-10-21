@@ -17,6 +17,11 @@ spring:
     enabled: true
     locations: classpath:db/migration
 
+# Chỉ dev: thiếu JWT_SECRET thì sinh khóa tạm (khởi động lại backend = đăng nhập lại). Production KHÔNG bật
+grain:
+  auth:
+    allow-ephemeral-secret: true
+
 logging:
   level:
     com.grainwarehouse: DEBUG

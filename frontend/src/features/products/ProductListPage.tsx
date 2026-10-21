@@ -16,6 +16,7 @@ import { RowActions } from '../../components/ui/RowActions'
 import { STATUS_COLUMN_WIDTH, StatusTag } from '../../components/ui/StatusTag'
 import { useFilteredList } from '../../hooks/use-filtered-list'
 import { EMPTY_TEXT, formatDateTime, formatQuantity, formatTons, orEmpty } from '../../utils/format'
+import { useCan } from '../auth/auth-context'
 import { ProductSuppliersPanel } from '../suppliers/ProductSuppliersPanel'
 import { warehouseApi } from '../warehouses/warehouse-api'
 import type { Warehouse } from '../warehouses/warehouse-api'
@@ -48,6 +49,9 @@ const unitText = (product: Pick<Product, 'unit'>) => PRODUCT_UNIT_LABELS[product
 export function ProductListPage() {
   const { message, notification } = App.useApp()
   const navigate = useNavigate()
+  // Chỉ quản lý hệ thống sửa danh mục SP; NCC của SP chỉ quản lý kho + quản lý hệ thống xem được (ADR-0003)
+  const canWrite = useCan('catalog.write')
+  const canSeeSuppliers = useCan('suppliers')
   const { page, loading, error, changePage, reload, filters, applyFilters, filtering } = useFilteredList(
     productStockApi.list,
   )
@@ -246,7 +250,7 @@ export function ProductListPage() {
         <RowActions
           recordLabel={product.code}
           onView={() => openDetail(product)}
-          onEdit={() => openEdit(product)}
+          onEdit={canWrite ? () => openEdit(product) : undefined}
           extraActions={[
             {
               key: 'stock',
@@ -260,15 +264,19 @@ export function ProductListPage() {
               icon: <HistoryOutlined />,
               onClick: () => navigate(`/stock-transactions?productId=${product.id}`),
             },
-            {
-              key: 'suppliers',
-              label: 'Nhà cung cấp',
-              icon: <ShopOutlined />,
-              onClick: () => openDetail(product, SUPPLIERS_TAB),
-            },
+            ...(canSeeSuppliers
+              ? [
+                  {
+                    key: 'suppliers',
+                    label: 'Nhà cung cấp',
+                    icon: <ShopOutlined />,
+                    onClick: () => openDetail(product, SUPPLIERS_TAB),
+                  },
+                ]
+              : []),
           ]}
           deactivate={
-            product.active
+            canWrite && product.active
               ? {
                   label: 'Ngừng kinh doanh',
                   confirmTitle: `Ngừng kinh doanh ${product.name}?`,
@@ -276,7 +284,7 @@ export function ProductListPage() {
                 }
               : undefined
           }
-          reactivate={product.active ? undefined : { label: 'Mở bán lại', onConfirm: () => reactivate(product) }}
+          reactivate={!canWrite || product.active ? undefined : { label: 'Mở bán lại', onConfirm: () => reactivate(product) }}
         />
       ),
     },
@@ -334,9 +342,11 @@ export function ProductListPage() {
         title="Sản phẩm"
         description="Thông tin sản phẩm và số lượng đang có ở các kho"
         actions={
-          <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
-            Thêm sản phẩm
-          </Button>
+          canWrite && (
+            <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
+              Thêm sản phẩm
+            </Button>
+          )
         }
       />
       <FilterBar<ProductStockFilters> fields={filterFields} value={filters} onChange={applyFilters} />
@@ -354,7 +364,7 @@ export function ProductListPage() {
             noun="sản phẩm"
             filtering={filtering}
             onClearFilters={() => applyFilters({})}
-            onCreate={openCreate}
+            onCreate={canWrite ? openCreate : undefined}
             createLabel="Thêm sản phẩm"
           />
         }
@@ -374,10 +384,14 @@ export function ProductListPage() {
         size={720}
         sections={detailSections}
         onClose={() => setDetailOpen(false)}
-        onEdit={() => {
-          setDetailOpen(false)
-          if (viewing) openEdit(viewing)
-        }}
+        onEdit={
+          canWrite
+            ? () => {
+                setDetailOpen(false)
+                if (viewing) openEdit(viewing)
+              }
+            : undefined
+        }
         activeTab={detailTab}
         onTabChange={setDetailTab}
         tabs={
@@ -389,12 +403,16 @@ export function ProductListPage() {
                   // key: sang SP khác thì tạo lại panel và tải tồn của SP đó
                   children: <ProductStockPanel key={viewing.id} product={viewing} />,
                 },
-                {
-                  key: SUPPLIERS_TAB,
-                  label: 'Nhà cung cấp',
-                  // key: sang SP khác thì tạo lại panel, không giữ ô tìm kiếm/trang của SP trước
-                  children: <ProductSuppliersPanel key={viewing.id} product={viewing} />,
-                },
+                ...(canSeeSuppliers
+                  ? [
+                      {
+                        key: SUPPLIERS_TAB,
+                        label: 'Nhà cung cấp',
+                        // key: sang SP khác thì tạo lại panel, không giữ ô tìm kiếm/trang của SP trước
+                        children: <ProductSuppliersPanel key={viewing.id} product={viewing} />,
+                      },
+                    ]
+                  : []),
               ]
             : []
         }

@@ -104,8 +104,9 @@ Khi có lỗi (4xx, 5xx), Backend bắt qua `@RestControllerAdvice` và trả v�
 | `RESOURCE_NOT_FOUND` | 404 | Không tìm thấy bản ghi | Sản phẩm ID=999 không tồn tại |
 | `DUPLICATE_RESOURCE` | 409 | Vi phạm UNIQUE constraint | Mã SKU đã tồn tại |
 | `BUSINESS_RULE_VIOLATION` | 409 | Vi phạm quy tắc nghiệp vụ | Xuất vượt tồn kho |
-| `UNAUTHORIZED` | 401 | Chưa đăng nhập / Token hết hạn | — |
-| `FORBIDDEN` | 403 | Không có quyền | — |
+| `UNAUTHORIZED` | 401 | Chưa đăng nhập / Token hết hạn / sai mật khẩu | Access token quá 15 phút |
+| `FORBIDDEN` | 403 | Không có quyền, hoặc thiếu / sai CSRF token | Nhân viên bán hàng mở phiếu nhập |
+| `REFRESH_RACE` | 409 | Refresh token vừa bị thay bởi tab khác (< 30 giây) — gửi lại request gốc | Hai tab cùng gia hạn |
 | `METHOD_NOT_ALLOWED` | 405 | HTTP method không được hỗ trợ | `PATCH /api/products/1` |
 | `DATABASE_UNAVAILABLE` | 503 | Không kết nối được DB (chỉ dùng ở `/api/health`) | DB tắt |
 | `INTERNAL_ERROR` | 500 | Lỗi chưa xử lý phía server | — |
@@ -119,7 +120,7 @@ Khi có lỗi (4xx, 5xx), Backend bắt qua `@RestControllerAdvice` và trả v�
 - **Luôn kiểm tra `success`** trước khi truy cập `data`.
 - Khi `success = false`, hiển thị `error.message` cho người dùng.
 - Nếu `error.details` có `field`, map lỗi vào ô input tương ứng trên form.
-- Xử lý lỗi tập trung trong `src/api/client.ts` (tự viết bằng `fetch`, xem ADR-0002): 401 → chuyển trang đăng nhập, 500 → thông báo chung.
+- Xử lý lỗi tập trung trong `src/api/client.ts` (tự viết bằng `fetch`, xem ADR-0002): 401 → thử gia hạn phiên một lần rồi gửi lại, vẫn 401 → chuyển trang đăng nhập; 500 → thông báo chung.
 
 ---
 
@@ -169,6 +170,8 @@ DELETE /api/products/:id          # Xóa (soft delete)
 | Giá riêng của khách | `GET /api/customers/{id}/prices`, `PUT/DELETE /api/customers/{id}/prices/{productId}` | Xem mục **Phiếu bán, thanh toán, công nợ** |
 | Công nợ khách | `GET /api/customer-debts?customerId=` | Xem mục **Phiếu bán, thanh toán, công nợ** |
 | Lịch sử biến động tồn | `GET /api/inventory/transactions` | Chỉ đọc (POST → 405). Xem mục **Lịch sử biến động tồn** bên dưới |
+| Xác thực | `GET /api/auth/csrf`, `POST /api/auth/login`, `…/refresh`, `…/logout`, `GET /api/auth/me`, `PUT /api/auth/me/password` | Xem mục **Xác thực & phân quyền** bên dưới |
+| Người dùng | `GET/POST /api/users`, `GET/PUT /api/users/{id}`, `POST /api/users/{id}/reset-password` | Chỉ `SYSTEM_ADMIN`. Không có DELETE (khóa = `active=false`) |
 
 **Phiếu nhập kho** (thêm 2026-10-19, BR-IMP-01..14):
 
@@ -234,6 +237,27 @@ Tham số lọc của danh sách: `keyword`, `categoryId`, `active` (giống `/a
 | `createdFrom`, `createdTo` | `YYYY-MM-DD` | Ngày **ghi sổ** (lúc hoàn tất / đảo phiếu) theo giờ VN, hai đầu đều tính — không phải ngày chứng từ |
 
 Item: `id, createdAt, type, quantity, quantityBefore, quantityAfter, reversalOfId?, productId, productCode, productName, unit, warehouseId, warehouseCode, warehouseName, documentId, documentCode, documentType, documentDate, supplierId?, supplierName?, customerId?, customerName?`. `quantityBefore/After` là tồn **tại kho của dòng đó**. `reversalOfId` có giá trị = giao dịch đảo. Lọc một SP + một kho: `quantityAfter` dòng đầu = tồn hiện tại, `quantityBefore` mỗi dòng = `quantityAfter` dòng ngay sau.
+
+**Xác thực & phân quyền** (thêm 2026-10-20, [ADR-0003](../decisions/ADR-0003-authentication.md), BR-AUTH-01..08):
+
+- **Token không bao giờ nằm trong body JSON.** Backend đặt 2 cookie HttpOnly + Secure + SameSite=Strict: `GW_AT` (access JWT 15 phút, `Path=/api`) và `GW_RT` (refresh token, `Path=/api/auth`). Frontend chỉ cần gọi `fetch` cùng tên miền; trình duyệt tự gửi cookie.
+- **CSRF:** mọi `POST/PUT/DELETE` (kể cả đăng nhập) phải có header `X-XSRF-TOKEN` = giá trị cookie `XSRF-TOKEN`; thiếu hoặc sai → 403 `FORBIDDEN`.
+- **Phân quyền:** chưa đăng nhập / access token hết hạn → 401 `UNAUTHORIZED`. Không đủ vai trò → 403 `FORBIDDEN`. Ma trận ở ADR-0003 mục 5. Công khai: `/api/health`, `/actuator/health`, 4 endpoint `csrf`/`login`/`refresh`/`logout`.
+- **Frontend:** gặp 401 thì gọi `POST /api/auth/refresh` **một lần** (gom chung cho mọi request đang chờ) rồi gửi lại request gốc. Gia hạn thất bại → về `/login?redirect=…`.
+
+| Endpoint | Body | Kết quả / lỗi |
+|---|---|---|
+| `GET /api/auth/csrf` | — | 204, đặt cookie `XSRF-TOKEN` (JS đọc được) |
+| `POST /api/auth/login` | `{ username, password }` | 200 + 2 cookie + `{ id, username, fullName, roles }`. Sai tên **hoặc** mật khẩu → 401 "Sai tên đăng nhập hoặc mật khẩu"; đúng mật khẩu nhưng bị khóa → 401 "Tài khoản đã bị khóa…"; thiếu trường → 400 |
+| `POST /api/auth/refresh` | — (cookie `GW_RT`) | 200 + cookie mới + người dùng (refresh token cũ bị thay). Token vừa bị thay < 30 giây (tab khác gia hạn trước) → **409 `REFRESH_RACE`**, không đổi cookie, frontend gửi lại request gốc. Không hợp lệ / hết hạn / bị thu hồi / dùng lại token cũ sau 30 giây (thu hồi cả phiên) → 401 + xóa cookie |
+| `POST /api/auth/logout` | — | 204, thu hồi phiên của thiết bị này, xóa cookie. Không có cookie vẫn 204 |
+| `GET /api/auth/me` | — | `{ id, username, fullName, roles }` |
+| `PUT /api/auth/me/password` | `{ currentPassword, newPassword }` | 204; các thiết bị khác phải đăng nhập lại. Sai mật khẩu cũ → 400 field `currentPassword`; mật khẩu mới < 8 ký tự / > 72 byte / trùng mật khẩu cũ → 400 field `newPassword` |
+| `POST /api/users` | `{ username, fullName, password, roles: [...] }` | 201. Tên đăng nhập được cắt khoảng trắng, đổi chữ thường; sai định dạng → 400 field `username`; trùng → 409 `DUPLICATE_RESOURCE`; `roles` rỗng → 400; vai trò lạ → 400 |
+| `PUT /api/users/{id}` | `{ fullName, roles, active }` | 200. Đổi vai trò / khóa → thu hồi mọi phiên người đó. Khóa / bỏ vai trò Quản lý hệ thống của người cuối cùng → 409; tự khóa mình → 409 |
+| `POST /api/users/{id}/reset-password` | `{ newPassword }` | 204, thu hồi mọi phiên người đó |
+
+Response người dùng: `id, username, fullName, roles (sắp theo thứ tự WAREHOUSE_MANAGER, SALES_STAFF, SYSTEM_ADMIN), active, lastLoginAt?, createdAt, updatedAt` — không bao giờ có mật khẩu. Lọc `GET /api/users`: `keyword` (tên đăng nhập / họ tên), `role`, `active`; mặc định sắp theo `username`.
 
 `/api/products` (POST/PUT) có thêm `minStockQuantity` (số nguyên ≥ 0, tùy chọn). PUT không gửi trường này = bỏ mức tối thiểu.
 

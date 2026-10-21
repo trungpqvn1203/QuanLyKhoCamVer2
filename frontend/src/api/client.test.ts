@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { ApiError, apiRequest, withQuery } from './client'
+import { ApiError, apiRequest, onSessionExpired, withQuery } from './client'
 
 function mockFetchResponse(status: number, body?: unknown) {
   const response =
@@ -26,6 +26,7 @@ async function catchApiError(promise: Promise<unknown>): Promise<ApiError> {
 
 afterEach(() => {
   vi.unstubAllGlobals()
+  onSessionExpired(null)
 })
 
 describe('apiRequest', () => {
@@ -116,5 +117,95 @@ describe('withQuery', () => {
 
   it('không có tham số - giữ nguyên đường dẫn', () => {
     expect(withQuery('/api/products', {})).toBe('/api/products')
+  })
+})
+
+function json(status: number, body: unknown) {
+  return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } })
+}
+
+const OK = { success: true, data: { id: 1 }, timestamp: '' }
+const UNAUTHORIZED = { success: false, error: { code: 'UNAUTHORIZED', message: 'Hết phiên' }, timestamp: '' }
+
+/** fetch giả trả lần lượt theo URL: mỗi URL một hàng đợi response. */
+function routedFetch(routes: Record<string, Response[]>) {
+  // Khai báo đủ 2 tham số như fetch thật để đọc được init (header, method) trong mock.calls
+  const fetchMock = vi.fn((path: string, _init?: RequestInit) => {
+    const queue = routes[path]
+    if (!queue?.length) throw new Error(`Không có response cho ${path}`)
+    return Promise.resolve(queue.shift()!)
+  })
+  vi.stubGlobal('fetch', fetchMock)
+  return fetchMock
+}
+
+describe('apiRequest - CSRF', () => {
+  it('request ghi gắn header X-XSRF-TOKEN từ cookie; GET không gắn', async () => {
+    vi.stubGlobal('document', { cookie: 'other=1; XSRF-TOKEN=abc%3D123' })
+    const fetchMock = routedFetch({ '/api/customers': [json(201, OK), json(200, OK)] })
+
+    await apiRequest('/api/customers', { method: 'POST', body: '{}' })
+    await apiRequest('/api/customers')
+
+    const post = fetchMock.mock.calls[0][1] as RequestInit
+    expect((post.headers as Record<string, string>)['X-XSRF-TOKEN']).toBe('abc=123')
+    expect(post.credentials).toBe('same-origin')
+    const get = fetchMock.mock.calls[1][1] as RequestInit
+    expect((get.headers as Record<string, string>)['X-XSRF-TOKEN']).toBeUndefined()
+  })
+})
+
+describe('apiRequest - tự gia hạn khi access token hết hạn', () => {
+  it('401 → gia hạn → gửi lại request gốc một lần và trả dữ liệu', async () => {
+    const fetchMock = routedFetch({
+      '/api/products': [json(401, UNAUTHORIZED), json(200, OK)],
+      '/api/auth/refresh': [json(200, { success: true, data: {}, timestamp: '' })],
+    })
+
+    await expect(apiRequest('/api/products')).resolves.toEqual({ id: 1 })
+    expect(fetchMock.mock.calls.map(([path]) => path)).toEqual(['/api/products', '/api/auth/refresh', '/api/products'])
+  })
+
+  it('nhiều request cùng nhận 401 → chỉ MỘT lần gia hạn (single-flight)', async () => {
+    const fetchMock = routedFetch({
+      '/api/products': [json(401, UNAUTHORIZED), json(200, OK)],
+      '/api/warehouses': [json(401, UNAUTHORIZED), json(200, OK)],
+      '/api/auth/refresh': [json(200, { success: true, data: {}, timestamp: '' })],
+    })
+
+    await Promise.all([apiRequest('/api/products'), apiRequest('/api/warehouses')])
+    expect(fetchMock.mock.calls.filter(([path]) => path === '/api/auth/refresh')).toHaveLength(1)
+  })
+
+  it('409 REFRESH_RACE (tab khác vừa gia hạn) → gửi lại request gốc, không báo hết phiên', async () => {
+    const expired = vi.fn()
+    onSessionExpired(expired)
+    routedFetch({
+      '/api/products': [json(401, UNAUTHORIZED), json(200, OK)],
+      '/api/auth/refresh': [json(409, { success: false, error: { code: 'REFRESH_RACE', message: '' }, timestamp: '' })],
+    })
+
+    await expect(apiRequest('/api/products')).resolves.toEqual({ id: 1 })
+    expect(expired).not.toHaveBeenCalled()
+  })
+
+  it('gia hạn thất bại → báo hết phiên và ném 401', async () => {
+    const expired = vi.fn()
+    onSessionExpired(expired)
+    routedFetch({
+      '/api/products': [json(401, UNAUTHORIZED)],
+      '/api/auth/refresh': [json(401, UNAUTHORIZED)],
+    })
+
+    const error = await catchApiError(apiRequest('/api/products'))
+    expect(error.status).toBe(401)
+    expect(expired).toHaveBeenCalledOnce()
+  })
+
+  it('đăng nhập sai (401 ở /api/auth/login) → không thử gia hạn', async () => {
+    const fetchMock = routedFetch({ '/api/auth/login': [json(401, UNAUTHORIZED)] })
+
+    await catchApiError(apiRequest('/api/auth/login', { method: 'POST', body: '{}' }))
+    expect(fetchMock).toHaveBeenCalledOnce()
   })
 })

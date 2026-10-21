@@ -121,7 +121,7 @@ Tất cả các bước trong một nghiệp vụ phải thành công hoặc rol
 
 ## Các điểm mở rộng sau MVP
 
-- **Authentication/Authorization:** Spring Security + JWT
+- ~~**Authentication/Authorization:** Spring Security + JWT~~ → đã triển khai 2026-10-20: JWT trong cookie HttpOnly + refresh token xoay vòng + CSRF + 3 vai trò, xem [ADR-0003](../decisions/ADR-0003-authentication.md)
 - **Caching:** Spring Cache (local) hoặc Redis nếu cần
 - **Message queue:** Chỉ khi có nghiệp vụ bất đồng bộ rõ ràng
 - **Tách service:** Module nào có traffic cao hoặc cần scale riêng mới tách

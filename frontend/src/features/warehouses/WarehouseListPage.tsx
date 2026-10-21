@@ -15,6 +15,7 @@ import { RowActions } from '../../components/ui/RowActions'
 import { STATUS_COLUMN_WIDTH, StatusTag } from '../../components/ui/StatusTag'
 import { useFilteredList } from '../../hooks/use-filtered-list'
 import { formatDateTime } from '../../utils/format'
+import { useCan } from '../auth/auth-context'
 import { WAREHOUSE_TYPE_LABELS, warehouseApi } from './warehouse-api'
 import type { Warehouse, WarehouseFilters } from './warehouse-api'
 import { WarehouseFormModal } from './WarehouseFormModal'
@@ -26,6 +27,8 @@ const FILTER_FIELDS: FilterField<WarehouseFilters>[] = [
 
 export function WarehouseListPage() {
   const { message, notification } = App.useApp()
+  // Chỉ quản lý hệ thống thêm/sửa kho (ADR-0003); vai trò khác chỉ xem
+  const canWrite = useCan('catalog.write')
   const { page, loading, error, changePage, reload, filters, applyFilters, filtering } = useFilteredList(
     warehouseApi.list,
   )
@@ -114,9 +117,9 @@ export function WarehouseListPage() {
         <RowActions
           recordLabel={warehouse.code}
           onView={() => openDetail(warehouse)}
-          onEdit={() => openEdit(warehouse)}
+          onEdit={canWrite ? () => openEdit(warehouse) : undefined}
           deactivate={
-            warehouse.active
+            canWrite && warehouse.active
               ? {
                   label: 'Ngừng hoạt động',
                   confirmTitle: `Ngừng hoạt động kho ${warehouse.name}?`,
@@ -124,7 +127,7 @@ export function WarehouseListPage() {
                 }
               : undefined
           }
-          reactivate={warehouse.active ? undefined : { label: 'Mở lại hoạt động', onConfirm: () => reactivate(warehouse) }}
+          reactivate={!canWrite || warehouse.active ? undefined : { label: 'Mở lại hoạt động', onConfirm: () => reactivate(warehouse) }}
         />
       ),
     },
@@ -164,9 +167,11 @@ export function WarehouseListPage() {
         title="Kho hàng"
         description="Kho tập kết và cửa hàng bán lẻ trong chuỗi phân phối"
         actions={
-          <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
-            Thêm kho
-          </Button>
+          canWrite && (
+            <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
+              Thêm kho
+            </Button>
+          )
         }
       />
       <FilterBar<WarehouseFilters> fields={FILTER_FIELDS} value={filters} onChange={applyFilters} />
@@ -184,7 +189,7 @@ export function WarehouseListPage() {
             noun="kho"
             filtering={filtering}
             onClearFilters={() => applyFilters({})}
-            onCreate={openCreate}
+            onCreate={canWrite ? openCreate : undefined}
             createLabel="Thêm kho"
           />
         }
@@ -203,10 +208,14 @@ export function WarehouseListPage() {
         title={viewing ? `${viewing.code} · ${viewing.name}` : ''}
         sections={detailSections}
         onClose={() => setDetailOpen(false)}
-        onEdit={() => {
-          setDetailOpen(false)
-          if (viewing) openEdit(viewing)
-        }}
+        onEdit={
+          canWrite
+            ? () => {
+                setDetailOpen(false)
+                if (viewing) openEdit(viewing)
+              }
+            : undefined
+        }
       />
     </>
   )
