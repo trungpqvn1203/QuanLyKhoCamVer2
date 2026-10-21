@@ -164,6 +164,31 @@ echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
 
 > Lưu ý: Docker tự ghi rule iptables khi publish cổng, **bỏ qua ufw**. Vì vậy compose prod không publish cổng Postgres — đừng thêm `ports:` cho `db`.
 
+### Bước 1 (biến thể Azure for Students) — Tạo máy ảo trên Azure
+
+Azure for Students cho credit dùng thử, không cần thẻ. Tiền bị trừ theo giờ VM chạy, nên **tắt VM khi không dùng**.
+
+1. Portal → **Virtual machines** → **Create** → Azure virtual machine:
+   - **Region:** Southeast Asia (Singapore). Nếu tài khoản sinh viên không cho phép region này, chọn East Asia hoặc Japan East.
+   - **Image:** Ubuntu Server 24.04 LTS — x64.
+   - **Size:** `Standard_B2s` (2 vCPU, 4 GB) là thoải mái nhất. Muốn tiết kiệm thì dùng `Standard_B1ms` (1 vCPU, 2 GB) kèm swap. Xem giá/tháng hiển thị ngay khi chọn size.
+   - **Authentication:** SSH public key, username `azureuser`, *Generate new key pair*, rồi tải file `.pem` về khi tạo xong.
+   - **Inbound ports:** chọn SSH (22), HTTP (80), HTTPS (443).
+   - **Disks:** Standard SSD 30 GB là đủ.
+2. Sau khi tạo: vào **Public IP address** của VM → **Configuration** → *Assignment: Static*, rồi đặt **DNS name label** (ví dụ `grainwh`) để có tên miền `grainwh.<region>.cloudapp.azure.com`. Dùng tên này cho HTTPS ở Bước 5.
+3. **Networking → Network settings:** sửa rule SSH, đổi *Source* thành *My IP address* để chỉ máy mình SSH được.
+4. **Auto-shutdown** (menu VM): bật tắt tự động lúc 23:00 cho đỡ tốn credit. Nút **Stop** trên Portal sẽ giải phóng VM (deallocate) và ngừng tính tiền compute; ổ đĩa và IP tĩnh vẫn tính một ít.
+
+SSH từ Windows (PowerShell):
+
+```powershell
+# Giới hạn quyền file key, nếu không ssh từ chối dùng ("UNPROTECTED PRIVATE KEY FILE")
+icacls "$HOME\.ssh\grain-vm_key.pem" /inheritance:r /grant:r "$($env:USERNAME):R"
+ssh -i "$HOME\.ssh\grain-vm_key.pem" azureuser@<IP hoặc tên DNS>
+```
+
+Trên Azure đã có sẵn user `azureuser` đăng nhập bằng key, và đăng nhập bằng mật khẩu đã tắt. Network Security Group đóng vai trò firewall. Vì vậy ở Bước 1 bên trên chỉ cần làm phần **cài Docker** và **swap** (dùng `azureuser` thay cho `deployer`).
+
 ### Bước 2 — Lấy code và cấu hình
 
 ```bash
