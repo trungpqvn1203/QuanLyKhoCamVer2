@@ -5,6 +5,35 @@ Ghi dồn sau mỗi module, ôn tập ở cuối dự án. Mỗi mục: **khái 
 
 ---
 
+## Module: Đóng gói & triển khai (2026-10-20, Docker Compose + Nginx)
+
+### Khái niệm
+
+- **Image vs container** — image là "bản đóng gói" chỉ đọc (JRE + `app.jar`); container là một lần chạy image đó. `docker compose up --build` dựng lại image từ code mới rồi thay container; dữ liệu Postgres không mất vì nằm trong **volume** `pgdata`, không nằm trong container.
+- **Multi-stage build** — `backend.Dockerfile` giai đoạn 1 dùng image Maven (~800 MB) để build jar, giai đoạn 2 chỉ chép jar sang image JRE alpine (~200 MB). Server chạy image nhỏ, không chứa Maven hay mã nguồn.
+- **Cache theo lớp** — chép `pom.xml` và tải dependency *trước* khi chép `src/`. Sửa một service rồi build lại → Docker dùng lại lớp dependency, không tải lại hàng trăm jar.
+- **Reverse proxy** — người dùng chỉ nói chuyện với Nginx ở cổng 80. `/api/...` được Nginx chuyển tới `backend:8080` (tên service = tên máy trong mạng Docker); mọi đường dẫn khác trả file React. Nhờ chung một tên miền, cookie `GW_AT` gửi kèm mọi request API mà không cần CORS.
+- **SPA fallback** — mở thẳng `http://.../inventory`: không có file `inventory` trên đĩa → `try_files ... /index.html` trả trang React, React Router mới hiển thị màn tồn kho. Thiếu dòng này F5 sẽ 404.
+- **Mạng `internal: true`** — Postgres chỉ nằm trong mạng `internal`, không publish cổng. Từ Internet không có đường nào tới DB; backend là cầu nối duy nhất. Lưu ý: Docker publish cổng bằng iptables **vượt qua ufw**, nên "đã chặn ufw" không đủ nếu lỡ thêm `ports: 5432` cho DB.
+- **Profile `prod` không có giá trị mặc định** — `application-dev.yml` có `${POSTGRES_HOST:localhost}`; `application-prod.yml` chỉ có `${SPRING_DATASOURCE_URL}`. Thiếu biến thì backend dừng ngay khi khởi động, thay vì âm thầm nối vào một DB sai. Tương tự `${JWT_SECRET:?...}` trong compose báo lỗi trước khi container nào chạy.
+- **Cookie `Secure` và HTTP** — cookie đăng nhập có cờ `Secure` nên trình duyệt chỉ gửi qua HTTPS (ngoại lệ: `localhost`). Deploy bằng `http://<IP>` mà để `COOKIE_SECURE=true` → đăng nhập "thành công" nhưng request sau vẫn 401. Đây là lý do HTTPS (cần tên miền) là bước bắt buộc trước khi dùng thật.
+- **`.dockerignore` theo Dockerfile** — build frontend dùng thư mục gốc làm context; không lọc thì `.env` (chứa mật khẩu) và `node_modules` bị gửi vào quá trình build. `frontend.Dockerfile.dockerignore` chỉ cho phép `frontend/` và `infra/nginx/`.
+- **Healthcheck + `depends_on: condition`** — `web` chỉ khởi động khi `backend` trả 200 ở `/api/health`, `backend` chỉ khởi động khi `pg_isready`. Không có điều kiện này, backend có thể chạy trước khi Postgres sẵn sàng và Flyway lỗi kết nối.
+
+### Lựa chọn và phương án thay thế
+
+- **Một container Nginx vừa phục vụ React vừa proxy API** thay vì tách container frontend + container Nginx riêng: ít thành phần hơn. Tách khi cần đưa frontend lên CDN hoặc nhiều app sau một proxy.
+- **Build image ngay trên VPS** (`--build`) thay vì đẩy image lên registry (GHCR) rồi `pull`: không cần thêm tài khoản/secret. Đổi sang registry khi có CI/CD — server không phải build, deploy nhanh và bản chạy chính là bản CI đã test.
+- **Test không chạy trong `docker build`** (`-DskipTests`): test dùng Testcontainers cần Docker bên trong Docker. Chạy `mvn verify` trước khi deploy (sau này trong GitHub Actions).
+
+### Câu hỏi ôn tập (để cuối dự án)
+
+1. Vì sao `docker compose down -v` nguy hiểm còn `down` thì không?
+2. Bỏ `try_files $uri $uri/ /index.html` thì người dùng gặp lỗi gì, ở thao tác nào?
+3. Vì sao Spring Boot gọi được `jdbc:postgresql://db:5432/...` dù không có máy nào tên `db` trong mạng LAN?
+
+---
+
 ## Module: Đăng nhập & phân quyền (2026-10-20, V14, ADR-0003)
 
 ### Spring Security hoạt động thế nào — đi theo một request
