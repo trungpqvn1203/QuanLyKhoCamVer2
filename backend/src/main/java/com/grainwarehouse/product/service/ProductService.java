@@ -42,6 +42,15 @@ public class ProductService {
 
     @Transactional
     public ProductResponse create(CreateProductRequest request) {
+        // Sau save(), code đã có giá trị nhờ @Generated (BR-PRD-02)
+        return ProductResponse.from(productRepository.save(prepareNew(request)));
+    }
+
+    /**
+     * Kiểm tra quy tắc nghiệp vụ và dựng sản phẩm CHƯA lưu — dùng chung cho form tạo tay và nhập Excel,
+     * để hai đường nhập không bao giờ lệch quy tắc.
+     */
+    public Product prepareNew(CreateProductRequest request) {
         String name = request.name().trim();
         productRepository.findByNameIgnoreCase(name).ifPresent(this::throwDuplicate);
         validateNetWeight(request.unit(), request.netWeightKg());
@@ -54,8 +63,7 @@ public class ProductService {
         product.setNetWeightKg(request.netWeightKg());
         product.setDescription(request.description());
         product.setMinStockQuantity(request.minStockQuantity());
-        // Sau save(), code đã có giá trị nhờ @Generated (BR-PRD-02)
-        return ProductResponse.from(productRepository.save(product));
+        return product;
     }
 
     @Transactional

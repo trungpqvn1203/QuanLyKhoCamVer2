@@ -36,10 +36,18 @@ public class EmployeeService {
 
     @Transactional
     public EmployeeResponse create(CreateEmployeeRequest request) {
+        // Sau save(), code đã có giá trị nhờ @Generated (BR-EMP-01)
+        return EmployeeResponse.from(employeeRepository.save(prepareNew(request)));
+    }
+
+    /**
+     * Kiểm tra quy tắc nghiệp vụ và dựng nhân viên CHƯA lưu — dùng chung cho form tạo tay và nhập Excel,
+     * để hai đường nhập không bao giờ lệch quy tắc.
+     */
+    public Employee prepareNew(CreateEmployeeRequest request) {
         Employee employee = new Employee();
         apply(employee, request.name(), request.phone(), request.dailyWage(), request.tonRate());
-        // Sau save(), code đã có giá trị nhờ @Generated (BR-EMP-01)
-        return EmployeeResponse.from(employeeRepository.save(employee));
+        return employee;
     }
 
     /**

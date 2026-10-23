@@ -1,5 +1,8 @@
 package com.grainwarehouse.supplier.controller;
 
+import com.grainwarehouse.common.importing.ExcelImportService;
+import com.grainwarehouse.common.importing.ImportPreview;
+import com.grainwarehouse.common.importing.ImportResult;
 import com.grainwarehouse.common.response.ApiResponse;
 import com.grainwarehouse.common.response.PageResponse;
 import com.grainwarehouse.supplier.dto.CreateSupplierRequest;
@@ -8,6 +11,7 @@ import com.grainwarehouse.supplier.dto.SupplierProductResponse;
 import com.grainwarehouse.supplier.dto.SupplierResponse;
 import com.grainwarehouse.supplier.dto.SupplierSearchCriteria;
 import com.grainwarehouse.supplier.dto.UpdateSupplierRequest;
+import com.grainwarehouse.supplier.service.SupplierImportDefinition;
 import com.grainwarehouse.supplier.service.SupplierService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -23,7 +27,9 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/api/suppliers")
@@ -31,6 +37,26 @@ import org.springframework.web.bind.annotation.RestController;
 public class SupplierController {
 
     private final SupplierService supplierService;
+    private final SupplierImportDefinition supplierImport;
+    private final ExcelImportService excelImportService;
+
+    // Nhập Excel (BR-XLS): tải mẫu → kiểm tra (không ghi) → xác nhận (ghi tất cả hoặc không gì)
+    @GetMapping("/import/template")
+    public ResponseEntity<byte[]> importTemplate() {
+        return excelImportService.template(supplierImport);
+    }
+
+    @PostMapping("/import/preview")
+    public ResponseEntity<ApiResponse<ImportPreview>> previewImport(@RequestParam("file") MultipartFile file) {
+        return ResponseEntity.ok(ApiResponse.ok(excelImportService.preview(supplierImport, file)));
+    }
+
+    @PostMapping("/import")
+    public ResponseEntity<ApiResponse<ImportResult>> importFile(@RequestParam("file") MultipartFile file) {
+        ImportResult result = excelImportService.commit(supplierImport, file);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.ok(result, "Đã nhập " + result.importedCount() + " nhà cung cấp"));
+    }
 
     // Tiêu chí lọc bind từ query string vào record; không gửi = không lọc (request cũ vẫn chạy như trước)
     @GetMapping

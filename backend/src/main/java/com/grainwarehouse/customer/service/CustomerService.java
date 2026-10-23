@@ -36,14 +36,22 @@ public class CustomerService {
 
     @Transactional
     public CustomerResponse create(CreateCustomerRequest request) {
+        // Sau save(), code đã có giá trị nhờ @Generated (BR-CUS-02)
+        return CustomerResponse.from(customerRepository.save(prepareNew(request)));
+    }
+
+    /**
+     * Kiểm tra quy tắc nghiệp vụ và dựng khách hàng CHƯA lưu — dùng chung cho form tạo tay và nhập Excel,
+     * để hai đường nhập không bao giờ lệch quy tắc.
+     */
+    public Customer prepareNew(CreateCustomerRequest request) {
         String phone = normalizePhone(request.phone());
         customerRepository.findByPhone(phone).ifPresent(this::throwDuplicate);
 
         Customer customer = new Customer();
         apply(customer, request.name(), request.type(), phone, request.contactName(), request.address(),
                 request.note());
-        // Sau save(), code đã có giá trị nhờ @Generated (BR-CUS-02)
-        return CustomerResponse.from(customerRepository.save(customer));
+        return customer;
     }
 
     @Transactional

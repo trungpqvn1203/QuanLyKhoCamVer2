@@ -9,6 +9,11 @@ spring:
       - optional:file:.env[.properties]
   profiles:
     active: ${SPRING_PROFILES_ACTIVE:dev}
+  servlet:
+    multipart:
+      # Nhập Excel: file mẫu 1.000 dòng chỉ vài trăm KB. Mặc định Spring 1MB; Nginx cho tối đa 5m
+      max-file-size: 2MB
+      max-request-size: 3MB
   jpa:
     # Tắt Open Session In View: lazy loading ngoài transaction sẽ lỗi ngay,
     # buộc service map Entity -> DTO bên trong @Transactional

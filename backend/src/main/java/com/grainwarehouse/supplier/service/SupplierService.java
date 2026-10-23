@@ -44,6 +44,15 @@ public class SupplierService {
 
     @Transactional
     public SupplierResponse create(CreateSupplierRequest request) {
+        // Sau save(), code đã có giá trị nhờ @Generated (BR-SUP-02)
+        return SupplierResponse.from(supplierRepository.save(prepareNew(request)));
+    }
+
+    /**
+     * Kiểm tra quy tắc nghiệp vụ và dựng nhà cung cấp CHƯA lưu — dùng chung cho form tạo tay và nhập Excel,
+     * để hai đường nhập không bao giờ lệch quy tắc.
+     */
+    public Supplier prepareNew(CreateSupplierRequest request) {
         String name = request.name().trim();
         supplierRepository.findByNameIgnoreCase(name).ifPresent(this::throwDuplicate);
 
@@ -53,8 +62,7 @@ public class SupplierService {
         supplier.setPhone(blankToNull(request.phone()));
         supplier.setEmail(blankToNull(request.email()));
         supplier.setAddress(blankToNull(request.address()));
-        // Sau save(), code đã có giá trị nhờ @Generated (BR-SUP-02)
-        return SupplierResponse.from(supplierRepository.save(supplier));
+        return supplier;
     }
 
     @Transactional

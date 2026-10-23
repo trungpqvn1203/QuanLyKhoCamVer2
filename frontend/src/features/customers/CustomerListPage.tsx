@@ -1,5 +1,5 @@
-import { PlusOutlined, TagsOutlined } from '@ant-design/icons'
-import { App, Button, Typography } from 'antd'
+import { FileExcelOutlined, PlusOutlined, TagsOutlined } from '@ant-design/icons'
+import { App, Button, Flex, Typography } from 'antd'
 import type { TableProps } from 'antd'
 import { useState } from 'react'
 import { ApiError } from '../../api/client'
@@ -17,7 +17,8 @@ import { useFilteredList } from '../../hooks/use-filtered-list'
 import { formatDateTime, orEmpty } from '../../utils/format'
 import { formatPhone } from '../../utils/phone'
 import { useCan } from '../auth/auth-context'
-import { CUSTOMER_TYPE_OPTIONS, customerApi } from './customer-api'
+import { ImportExcelModal } from '../imports/ImportExcelModal'
+import { CUSTOMER_TYPE_OPTIONS, customerApi, customerImportApi } from './customer-api'
 import type { Customer, CustomerFilters, CustomerType } from './customer-api'
 import { CustomerFormModal } from './CustomerFormModal'
 import { CustomerPriceDrawer } from './CustomerPriceDrawer'
@@ -37,6 +38,7 @@ export function CustomerListPage() {
     customerApi.list,
   )
   const [modalOpen, setModalOpen] = useState(false)
+  const [importOpen, setImportOpen] = useState(false)
   const [editing, setEditing] = useState<Customer | null>(null)
   // Tách cờ mở khỏi bản ghi: đóng khung thì nội dung vẫn còn trong lúc chạy hiệu ứng trượt ra
   const [detailOpen, setDetailOpen] = useState(false)
@@ -201,9 +203,14 @@ export function CustomerListPage() {
         description="Đại lý, trang trại và khách lẻ mua cám"
         actions={
           canWrite && (
-            <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
-              Thêm khách hàng
-            </Button>
+            <Flex gap={8}>
+              <Button icon={<FileExcelOutlined />} onClick={() => setImportOpen(true)}>
+                Nhập từ Excel
+              </Button>
+              <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
+                Thêm khách hàng
+              </Button>
+            </Flex>
           )
         }
       />
@@ -251,6 +258,13 @@ export function CustomerListPage() {
               }
             : undefined
         }
+      />
+      <ImportExcelModal
+        open={importOpen}
+        noun="khách hàng"
+        api={customerImportApi}
+        onClose={() => setImportOpen(false)}
+        onImported={reload}
       />
     </>
   )
