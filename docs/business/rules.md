@@ -198,7 +198,7 @@ _(Trả lời BR-SAL-Q01: có công nợ, chỉ ở mức phiếu bán + lịch 
 
 ### ✅ Đã xác nhận (2026-10-16)
 
-- **BR-SUP-01:** Mỗi NCC có mã, tên, **người liên hệ (bắt buộc)**; số điện thoại, email, địa chỉ **tùy chọn**. Email nếu nhập phải đúng định dạng.
+- **BR-SUP-01:** Mỗi NCC có mã, tên; **mã số thuế**, số điện thoại, email, địa chỉ **tùy chọn**. Email nếu nhập phải đúng định dạng. _(Sửa 2026-10-24: bỏ "người liên hệ (bắt buộc)", thay bằng mã số thuế — dữ liệu người liên hệ cũ bị xóa theo xác nhận, migration V15.)_
 - **BR-SUP-02:** Mã NCC do **hệ thống tự sinh** dạng `NCC` + 3 chữ số (ví dụ `NCC001`), duy nhất, **không sửa được**. Mã có thể nhảy số (do rollback) — chấp nhận.
 - **BR-SUP-03:** Tên NCC duy nhất, **không phân biệt hoa thường**.
 - **BR-SUP-04:** NCC không xóa cứng; ngừng hoạt động bằng `active = false`. Không tạo mới NCC trùng tên với NCC đã ngừng hoạt động; hệ thống hướng dẫn mở lại (giống BR-PRD-09).
@@ -206,6 +206,7 @@ _(Trả lời BR-SAL-Q01: có công nợ, chỉ ở mức phiếu bán + lịch 
 - **BR-SUP-06:** Không gán SP **đã ngừng kinh doanh**, không gán SP cho NCC **đã ngừng hoạt động**.
 - **BR-SUP-07:** Ngừng hoạt động NCC **giữ nguyên** các liên kết (mở lại NCC không phải gán lại).
 - **BR-SUP-08:** **Chặn cứng** khi nhập kho: phiếu nhập từ NCC X chỉ được chứa SP đang liên kết `active = true` với X. _(Thực thi ở module nhập kho.)_
+- **BR-SUP-09:** Mã số thuế (tùy chọn) gồm **10 chữ số**, hoặc 10 chữ số + `-` + 3 chữ số cho chi nhánh (ví dụ `0101234567-001`); khoảng trắng được bỏ trước khi kiểm và lưu. Có nhập thì **duy nhất** giữa các NCC, kể cả NCC đã ngừng (trùng → báo NCC đang giữ, hướng dẫn mở lại). Ô tìm kiếm NCC khớp cả mã số thuế. _(Xác nhận 2026-10-24)_
 
 ---
 
@@ -267,7 +268,7 @@ _(Trả lời BR-SAL-Q01: có công nợ, chỉ ở mức phiếu bán + lịch 
 - **BR-XLS-04:** Chỉ nhận `.xlsx`. Tối đa **1.000 dòng** dữ liệu, **2 MB** mỗi file. Dòng trống hoàn toàn được bỏ qua.
 - **BR-XLS-05:** File phải là mẫu đúng loại và đúng phiên bản (mã mẫu nằm trong sheet ẩn), tiêu đề cột không bị đổi tên hay đổi thứ tự. Nếu sai, hệ thống báo lỗi cả file và yêu cầu tải lại mẫu.
 - **BR-XLS-06:** Quyền nhập giống quyền tạo tay của từng loại. Tải mẫu theo quyền xem.
-- **BR-XLS-07:** Dòng trùng bản ghi đã có (tên SP, SĐT khách, tên NCC, **kể cả bản ghi đã ngừng**) thì **báo lỗi**, không cập nhật bản ghi cũ. Hai dòng trùng nhau trong cùng một file cũng báo lỗi ("Trùng với dòng N").
+- **BR-XLS-07:** Dòng trùng bản ghi đã có (tên SP, SĐT khách, tên hoặc MST NCC, **kể cả bản ghi đã ngừng**) thì **báo lỗi**, không cập nhật bản ghi cũ. Hai dòng trùng nhau trong cùng một file cũng báo lỗi ("Trùng với dòng N").
 
 ### ⚠️ Giả định tạm thời
 

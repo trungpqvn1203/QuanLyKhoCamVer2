@@ -88,8 +88,8 @@ public class ExcelImportService {
 
         List<ImportError> errors = new ArrayList<>();
         List<E> prepared = new ArrayList<>();
-        // Khóa so trùng → số dòng xuất hiện ĐẦU TIÊN, để báo "trùng với dòng 5"
-        Map<String, Integer> seen = new HashMap<>();
+        // (field, khóa so trùng) → số dòng xuất hiện ĐẦU TIÊN, để báo "trùng với dòng 5"
+        Map<String, Map<String, Integer>> seen = new HashMap<>();
 
         for (ImportRow row : rows) {
             R request = definition.parse(row);
@@ -112,15 +112,16 @@ public class ExcelImportService {
     }
 
     private <R> void checkDuplicateInFile(ImportDefinition<R, ?> definition, R request, ImportRow row,
-                                          Map<String, Integer> seen) {
-        String key = definition.duplicateKey(request);
-        if (key == null) {
-            return;
-        }
-        Integer firstRow = seen.putIfAbsent(key, row.number());
-        if (firstRow != null) {
-            row.error(definition.duplicateField(), "Trùng với dòng " + firstRow + " trong file");
-        }
+                                          Map<String, Map<String, Integer>> seen) {
+        definition.duplicateKeys(request).forEach((field, key) -> {
+            if (key == null) {
+                return;
+            }
+            Integer firstRow = seen.computeIfAbsent(field, f -> new HashMap<>()).putIfAbsent(key, row.number());
+            if (firstRow != null) {
+                row.error(field, "Trùng với dòng " + firstRow + " trong file");
+            }
+        });
     }
 
     /** Exception của service (đúng thông báo như khi tạo tay) → lỗi của dòng, gắn vào cột liên quan nếu biết. */
@@ -130,7 +131,7 @@ public class ExcelImportService {
         } catch (InvalidRequestException e) {
             row.error(e.getField(), e.getMessage());
         } catch (DuplicateResourceException e) {
-            row.error(definition.duplicateField(), e.getMessage());
+            row.error(e.getField(), e.getMessage());
         } catch (BusinessException | ResourceNotFoundException e) {
             row.error(null, e.getMessage());
         }

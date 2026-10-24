@@ -61,7 +61,7 @@ class ProductStockApiTest {
         hanoi = warehouse("Kho Hà Nội", true);
         haiphong = warehouse("Kho Hải Phòng", true);
         oldWarehouse = warehouse("Kho cũ", false);
-        supplier = id("INSERT INTO supplier (name, contact_name) VALUES ('NCC test', 'A') RETURNING id");
+        supplier = id("INSERT INTO supplier (name) VALUES ('NCC test') RETURNING id");
 
         stock(pig, hanoi, 30);
         stock(pig, haiphong, 20);

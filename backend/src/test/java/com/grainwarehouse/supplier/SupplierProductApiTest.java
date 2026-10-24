@@ -67,6 +67,7 @@ class SupplierProductApiTest {
         pigFeed = saveProduct(category, "Cám heo con 25kg");
         chickenFeed = saveProduct(category, "Cám gà thịt 25kg");
         supplier = saveSupplier("Công ty CP Cám Việt");
+        supplier.setTaxCode("0101234567");
     }
 
     @Test
@@ -196,7 +197,7 @@ class SupplierProductApiTest {
                 .andExpect(jsonPath("$.data.items[0].supplierId").value(supplier.getId()))
                 .andExpect(jsonPath("$.data.items[0].supplierCode").value(supplier.getCode()))
                 .andExpect(jsonPath("$.data.items[0].supplierName").value("Công ty CP Cám Việt"))
-                .andExpect(jsonPath("$.data.items[0].contactName").value("Nguyễn Văn A"))
+                .andExpect(jsonPath("$.data.items[0].taxCode").value("0101234567"))
                 .andExpect(jsonPath("$.data.items[0].supplierActive").value(true))
                 .andExpect(jsonPath("$.data.items[1].supplierId").value(other.getId()));
     }
@@ -236,7 +237,6 @@ class SupplierProductApiTest {
     private Supplier saveSupplier(String name) {
         Supplier s = new Supplier();
         s.setName(name);
-        s.setContactName("Nguyễn Văn A");
         return supplierRepository.save(s);
     }
 }

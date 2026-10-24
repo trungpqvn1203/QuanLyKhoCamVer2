@@ -13,7 +13,7 @@ public final class SupplierSpecifications {
 
     public static Specification<Supplier> from(SupplierSearchCriteria criteria) {
         return Specification.allOf(
-                CommonSpecifications.keywordContains(criteria, "code", "name"),
+                CommonSpecifications.keywordContains(criteria, "code", "name", "taxCode"),
                 CommonSpecifications.hasActive(criteria));
     }
 }

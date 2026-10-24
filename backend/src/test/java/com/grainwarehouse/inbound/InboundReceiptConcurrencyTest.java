@@ -93,7 +93,6 @@ class InboundReceiptConcurrencyTest {
         warehouseRepository.save(warehouse);
         supplier = new Supplier();
         supplier.setName("NCC đồng thời " + tag);
-        supplier.setContactName("Nguyễn Văn A");
         supplierRepository.save(supplier);
         // Tạo heo trước gà → id heo nhỏ hơn → dòng heo được xử lý trước (thứ tự product_id tăng dần)
         pigFeed = saveLinkedProduct("Cám heo " + tag);

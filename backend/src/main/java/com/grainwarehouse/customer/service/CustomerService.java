@@ -103,10 +103,10 @@ public class CustomerService {
     private void throwDuplicate(Customer existing) {
         String message = "Số điện thoại " + existing.getPhone() + " đã thuộc về " + label(existing);
         if (!existing.isActive()) {
-            throw new DuplicateResourceException(message
+            throw new DuplicateResourceException("phone", message
                     + ", khách này đang ngừng hoạt động. Hãy mở lại khách hàng thay vì tạo mới");
         }
-        throw new DuplicateResourceException(message);
+        throw new DuplicateResourceException("phone", message);
     }
 
     private static String label(Customer customer) {

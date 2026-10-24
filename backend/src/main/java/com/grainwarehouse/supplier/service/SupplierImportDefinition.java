@@ -9,7 +9,9 @@ import com.grainwarehouse.supplier.repository.SupplierRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /** Mẫu nhập nhà cung cấp (BR-XLS). Liên kết NCC–SP không nhập qua file này — gán trên màn hình NCC. */
 @Component
@@ -21,7 +23,8 @@ public class SupplierImportDefinition implements ImportDefinition<CreateSupplier
 
     @Override
     public String templateId() {
-        return "SUPPLIER_v1";
+        // v2 (2026-10-24): bỏ cột "Người liên hệ", thêm "Mã số thuế" — file mẫu v1 bị từ chối thay vì đọc lệch cột
+        return "SUPPLIER_v2";
     }
 
     @Override
@@ -38,7 +41,10 @@ public class SupplierImportDefinition implements ImportDefinition<CreateSupplier
     public List<ImportColumn> columns() {
         return List.of(
                 ImportColumn.required("name", "Tên nhà cung cấp", "Tối đa 200 ký tự, không trùng nhà cung cấp đã có"),
-                ImportColumn.required("contactName", "Người liên hệ", "Tối đa 200 ký tự"),
+                // asText: MST có thể bắt đầu bằng 0 (0101234567) — ô số sẽ làm mất số 0 đầu
+                ImportColumn.optional("taxCode", "Mã số thuế",
+                        "10 chữ số, hoặc 10 chữ số-3 chữ số cho chi nhánh (0101234567-001). Không trùng nhà cung cấp đã có")
+                        .asText(),
                 ImportColumn.optional("phone", "Số điện thoại", "Tối đa 20 ký tự").asText(),
                 ImportColumn.optional("email", "Email", "Đúng định dạng email"),
                 ImportColumn.optional("address", "Địa chỉ", "Tối đa 500 ký tự"));
@@ -46,24 +52,23 @@ public class SupplierImportDefinition implements ImportDefinition<CreateSupplier
 
     @Override
     public List<String> example() {
-        return List.of("Công ty TNHH Thức ăn Chăn nuôi An Phú", "Chị Lan", "0283 123 4567", "lan@anphu.vn",
+        return List.of("Công ty TNHH Thức ăn Chăn nuôi An Phú", "0301234567", "0283 123 4567", "lienhe@anphu.vn",
                 "KCN Tân Tạo, TP.HCM");
     }
 
     @Override
     public CreateSupplierRequest parse(ImportRow row) {
-        return new CreateSupplierRequest(row.text("name"), row.text("contactName"), row.text("phone"),
+        return new CreateSupplierRequest(row.text("name"), row.text("taxCode"), row.text("phone"),
                 row.text("email"), row.text("address"));
     }
 
+    /** Tên và MST so riêng. MST bỏ khoảng trắng như service; để trống thì không so (HashMap nhận giá trị null). */
     @Override
-    public String duplicateField() {
-        return "name";
-    }
-
-    @Override
-    public String duplicateKey(CreateSupplierRequest request) {
-        return ImportRow.normalizeKey(request.name());
+    public Map<String, String> duplicateKeys(CreateSupplierRequest request) {
+        Map<String, String> keys = new HashMap<>();
+        keys.put("name", ImportRow.normalizeKey(request.name()));
+        keys.put("taxCode", request.taxCode() == null ? null : request.taxCode().replaceAll("\\s", ""));
+        return keys;
     }
 
     @Override

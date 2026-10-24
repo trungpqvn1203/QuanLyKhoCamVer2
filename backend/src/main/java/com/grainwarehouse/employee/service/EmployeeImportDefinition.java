@@ -11,6 +11,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * Mẫu nhập nhân viên (BR-XLS). Nhân viên không có khóa duy nhất (BR-EMP-03: SĐT không bắt buộc, tên được trùng)
@@ -63,14 +64,9 @@ public class EmployeeImportDefinition implements ImportDefinition<CreateEmployee
     }
 
     @Override
-    public String duplicateField() {
-        return "name";
-    }
-
-    @Override
-    public String duplicateKey(CreateEmployeeRequest request) {
+    public Map<String, String> duplicateKeys(CreateEmployeeRequest request) {
         String phone = request.phone() == null ? "" : PhoneNumbers.normalize(request.phone());
-        return ImportRow.normalizeKey(request.name()) + "|" + phone;
+        return Map.of("name", ImportRow.normalizeKey(request.name()) + "|" + phone);
     }
 
     @Override

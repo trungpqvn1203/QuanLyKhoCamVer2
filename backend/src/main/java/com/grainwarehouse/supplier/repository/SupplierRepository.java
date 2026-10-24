@@ -12,4 +12,9 @@ public interface SupplierRepository extends JpaRepository<Supplier, Long>, JpaSp
     Optional<Supplier> findByNameIgnoreCase(String name);
 
     Optional<Supplier> findByNameIgnoreCaseAndIdNot(String name, Long id);
+
+    // BR-SUP-09: MST đã chuẩn hóa nên so bằng nhau, không cần IgnoreCase
+    Optional<Supplier> findByTaxCode(String taxCode);
+
+    Optional<Supplier> findByTaxCodeAndIdNot(String taxCode, Long id);
 }

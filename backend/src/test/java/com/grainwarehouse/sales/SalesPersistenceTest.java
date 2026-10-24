@@ -51,7 +51,7 @@ class SalesPersistenceTest {
     @Test
     @DisplayName("DB chặn phiếu nhập gắn khách hàng")
     void dbShouldRejectCustomerOnInboundReceipt() {
-        Long supplierId = id("INSERT INTO supplier (name, contact_name) VALUES ('NCC test', 'A') RETURNING id");
+        Long supplierId = id("INSERT INTO supplier (name) VALUES ('NCC test') RETURNING id");
 
         assertThatThrownBy(() -> jdbcTemplate.update("INSERT INTO stock_document (code, type, warehouse_id,"
                 + " supplier_id, customer_id, document_date) VALUES ('PN-TEST-2', 'INBOUND', ?, ?, ?, current_date)",

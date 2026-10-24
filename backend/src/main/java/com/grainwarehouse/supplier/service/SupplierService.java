@@ -2,6 +2,7 @@ package com.grainwarehouse.supplier.service;
 
 import com.grainwarehouse.common.exception.BusinessException;
 import com.grainwarehouse.common.exception.DuplicateResourceException;
+import com.grainwarehouse.common.exception.InvalidRequestException;
 import com.grainwarehouse.common.exception.ResourceNotFoundException;
 import com.grainwarehouse.common.response.PageResponse;
 import com.grainwarehouse.product.entity.Product;
@@ -24,10 +25,17 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.regex.Pattern;
+
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class SupplierService {
+
+    private static final Pattern WHITESPACE = Pattern.compile("\\s");
+
+    // Khớp CHECK ck_supplier_tax_code (V15)
+    private static final Pattern TAX_CODE = Pattern.compile("\\d{10}(-\\d{3})?");
 
     private final SupplierRepository supplierRepository;
     private final ProductSupplierRepository productSupplierRepository;
@@ -55,10 +63,14 @@ public class SupplierService {
     public Supplier prepareNew(CreateSupplierRequest request) {
         String name = request.name().trim();
         supplierRepository.findByNameIgnoreCase(name).ifPresent(this::throwDuplicate);
+        String taxCode = normalizeTaxCode(request.taxCode());
+        if (taxCode != null) {
+            supplierRepository.findByTaxCode(taxCode).ifPresent(this::throwDuplicateTaxCode);
+        }
 
         Supplier supplier = new Supplier();
         supplier.setName(name);
-        supplier.setContactName(request.contactName().trim());
+        supplier.setTaxCode(taxCode);
         supplier.setPhone(blankToNull(request.phone()));
         supplier.setEmail(blankToNull(request.email()));
         supplier.setAddress(blankToNull(request.address()));
@@ -70,9 +82,13 @@ public class SupplierService {
         Supplier supplier = findOrThrow(id);
         String name = request.name().trim();
         supplierRepository.findByNameIgnoreCaseAndIdNot(name, id).ifPresent(this::throwDuplicate);
+        String taxCode = normalizeTaxCode(request.taxCode());
+        if (taxCode != null) {
+            supplierRepository.findByTaxCodeAndIdNot(taxCode, id).ifPresent(this::throwDuplicateTaxCode);
+        }
 
         supplier.setName(name);
-        supplier.setContactName(request.contactName().trim());
+        supplier.setTaxCode(taxCode);
         supplier.setPhone(blankToNull(request.phone()));
         supplier.setEmail(blankToNull(request.email()));
         supplier.setAddress(blankToNull(request.address()));
@@ -152,10 +168,40 @@ public class SupplierService {
      */
     private void throwDuplicate(Supplier existing) {
         if (!existing.isActive()) {
-            throw new DuplicateResourceException(label(existing)
+            throw new DuplicateResourceException("name", label(existing)
                     + " đã tồn tại nhưng đang ngừng hoạt động. Hãy mở lại nhà cung cấp thay vì tạo mới");
         }
-        throw new DuplicateResourceException(label(existing) + " đã tồn tại");
+        throw new DuplicateResourceException("name", label(existing) + " đã tồn tại");
+    }
+
+    /**
+     * BR-SUP-09: MST trùng NCC khác (kể cả đã ngừng) bị từ chối — một MST là một pháp nhân.
+     * Hai request cùng MST đồng thời: request sau vi phạm uk_supplier_tax_code → GlobalExceptionHandler trả 409.
+     */
+    private void throwDuplicateTaxCode(Supplier existing) {
+        String message = "Mã số thuế " + existing.getTaxCode() + " đã thuộc về nhà cung cấp '"
+                + existing.getName() + "' (" + existing.getCode() + ")";
+        if (!existing.isActive()) {
+            throw new DuplicateResourceException("taxCode", message
+                    + ", nhà cung cấp này đang ngừng hoạt động. Hãy mở lại thay vì tạo mới");
+        }
+        throw new DuplicateResourceException("taxCode", message);
+    }
+
+    /**
+     * BR-SUP-09: tùy chọn; bỏ khoảng trắng ("0101 234 567" → "0101234567") rồi kiểm 10 số hoặc 10 số-3 số.
+     * Lỗi định dạng → 400 gắn vào field taxCode để form hiện đúng ô.
+     */
+    private static String normalizeTaxCode(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return null;
+        }
+        String taxCode = WHITESPACE.matcher(raw).replaceAll("");
+        if (!TAX_CODE.matcher(taxCode).matches()) {
+            throw new InvalidRequestException("taxCode",
+                    "Mã số thuế gồm 10 chữ số, hoặc 10 chữ số + '-' + 3 chữ số cho chi nhánh (ví dụ 0101234567-001)");
+        }
+        return taxCode;
     }
 
     private static String label(Supplier supplier) {

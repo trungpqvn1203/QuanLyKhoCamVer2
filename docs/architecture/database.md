@@ -67,7 +67,7 @@ erDiagram
         bigint id PK
         varchar code UK "Tự sinh NCC001, không sửa"
         varchar name UK "unique, không phân biệt hoa thường"
-        varchar contact_name "NOT NULL"
+        varchar tax_code UK "nullable, CHECK ^[0-9]{10}(-[0-9]{3})?$ (V15)"
         varchar phone "nullable"
         varchar email "nullable"
         varchar address "nullable"
@@ -214,7 +214,7 @@ erDiagram
 ### supplier & product_supplier (✅ đã duyệt — migration V4)
 
 - `supplier.code`: `DEFAULT 'NCC' || lpad(nextval('supplier_code_seq')::text, 3, '0')` — cùng cách sinh mã như `warehouse`.
-- `UNIQUE INDEX (lower(name))` chặn trùng tên (BR-SUP-03). Chỉ `contact_name` bắt buộc; `phone`, `email`, `address` nullable (BR-SUP-01). Định dạng email kiểm tra ở API, không ở DB.
+- `UNIQUE INDEX (lower(name))` chặn trùng tên (BR-SUP-03). `tax_code`, `phone`, `email`, `address` nullable (BR-SUP-01). `tax_code` (V15, thay `contact_name` đã xóa): `CHECK` định dạng 10 số / 10-3 số và `UNIQUE INDEX ... WHERE tax_code IS NOT NULL` — có nhập thì không trùng, nhiều NCC để trống vẫn hợp lệ (BR-SUP-09). Định dạng email kiểm tra ở API, không ở DB.
 - `product_supplier` dùng **khóa chính kép** `(supplier_id, product_id)` thay vì cột `id` riêng: mỗi cặp chỉ có một dòng, gỡ/gán lại chỉ đổi `active` (BR-SUP-05). Phương án thay thế `id` + `UNIQUE(supplier_id, product_id)` chỉ cần khi dòng nối có vòng đời riêng hoặc bảng khác trỏ tới nó.
 - `idx_product_supplier_product (product_id)`: khóa chính chỉ phục vụ truy vấn bắt đầu bằng `supplier_id`; index này phục vụ chiều ngược "SP Y do những NCC nào cung cấp".
 

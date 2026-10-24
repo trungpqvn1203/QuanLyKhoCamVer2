@@ -34,14 +34,14 @@ class SupplierApiTest {
     @DisplayName("BR-SUP-01, BR-SUP-02: POST đủ trường - 201, mã NCC tự sinh, active=true")
     void shouldCreateSupplierWithGeneratedCode() throws Exception {
         createSupplier("""
-                {"name": "Công ty CP Cám Việt", "contactName": "Nguyễn Văn A",
+                {"name": "Công ty CP Cám Việt", "taxCode": "0101 234 567-001",
                  "phone": "0901234567", "email": "a@camviet.vn", "address": "KCN Đồng Văn, Hà Nam"}
                 """)
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.code").value(matchesPattern("NCC\\d{3,}")))
                 .andExpect(jsonPath("$.data.name").value("Công ty CP Cám Việt"))
-                .andExpect(jsonPath("$.data.contactName").value("Nguyễn Văn A"))
+                .andExpect(jsonPath("$.data.taxCode").value("0101234567-001"))
                 .andExpect(jsonPath("$.data.phone").value("0901234567"))
                 .andExpect(jsonPath("$.data.email").value("a@camviet.vn"))
                 .andExpect(jsonPath("$.data.address").value("KCN Đồng Văn, Hà Nam"))
@@ -49,26 +49,89 @@ class SupplierApiTest {
     }
 
     @Test
-    @DisplayName("BR-SUP-01: chỉ tên + người liên hệ - 201; trường tùy chọn rỗng bị bỏ khỏi JSON")
+    @DisplayName("BR-SUP-01: chỉ có tên - 201; trường tùy chọn rỗng (kể cả MST) bị bỏ khỏi JSON")
     void shouldCreateWithOnlyRequiredFields() throws Exception {
         createSupplier("""
-                {"name": "Nhà máy Cám Nam", "contactName": "Trần B", "phone": "  ", "email": ""}
+                {"name": "Nhà máy Cám Nam", "taxCode": " ", "phone": "  ", "email": ""}
                 """)
                 .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.taxCode").doesNotExist())
                 .andExpect(jsonPath("$.data.phone").doesNotExist())
                 .andExpect(jsonPath("$.data.email").doesNotExist())
                 .andExpect(jsonPath("$.data.address").doesNotExist());
     }
 
     @Test
-    @DisplayName("BR-SUP-01: thiếu tên, thiếu người liên hệ, email sai - 400 VALIDATION_FAILED đủ field")
+    @DisplayName("BR-SUP-01: thiếu tên, email sai - 400 VALIDATION_FAILED đủ field")
     void shouldRejectInvalidFields() throws Exception {
         createSupplier("""
-                {"contactName": "   ", "email": "khong-phai-email"}
+                {"name": "   ", "email": "khong-phai-email"}
                 """)
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error.code").value("VALIDATION_FAILED"))
-                .andExpect(jsonPath("$.error.details[*].field").value(hasItems("name", "contactName", "email")));
+                .andExpect(jsonPath("$.error.details[*].field").value(hasItems("name", "email")));
+    }
+
+    @Test
+    @DisplayName("BR-SUP-09: MST sai định dạng (9 số, có chữ, chi nhánh 2 số) - 400 tại field taxCode")
+    void shouldRejectMalformedTaxCode() throws Exception {
+        for (String taxCode : new String[] {"010123456", "01012345AB", "0101234567-01"}) {
+            createSupplier("""
+                    {"name": "Công ty %s", "taxCode": "%s"}
+                    """.formatted(taxCode, taxCode))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.error.details[0].field").value("taxCode"));
+        }
+    }
+
+    @Test
+    @DisplayName("BR-SUP-09: MST trùng NCC khác (khác cách gõ, kể cả NCC đã ngừng) - 409 nêu NCC đang giữ")
+    void shouldRejectDuplicateTaxCode() throws Exception {
+        ResultActions created = createSupplier("""
+                {"name": "Công ty An Phú", "taxCode": "0301234567"}
+                """);
+        long id = createdId(created);
+        String code = readCode(created);
+        mockMvc.perform(delete("/api/suppliers/{id}", id)).andExpect(status().isNoContent());
+
+        createSupplier("""
+                {"name": "Công ty Bình Minh", "taxCode": "0301 234 567"}
+                """)
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.code").value("DUPLICATE_RESOURCE"))
+                .andExpect(jsonPath("$.error.message").value(
+                        "Mã số thuế 0301234567 đã thuộc về nhà cung cấp 'Công ty An Phú' (" + code + "),"
+                                + " nhà cung cấp này đang ngừng hoạt động. Hãy mở lại thay vì tạo mới"));
+    }
+
+    @Test
+    @DisplayName("BR-SUP-09: nhiều NCC không có MST - hợp lệ; PUT giữ nguyên MST của chính mình - không báo trùng")
+    void shouldAllowManyWithoutTaxCodeAndKeepOwnTaxCode() throws Exception {
+        createSupplier(supplierJson("Nhà máy A")).andExpect(status().isCreated());
+        createSupplier(supplierJson("Nhà máy B")).andExpect(status().isCreated());
+
+        long id = createdId(createSupplier("""
+                {"name": "Nhà máy C", "taxCode": "0401234567"}
+                """));
+        updateSupplier(id, """
+                {"name": "Nhà máy C mới", "taxCode": "0401234567", "active": true}
+                """)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.taxCode").value("0401234567"));
+    }
+
+    @Test
+    @DisplayName("BR-SUP-09: ô tìm kiếm khớp theo MST")
+    void shouldSearchByTaxCode() throws Exception {
+        createSupplier("""
+                {"name": "Công ty An Phú", "taxCode": "0301234567"}
+                """);
+        createSupplier(supplierJson("Công ty Bình Minh"));
+
+        mockMvc.perform(get("/api/suppliers").param("keyword", "030123"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.pagination.totalElements").value(1))
+                .andExpect(jsonPath("$.data.items[0].name").value("Công ty An Phú"));
     }
 
     @Test
@@ -106,7 +169,7 @@ class SupplierApiTest {
         mockMvc.perform(delete("/api/suppliers/{id}", id)).andExpect(status().isNoContent());
 
         updateSupplier(id, """
-                {"name": "Nhà máy Cám Nam", "contactName": "Trần B", "active": true}
+                {"name": "Nhà máy Cám Nam", "active": true}
                 """)
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.active").value(true))
@@ -122,19 +185,19 @@ class SupplierApiTest {
         String originalCode = readCode(created);
 
         updateSupplier(id, """
-                {"name": "công ty cp cám việt", "contactName": "Trần B", "active": true}
+                {"name": "công ty cp cám việt", "active": true}
                 """)
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.error.code").value("DUPLICATE_RESOURCE"));
 
         updateSupplier(id, """
-                {"code": "HACK01", "name": "Nhà máy Cám Nam 2", "contactName": "Lê C",
+                {"code": "HACK01", "name": "Nhà máy Cám Nam 2", "taxCode": "0501234567",
                  "phone": "0283456789", "active": true}
                 """)
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.code").value(originalCode))
                 .andExpect(jsonPath("$.data.name").value("Nhà máy Cám Nam 2"))
-                .andExpect(jsonPath("$.data.contactName").value("Lê C"))
+                .andExpect(jsonPath("$.data.taxCode").value("0501234567"))
                 .andExpect(jsonPath("$.data.phone").value("0283456789"));
     }
 
@@ -244,7 +307,7 @@ class SupplierApiTest {
 
     private String supplierJson(String name) {
         return """
-                {"name": "%s", "contactName": "Người liên hệ"}
+                {"name": "%s"}
                 """.formatted(name);
     }
 

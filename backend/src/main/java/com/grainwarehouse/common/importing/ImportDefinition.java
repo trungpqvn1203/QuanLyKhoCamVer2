@@ -1,6 +1,7 @@
 package com.grainwarehouse.common.importing;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * Mô tả cách nhập một loại dữ liệu từ Excel. Mỗi module (sản phẩm, khách hàng...) cài đặt một bean;
@@ -29,11 +30,12 @@ public interface ImportDefinition<R, E> {
     /** Ép kiểu các ô thành request. Ô sai kiểu → row.error(...), field đó để null. */
     R parse(ImportRow row);
 
-    /** Field dùng để so trùng (trong file và trong DB) — lỗi trùng được gắn vào cột này. */
-    String duplicateField();
-
-    /** Khóa so trùng giữa các dòng trong cùng file; null = dòng này không cần so. */
-    String duplicateKey(R request);
+    /**
+     * Khóa so trùng giữa các dòng trong cùng file: field → khóa đã chuẩn hóa. Mỗi field so riêng
+     * (NCC: tên và MST). Khóa null = dòng này không cần so field đó (ví dụ MST để trống).
+     * Trùng với DB do prepare() phát hiện (DuplicateResourceException mang field).
+     */
+    Map<String, String> duplicateKeys(R request);
 
     /**
      * Chạy đúng các kiểm tra nghiệp vụ của chức năng tạo tay (trùng DB, danh mục ngừng dùng...) và dựng entity chưa lưu.

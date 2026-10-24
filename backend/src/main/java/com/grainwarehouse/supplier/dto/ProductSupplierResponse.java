@@ -8,7 +8,7 @@ public record ProductSupplierResponse(
         Long supplierId,
         String supplierCode,
         String supplierName,
-        String contactName,
+        String taxCode,
         String phone,
         boolean supplierActive) {
 
@@ -18,7 +18,7 @@ public record ProductSupplierResponse(
                 supplier.getId(),
                 supplier.getCode(),
                 supplier.getName(),
-                supplier.getContactName(),
+                supplier.getTaxCode(),
                 supplier.getPhone(),
                 supplier.isActive());
     }

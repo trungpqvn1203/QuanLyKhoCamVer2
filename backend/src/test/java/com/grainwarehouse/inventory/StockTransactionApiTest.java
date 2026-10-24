@@ -73,7 +73,7 @@ class StockTransactionApiTest {
                 + " RETURNING id", category);
         hanoi = id("INSERT INTO warehouse (name, type, address) VALUES ('Kho HN lịch sử', 'CENTRAL', 'HN') RETURNING id");
         haiphong = id("INSERT INTO warehouse (name, type, address) VALUES ('Kho HP lịch sử', 'RETAIL', 'HP') RETURNING id");
-        supplier = id("INSERT INTO supplier (name, contact_name) VALUES ('NCC lịch sử', 'A') RETURNING id");
+        supplier = id("INSERT INTO supplier (name) VALUES ('NCC lịch sử') RETURNING id");
         customer = id("INSERT INTO customer (name, type, phone) VALUES ('Đại lý lịch sử', 'DEALER', '0909000111')"
                 + " RETURNING id");
         jdbcTemplate.update("INSERT INTO product_supplier (supplier_id, product_id) VALUES (?, ?), (?, ?)",

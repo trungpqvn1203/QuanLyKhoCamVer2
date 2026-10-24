@@ -7,6 +7,7 @@ import type { PageQuery } from '../../api/types'
 import { CodeText } from '../../components/ui/CodeLink'
 import { STATUS_COLUMN_WIDTH, StatusTag } from '../../components/ui/StatusTag'
 import { usePagedList } from '../../hooks/use-paged-list'
+import { orEmpty } from '../../utils/format'
 import type { Product } from '../products/product-api'
 import { supplierApi } from './supplier-api'
 import type { ProductSupplierLink, Supplier } from './supplier-api'
@@ -111,7 +112,7 @@ export function ProductSuppliersPanel({ product }: ProductSuppliersPanelProps) {
       render: (code: string) => <CodeText code={code} />,
     },
     { title: 'Tên nhà cung cấp', dataIndex: 'supplierName' },
-    { title: 'Người liên hệ', dataIndex: 'contactName' },
+    { title: 'Mã số thuế', dataIndex: 'taxCode', width: 150, render: (taxCode?: string) => orEmpty(taxCode) },
     {
       title: 'Trạng thái',
       dataIndex: 'supplierActive',
