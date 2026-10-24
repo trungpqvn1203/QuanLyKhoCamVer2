@@ -1,5 +1,5 @@
-import { PlusOutlined } from '@ant-design/icons'
-import { App, Button, Typography } from 'antd'
+import { FileExcelOutlined, PlusOutlined } from '@ant-design/icons'
+import { App, Button, Flex, Typography } from 'antd'
 import type { TableProps } from 'antd'
 import { useState } from 'react'
 import { ApiError } from '../../api/client'
@@ -17,7 +17,8 @@ import { useFilteredList } from '../../hooks/use-filtered-list'
 import { EMPTY_TEXT, formatDateTime } from '../../utils/format'
 import { formatVnd } from '../../utils/money'
 import { formatPhone } from '../../utils/phone'
-import { employeeApi } from './employee-api'
+import { ImportExcelModal } from '../imports/ImportExcelModal'
+import { employeeApi, employeeImportApi } from './employee-api'
 import type { Employee, EmployeeFilters } from './employee-api'
 import { EmployeeFormModal } from './EmployeeFormModal'
 
@@ -37,6 +38,7 @@ export function EmployeeListPage() {
     employeeApi.list,
   )
   const [modalOpen, setModalOpen] = useState(false)
+  const [importOpen, setImportOpen] = useState(false)
   const [editing, setEditing] = useState<Employee | null>(null)
   const [detailOpen, setDetailOpen] = useState(false)
   const [viewing, setViewing] = useState<Employee | null>(null)
@@ -195,9 +197,14 @@ export function EmployeeListPage() {
         title="Nhân viên"
         description="Nhân viên kho, công nhân bốc vác và cách tính lương của từng người"
         actions={
-          <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
-            Thêm nhân viên
-          </Button>
+          <Flex gap={8}>
+            <Button icon={<FileExcelOutlined />} onClick={() => setImportOpen(true)}>
+              Nhập từ Excel
+            </Button>
+            <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
+              Thêm nhân viên
+            </Button>
+          </Flex>
         }
       />
       <FilterBar<EmployeeFilters> fields={FILTER_FIELDS} value={filters} onChange={applyFilters} />
@@ -239,6 +246,13 @@ export function EmployeeListPage() {
           setDetailOpen(false)
           if (viewing) openEdit(viewing)
         }}
+      />
+      <ImportExcelModal
+        open={importOpen}
+        noun="nhân viên"
+        api={employeeImportApi}
+        onClose={() => setImportOpen(false)}
+        onImported={reload}
       />
     </>
   )

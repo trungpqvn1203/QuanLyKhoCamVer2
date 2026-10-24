@@ -77,6 +77,13 @@
             <artifactId>flyway-database-postgresql</artifactId>
         </dependency>
 
+        <!-- Đọc/sinh file Excel .xlsx cho chức năng nhập hàng loạt (danh mục SP, KH, NCC, NV) -->
+        <dependency>
+            <groupId>org.apache.poi</groupId>
+            <artifactId>poi-ooxml</artifactId>
+            <version>5.4.0</version>
+        </dependency>
+
         <!-- Spring Boot DevTools -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

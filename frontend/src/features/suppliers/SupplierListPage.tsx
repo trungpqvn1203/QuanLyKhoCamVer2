@@ -1,5 +1,5 @@
-import { AppstoreAddOutlined, PlusOutlined } from '@ant-design/icons'
-import { App, Button, Typography } from 'antd'
+import { AppstoreAddOutlined, FileExcelOutlined, PlusOutlined } from '@ant-design/icons'
+import { App, Button, Flex, Typography } from 'antd'
 import type { TableProps } from 'antd'
 import { useState } from 'react'
 import { ApiError } from '../../api/client'
@@ -15,7 +15,8 @@ import { RowActions } from '../../components/ui/RowActions'
 import { STATUS_COLUMN_WIDTH, StatusTag } from '../../components/ui/StatusTag'
 import { useFilteredList } from '../../hooks/use-filtered-list'
 import { formatDateTime, orEmpty } from '../../utils/format'
-import { supplierApi } from './supplier-api'
+import { ImportExcelModal } from '../imports/ImportExcelModal'
+import { supplierApi, supplierImportApi } from './supplier-api'
 import type { Supplier, SupplierFilters } from './supplier-api'
 import { SupplierFormModal } from './SupplierFormModal'
 import { SupplierProductsPanel } from './SupplierProductsPanel'
@@ -34,6 +35,7 @@ export function SupplierListPage() {
     supplierApi.list,
   )
   const [modalOpen, setModalOpen] = useState(false)
+  const [importOpen, setImportOpen] = useState(false)
   const [editing, setEditing] = useState<Supplier | null>(null)
   // Tách cờ mở khỏi bản ghi: đóng khung thì nội dung vẫn còn trong lúc chạy hiệu ứng trượt ra
   const [detailOpen, setDetailOpen] = useState(false)
@@ -181,9 +183,14 @@ export function SupplierListPage() {
         title="Nhà cung cấp"
         description="Nhà máy, đơn vị cung cấp cám và các sản phẩm họ được phép cung cấp"
         actions={
-          <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
-            Thêm nhà cung cấp
-          </Button>
+          <Flex gap={8}>
+            <Button icon={<FileExcelOutlined />} onClick={() => setImportOpen(true)}>
+              Nhập từ Excel
+            </Button>
+            <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
+              Thêm nhà cung cấp
+            </Button>
+          </Flex>
         }
       />
       <FilterBar<SupplierFilters> fields={FILTER_FIELDS} value={filters} onChange={applyFilters} />
@@ -239,6 +246,13 @@ export function SupplierListPage() {
               ]
             : []
         }
+      />
+      <ImportExcelModal
+        open={importOpen}
+        noun="nhà cung cấp"
+        api={supplierImportApi}
+        onClose={() => setImportOpen(false)}
+        onImported={reload}
       />
     </>
   )

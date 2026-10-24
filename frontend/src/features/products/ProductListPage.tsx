@@ -1,4 +1,4 @@
-import { DatabaseOutlined, HistoryOutlined, PlusOutlined, ShopOutlined } from '@ant-design/icons'
+import { DatabaseOutlined, FileExcelOutlined, HistoryOutlined, PlusOutlined, ShopOutlined } from '@ant-design/icons'
 import { App, Button, Flex, Typography } from 'antd'
 import type { TableProps } from 'antd'
 import { useEffect, useState } from 'react'
@@ -20,7 +20,8 @@ import { useCan } from '../auth/auth-context'
 import { ProductSuppliersPanel } from '../suppliers/ProductSuppliersPanel'
 import { warehouseApi } from '../warehouses/warehouse-api'
 import type { Warehouse } from '../warehouses/warehouse-api'
-import { PRODUCT_UNIT_LABELS, categoryApi, productApi } from './product-api'
+import { ImportExcelModal } from '../imports/ImportExcelModal'
+import { PRODUCT_UNIT_LABELS, categoryApi, productApi, productImportApi } from './product-api'
 import type { Category, Product } from './product-api'
 import { STOCK_STATUS_LABELS, isByWarehouse, productStockApi } from './product-stock-api'
 import type { ProductStock, ProductStockFilters, StockStatus } from './product-stock-api'
@@ -58,6 +59,7 @@ export function ProductListPage() {
   const [categories, setCategories] = useState<Category[]>([])
   const [warehouses, setWarehouses] = useState<Warehouse[]>([])
   const [modalOpen, setModalOpen] = useState(false)
+  const [importOpen, setImportOpen] = useState(false)
   const [editing, setEditing] = useState<Product | null>(null)
   // Tách cờ mở khỏi bản ghi: đóng khung thì nội dung vẫn còn trong lúc chạy hiệu ứng trượt ra
   const [detailOpen, setDetailOpen] = useState(false)
@@ -343,9 +345,14 @@ export function ProductListPage() {
         description="Thông tin sản phẩm và số lượng đang có ở các kho"
         actions={
           canWrite && (
-            <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
-              Thêm sản phẩm
-            </Button>
+            <Flex gap={8}>
+              <Button icon={<FileExcelOutlined />} onClick={() => setImportOpen(true)}>
+                Nhập từ Excel
+              </Button>
+              <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
+                Thêm sản phẩm
+              </Button>
+            </Flex>
           )
         }
       />
@@ -416,6 +423,13 @@ export function ProductListPage() {
               ]
             : []
         }
+      />
+      <ImportExcelModal
+        open={importOpen}
+        noun="sản phẩm"
+        api={productImportApi}
+        onClose={() => setImportOpen(false)}
+        onImported={reload}
       />
     </>
   )

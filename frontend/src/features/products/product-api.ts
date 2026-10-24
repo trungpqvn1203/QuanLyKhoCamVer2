@@ -1,6 +1,7 @@
 import { apiRequest, withQuery } from '../../api/client'
 import type { PageQuery, PageResponse } from '../../api/types'
 import { toFilterParams } from '../../utils/filters'
+import { createImportApi } from '../imports/import-api'
 
 export type ProductUnit = 'BAG' | 'KG'
 
@@ -55,6 +56,9 @@ export type ProductFilters = {
 }
 
 const BASE = '/api/products'
+
+/** Nhập hàng loạt từ file Excel mẫu (BR-XLS). */
+export const productImportApi = createImportApi(BASE, 'mau-nhap-san-pham.xlsx')
 
 export const productApi = {
   list: ({ page, size }: PageQuery, filters: ProductFilters = {}) =>

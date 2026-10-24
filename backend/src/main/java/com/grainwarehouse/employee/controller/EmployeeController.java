@@ -1,11 +1,15 @@
 package com.grainwarehouse.employee.controller;
 
+import com.grainwarehouse.common.importing.ExcelImportService;
+import com.grainwarehouse.common.importing.ImportPreview;
+import com.grainwarehouse.common.importing.ImportResult;
 import com.grainwarehouse.common.response.ApiResponse;
 import com.grainwarehouse.common.response.PageResponse;
 import com.grainwarehouse.employee.dto.CreateEmployeeRequest;
 import com.grainwarehouse.employee.dto.EmployeeResponse;
 import com.grainwarehouse.employee.dto.EmployeeSearchCriteria;
 import com.grainwarehouse.employee.dto.UpdateEmployeeRequest;
+import com.grainwarehouse.employee.service.EmployeeImportDefinition;
 import com.grainwarehouse.employee.service.EmployeeService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -21,7 +25,9 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/api/employees")
@@ -29,6 +35,26 @@ import org.springframework.web.bind.annotation.RestController;
 public class EmployeeController {
 
     private final EmployeeService employeeService;
+    private final EmployeeImportDefinition employeeImport;
+    private final ExcelImportService excelImportService;
+
+    // Nhập Excel (BR-XLS): tải mẫu → kiểm tra (không ghi) → xác nhận (ghi tất cả hoặc không gì)
+    @GetMapping("/import/template")
+    public ResponseEntity<byte[]> importTemplate() {
+        return excelImportService.template(employeeImport);
+    }
+
+    @PostMapping("/import/preview")
+    public ResponseEntity<ApiResponse<ImportPreview>> previewImport(@RequestParam("file") MultipartFile file) {
+        return ResponseEntity.ok(ApiResponse.ok(excelImportService.preview(employeeImport, file)));
+    }
+
+    @PostMapping("/import")
+    public ResponseEntity<ApiResponse<ImportResult>> importFile(@RequestParam("file") MultipartFile file) {
+        ImportResult result = excelImportService.commit(employeeImport, file);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.ok(result, "Đã nhập " + result.importedCount() + " nhân viên"));
+    }
 
     @GetMapping
     public ResponseEntity<ApiResponse<PageResponse<EmployeeResponse>>> list(

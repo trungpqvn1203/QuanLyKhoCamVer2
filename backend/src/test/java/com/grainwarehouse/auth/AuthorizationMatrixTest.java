@@ -106,7 +106,17 @@ class AuthorizationMatrixTest {
                 new Rule(HttpMethod.POST, "/api/employees", ADMIN_ONLY),
                 new Rule(HttpMethod.GET, "/api/payrolls/2026-10", ADMIN_ONLY),
                 new Rule(HttpMethod.GET, "/api/users", ADMIN_ONLY),
-                new Rule(HttpMethod.POST, "/api/users", ADMIN_ONLY));
+                new Rule(HttpMethod.POST, "/api/users", ADMIN_ONLY),
+                // Nhập Excel (BR-XLS-06): quyền như tạo tay của từng loại; file mẫu không chứa dữ liệu nhạy cảm
+                // nên tải mẫu theo quyền xem
+                new Rule(HttpMethod.GET, "/api/products/import/template", ALL),
+                new Rule(HttpMethod.POST, "/api/products/import/preview", ADMIN_ONLY),
+                new Rule(HttpMethod.POST, "/api/products/import", ADMIN_ONLY),
+                new Rule(HttpMethod.POST, "/api/customers/import/preview", SALES),
+                new Rule(HttpMethod.POST, "/api/customers/import", SALES),
+                new Rule(HttpMethod.POST, "/api/suppliers/import", WAREHOUSE),
+                new Rule(HttpMethod.GET, "/api/employees/import/template", ADMIN_ONLY),
+                new Rule(HttpMethod.POST, "/api/employees/import", ADMIN_ONLY));
     }
 
     static Stream<Arguments> ruleAndRole() {

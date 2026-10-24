@@ -1,6 +1,7 @@
 import { apiRequest, withQuery } from '../../api/client'
 import type { PageQuery, PageResponse } from '../../api/types'
 import { toFilterParams } from '../../utils/filters'
+import { createImportApi } from '../imports/import-api'
 
 export interface Employee {
   id: number
@@ -35,6 +36,9 @@ export type EmployeeFilters = {
 }
 
 const BASE = '/api/employees'
+
+/** Nhập hàng loạt từ file Excel mẫu (BR-XLS). */
+export const employeeImportApi = createImportApi(BASE, 'mau-nhap-nhan-vien.xlsx')
 
 export const employeeApi = {
   list: ({ page, size }: PageQuery, filters: EmployeeFilters = {}) =>

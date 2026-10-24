@@ -1,6 +1,7 @@
 import { apiRequest, withQuery } from '../../api/client'
 import type { PageQuery, PageResponse } from '../../api/types'
 import { toFilterParams } from '../../utils/filters'
+import { createImportApi } from '../imports/import-api'
 
 /** BR-CUS-03 — phải khớp enum CustomerType ở backend. */
 export type CustomerType = 'DEALER' | 'FARM' | 'RETAIL'
@@ -53,6 +54,9 @@ export type CustomerFilters = {
 }
 
 const BASE = '/api/customers'
+
+/** Nhập hàng loạt từ file Excel mẫu (BR-XLS). */
+export const customerImportApi = createImportApi(BASE, 'mau-nhap-khach-hang.xlsx')
 
 export const customerApi = {
   list: ({ page, size }: PageQuery, filters: CustomerFilters = {}) =>

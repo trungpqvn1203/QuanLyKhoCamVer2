@@ -2,6 +2,7 @@ package com.grainwarehouse.common.exception;
 
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.exc.MismatchedInputException;
+import com.grainwarehouse.common.importing.ImportFailedException;
 import com.grainwarehouse.common.response.ApiResponse;
 import com.grainwarehouse.common.response.ApiResponse.ApiErrorDetail;
 import lombok.extern.slf4j.Slf4j;
@@ -17,6 +18,9 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.multipart.MultipartException;
+import org.springframework.web.multipart.support.MissingServletRequestPartException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.util.List;
@@ -55,6 +59,37 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiResponse<Void>> handleInvalidRequest(InvalidRequestException ex) {
         return error(HttpStatus.BAD_REQUEST, "VALIDATION_FAILED", VALIDATION_MESSAGE,
                 List.of(new ApiErrorDetail(ex.getField(), ex.getMessage())));
+    }
+
+    // Nhập Excel: bước xác nhận gặp dòng lỗi → không ghi dòng nào. field "rows[12].phone" — 12 là số dòng trong Excel
+    @ExceptionHandler(ImportFailedException.class)
+    public ResponseEntity<ApiResponse<Void>> handleImportFailed(ImportFailedException ex) {
+        List<ApiErrorDetail> details = ex.getErrors().stream()
+                .map(err -> new ApiErrorDetail(
+                        "rows[" + err.row() + "]" + (err.field() == null ? "" : "." + err.field()), err.message()))
+                .toList();
+        return error(HttpStatus.BAD_REQUEST, "VALIDATION_FAILED", ex.getMessage(), details);
+    }
+
+    // Upload: quên gửi part "file"
+    @ExceptionHandler(MissingServletRequestPartException.class)
+    public ResponseEntity<ApiResponse<Void>> handleMissingPart(MissingServletRequestPartException ex) {
+        return error(HttpStatus.BAD_REQUEST, "VALIDATION_FAILED", VALIDATION_MESSAGE,
+                List.of(new ApiErrorDetail(ex.getRequestPartName(), "Chưa chọn file")));
+    }
+
+    // Vượt spring.servlet.multipart.max-file-size (application.yml)
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ApiResponse<Void>> handleTooLarge(MaxUploadSizeExceededException ex) {
+        return error(HttpStatus.BAD_REQUEST, "VALIDATION_FAILED", VALIDATION_MESSAGE,
+                List.of(new ApiErrorDetail("file", "File quá lớn (tối đa 2 MB)")));
+    }
+
+    // Request không phải multipart/form-data dù endpoint cần upload file
+    @ExceptionHandler(MultipartException.class)
+    public ResponseEntity<ApiResponse<Void>> handleMultipart(MultipartException ex) {
+        return error(HttpStatus.BAD_REQUEST, "VALIDATION_FAILED", VALIDATION_MESSAGE,
+                List.of(new ApiErrorDetail("file", "Cần gửi file dạng multipart/form-data")));
     }
 
     // Path/query param sai kiểu (ví dụ /api/products/abc)

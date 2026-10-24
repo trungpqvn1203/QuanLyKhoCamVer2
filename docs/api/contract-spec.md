@@ -172,6 +172,7 @@ DELETE /api/products/:id          # Xóa (soft delete)
 | Lịch sử biến động tồn | `GET /api/inventory/transactions` | Chỉ đọc (POST → 405). Xem mục **Lịch sử biến động tồn** bên dưới |
 | Xác thực | `GET /api/auth/csrf`, `POST /api/auth/login`, `…/refresh`, `…/logout`, `GET /api/auth/me`, `PUT /api/auth/me/password` | Xem mục **Xác thực & phân quyền** bên dưới |
 | Người dùng | `GET/POST /api/users`, `GET/PUT /api/users/{id}`, `POST /api/users/{id}/reset-password` | Chỉ `SYSTEM_ADMIN`. Không có DELETE (khóa = `active=false`) |
+| Nhập Excel | `GET {base}/import/template`, `POST {base}/import/preview`, `POST {base}/import` với `{base}` = `/api/products`, `/api/customers`, `/api/suppliers`, `/api/employees` | Xem mục **Nhập hàng loạt từ Excel** bên dưới |
 
 **Phiếu nhập kho** (thêm 2026-10-19, BR-IMP-01..14):
 
@@ -288,6 +289,22 @@ Ví dụ: `GET /api/suppliers?keyword=cám&active=true&page=0&size=20`
 **Lọc khách hàng** (`GET /api/customers`, thêm 2026-10-20) — như trên, thêm: `keyword` khớp mã, tên **hoặc SĐT** (SĐT lưu dạng chỉ có chữ số, nên gõ `0901 234` sẽ không khớp — gõ liền); `type` = `DEALER`/`FARM`/`RETAIL` (sai → 400).
 
 Ví dụ: `GET /api/customers?keyword=0901&type=FARM&active=true`
+
+
+### Nhập hàng loạt từ Excel (thêm 2026-10-24, BR-XLS)
+
+Bốn loại dữ liệu dùng chung một bộ 3 endpoint. Quyền giống quyền tạo tay (`POST {base}`); tải mẫu theo quyền xem.
+
+| Endpoint | Request | Response |
+|---|---|---|
+| `GET {base}/import/template` | — | **Không phải JSON**: file `.xlsx` (`Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`, `Content-Disposition: attachment; filename="mau-nhap-san-pham.xlsx"`) |
+| `POST {base}/import/preview` | `multipart/form-data`, part `file` | 200 `{ totalRows, validRows, errors: [{ row, field?, column?, message }] }`. **Không ghi DB.** Lỗi từng dòng nằm trong `data.errors`, không phải envelope lỗi |
+| `POST {base}/import` | `multipart/form-data`, part `file` | 201 `{ importedCount }`, message `"Đã nhập N sản phẩm"`. Có dòng lỗi → 400 `VALIDATION_FAILED`, `message` = `"File có N lỗi, chưa nhập dòng nào…"`, `details[].field` = `rows[12].phone` (lỗi cả dòng: `rows[12]`). **Không dòng nào được ghi** |
+
+- `row` là **số dòng trong Excel** (dòng tiêu đề là 1), không phải chỉ số mảng. `field` là tên field của request tạo tay (`name`, `phone`, `categoryId`…); thiếu `field` nghĩa là lỗi cả dòng. `column` là tiêu đề cột để hiển thị.
+- Lỗi ở mức file (không phải `.xlsx`, sai mẫu hoặc mẫu cũ, đổi tiêu đề cột, file chưa có dòng nào, quá 1.000 dòng, quá 2 MB, thiếu part `file`) → 400 `VALIDATION_FAILED`, `details: [{ field: "file", message }]`. Áp dụng cho cả `preview` lẫn `import`.
+- Bước `import` kiểm tra lại từ đầu, không dựa vào kết quả `preview` trước đó (dữ liệu có thể đã đổi). Nếu hai người nhập trùng cùng lúc thì UNIQUE ở DB chặn → 409, toàn bộ file được rollback.
+- Cột của từng mẫu: SP `Tên sản phẩm*, Danh mục* (theo tên), Đơn vị* (Bao/Kg), Khối lượng tịnh (kg)*, Tồn tối thiểu, Mô tả`. KH `Tên khách hàng*, Loại khách hàng* (Đại lý/Trang trại/Bán lẻ), Số điện thoại*, Người liên hệ, Địa chỉ, Ghi chú`. NCC `Tên nhà cung cấp*, Người liên hệ*, Số điện thoại, Email, Địa chỉ`. NV `Tên nhân viên*, Số điện thoại, Lương ngày (đồng), Đơn giá tấn (đồng/tấn)`.
 
 ---
 

@@ -252,3 +252,30 @@ _(Trả lời BR-SAL-Q01: có công nợ, chỉ ở mức phiếu bán + lịch 
 - **BR-AUTH-06:** Phiên hết hạn sau 8 giờ không thao tác, tối đa 24 giờ từ lúc đăng nhập. Đăng nhập nhiều thiết bị được phép; đăng xuất chỉ ảnh hưởng thiết bị đó. Đổi vai trò / khóa tài khoản → mọi phiên của người đó bị thu hồi, quyền cũ còn tối đa 15 phút.
 - **BR-AUTH-07:** Tự đổi mật khẩu (cần mật khẩu cũ) → các thiết bị khác phải đăng nhập lại. Quản lý hệ thống đặt lại mật khẩu → người đó đăng nhập lại trên mọi thiết bị.
 - **BR-AUTH-08:** Tài khoản Quản lý hệ thống đầu tiên được tạo khi khởi động nếu chưa có tài khoản nào, từ `BOOTSTRAP_ADMIN_USERNAME` / `BOOTSTRAP_ADMIN_PASSWORD` trong `.env`.
+
+---
+
+## Nhập hàng loạt từ Excel (danh mục)
+
+> Áp dụng cho: sản phẩm, khách hàng, nhà cung cấp, nhân viên. Thiết kế kỹ thuật: [ADR-0004](../decisions/ADR-0004-excel-import.md).
+
+### ✅ Đã xác nhận (2026-10-24)
+
+- **BR-XLS-01:** Người dùng tải **file mẫu .xlsx do hệ thống sinh ra** để mọi người điền cùng một định dạng. Sheet "Dữ liệu" có dòng tiêu đề (cột bắt buộc có dấu `*`), cột chọn cố định có dropdown (danh mục đang dùng, đơn vị, loại khách). Sheet "Hướng dẫn" giải thích từng cột kèm một dòng ví dụ. Mẫu **không có cột mã** vì mã do hệ thống tự sinh.
+- **BR-XLS-02:** Nhập gồm hai bước. **Kiểm tra**: không ghi gì, trả về mọi lỗi. **Xác nhận**: hệ thống kiểm tra lại từ đầu và chỉ ghi khi cả file không còn lỗi, **tất cả trong một transaction**. Có một dòng lỗi thì **không dòng nào được ghi**.
+- **BR-XLS-03:** Mỗi dòng phải qua đúng các quy tắc của form nhập tay (BR-PRD, BR-CUS, BR-SUP, BR-EMP). Lỗi được báo theo **số dòng trong Excel** (dòng tiêu đề là 1) và **tên cột**, và hệ thống gom hết lỗi của cả file trong một lần kiểm tra.
+- **BR-XLS-04:** Chỉ nhận `.xlsx`. Tối đa **1.000 dòng** dữ liệu, **2 MB** mỗi file. Dòng trống hoàn toàn được bỏ qua.
+- **BR-XLS-05:** File phải là mẫu đúng loại và đúng phiên bản (mã mẫu nằm trong sheet ẩn), tiêu đề cột không bị đổi tên hay đổi thứ tự. Nếu sai, hệ thống báo lỗi cả file và yêu cầu tải lại mẫu.
+- **BR-XLS-06:** Quyền nhập giống quyền tạo tay của từng loại. Tải mẫu theo quyền xem.
+- **BR-XLS-07:** Dòng trùng bản ghi đã có (tên SP, SĐT khách, tên NCC, **kể cả bản ghi đã ngừng**) thì **báo lỗi**, không cập nhật bản ghi cũ. Hai dòng trùng nhau trong cùng một file cũng báo lỗi ("Trùng với dòng N").
+
+### ⚠️ Giả định tạm thời
+
+- **BR-XLS-A01:** Nhân viên không có khóa duy nhất (BR-EMP-03), nên import **không so trùng với DB**, giống form nhập tay. Trong cùng một file, chỉ chặn hai dòng **cùng tên và cùng SĐT** (thường do dán lặp). Hệ quả: nhập lại cùng một file hai lần sẽ tạo nhân viên trùng.
+- **BR-XLS-A02:** Sản phẩm đơn vị Kg mà để trống khối lượng tịnh thì được hiểu là 1 kg (BR-PRD-06), giống form nhập tay tự điền 1.
+
+### ❓ Câu hỏi mở
+
+- **BR-XLS-Q01:** Có cần nhập **tồn đầu kỳ** từ Excel không? Nếu có, phải tạo chứng từ điều chỉnh "tồn đầu kỳ" và ghi `StockTransaction` (BR-INV-04), không được ghi thẳng vào bảng tồn.
+- **BR-XLS-Q02:** Có cần nhập **công nợ đầu kỳ** của khách không?
+- **BR-XLS-Q03:** Có cần nhập liên kết NCC–SP từ Excel không? Hiện liên kết được gán trên màn hình NCC.

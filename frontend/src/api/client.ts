@@ -75,7 +75,8 @@ function send(path: string, init: RequestInit): Promise<Response> {
     credentials: 'same-origin',
     headers: {
       Accept: 'application/json',
-      ...(init.body ? { 'Content-Type': 'application/json' } : {}),
+      // FormData (upload file): để trình duyệt tự đặt multipart/form-data kèm boundary
+      ...(init.body && !(init.body instanceof FormData) ? { 'Content-Type': 'application/json' } : {}),
       ...(csrfToken ? { [CSRF_HEADER]: csrfToken } : {}),
       ...init.headers,
     },
@@ -91,12 +92,8 @@ async function sendOrThrow(path: string, init: RequestInit): Promise<Response> {
   }
 }
 
-/**
- * Gọi API và trả về `data` khi `success = true`; ngược lại ném ApiError.
- * Đường dẫn tương đối "/api/..." — Vite proxy chuyển sang backend :8080 (vite.config.ts).
- * 401 (access token 15 phút đã hết hạn) → gia hạn một lần rồi gửi lại; vẫn 401 → báo hết phiên.
- */
-export async function apiRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
+/** 401 (access token 15 phút đã hết hạn) → gia hạn một lần rồi gửi lại; vẫn 401 → báo hết phiên. */
+async function sendWithRefresh(path: string, init: RequestInit): Promise<Response> {
   let response = await sendOrThrow(path, init)
 
   if (response.status === 401 && !NO_REFRESH_PATHS.has(path)) {
@@ -104,7 +101,18 @@ export async function apiRequest<T>(path: string, init: RequestInit = {}): Promi
     if (outcome !== 'failed') response = await sendOrThrow(path, init)
     if (response.status === 401) sessionExpiredHandler?.()
   }
+  return response
+}
 
+/**
+ * Gọi API và trả về `data` khi `success = true`; ngược lại ném ApiError.
+ * Đường dẫn tương đối "/api/..." — Vite proxy chuyển sang backend :8080 (vite.config.ts).
+ */
+export async function apiRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
+  return readEnvelope<T>(await sendWithRefresh(path, init))
+}
+
+async function readEnvelope<T>(response: Response): Promise<T> {
   // 204 No Content (ví dụ DELETE): không có body để đọc
   if (response.status === 204) {
     return undefined as T
@@ -127,6 +135,33 @@ export async function apiRequest<T>(path: string, init: RequestInit = {}): Promi
   // 500: không hiển thị chi tiết kỹ thuật cho người dùng
   const userMessage = response.status >= 500 ? SERVER_ERROR_MESSAGE : message
   throw new ApiError(response.status, code, userMessage, details ?? [])
+}
+
+/**
+ * Tải file (ví dụ file mẫu Excel) rồi cho trình duyệt lưu xuống.
+ * Không dùng thẻ <a href> trực tiếp: cần đi qua cơ chế gia hạn phiên như mọi API khác.
+ * Lỗi: backend vẫn trả envelope JSON → ném ApiError như apiRequest.
+ */
+export async function apiDownload(path: string, fallbackFileName: string): Promise<void> {
+  const response = await sendWithRefresh(path, {})
+  if (!response.ok) {
+    // Lỗi vẫn là envelope JSON → readEnvelope ném ApiError đúng message của backend
+    await readEnvelope<never>(response)
+    throw new ApiError(response.status, 'INVALID_RESPONSE', SERVER_ERROR_MESSAGE)
+  }
+  const blob = await response.blob()
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = fileNameFrom(response.headers.get('Content-Disposition')) ?? fallbackFileName
+  link.click()
+  URL.revokeObjectURL(url)
+}
+
+/** Content-Disposition: attachment; filename="mau-nhap-san-pham.xlsx" → mau-nhap-san-pham.xlsx */
+export function fileNameFrom(contentDisposition: string | null): string | undefined {
+  const match = contentDisposition?.match(/filename="?([^";]+)"?/)
+  return match?.[1]
 }
 
 /** Ghép query string, bỏ qua giá trị undefined. */
