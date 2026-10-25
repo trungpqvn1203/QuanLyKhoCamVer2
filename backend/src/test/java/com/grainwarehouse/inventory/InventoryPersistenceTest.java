@@ -37,7 +37,7 @@ class InventoryPersistenceTest {
                 + " RETURNING id", categoryId);
         warehouseId = id("INSERT INTO warehouse (name, type, address) VALUES ('Kho test', 'CENTRAL', 'Hà Nội')"
                 + " RETURNING id");
-        supplierId = id("INSERT INTO supplier (name, contact_name) VALUES ('NCC test', 'A') RETURNING id");
+        supplierId = id("INSERT INTO supplier (name) VALUES ('NCC test') RETURNING id");
         Long documentId = id("INSERT INTO stock_document (code, type, warehouse_id, supplier_id, document_date)"
                 + " VALUES ('PN-TEST-1', 'INBOUND', ?, ?, current_date) RETURNING id", warehouseId, supplierId);
         itemId = id("INSERT INTO stock_document_item (document_id, product_id, ordered_quantity, quantity,"

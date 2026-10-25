@@ -11,9 +11,9 @@ public record UpdateSupplierRequest(
         @Size(max = 200, message = "Tên nhà cung cấp tối đa 200 ký tự")
         String name,
 
-        @NotBlank(message = "Người liên hệ không được để trống")
-        @Size(max = 200, message = "Người liên hệ tối đa 200 ký tự")
-        String contactName,
+        // Định dạng kiểm ở service sau khi bỏ khoảng trắng (như SĐT khách — BR-CUS-06)
+        @Size(max = 20, message = "Mã số thuế tối đa 20 ký tự")
+        String taxCode,
 
         @Size(max = 20, message = "Số điện thoại tối đa 20 ký tự")
         String phone,

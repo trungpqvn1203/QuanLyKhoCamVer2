@@ -12,6 +12,13 @@ interface SupplierFormModalProps {
   onSaved: (saved: Supplier) => void
 }
 
+/** BR-SUP-09: bỏ khoảng trắng rồi kiểm như backend — báo sớm; backend vẫn kiểm lại và chống trùng. */
+function validateTaxCode(value?: string): Promise<void> {
+  const taxCode = value?.replace(/\s/g, '') ?? ''
+  if (taxCode === '' || /^\d{10}(-\d{3})?$/.test(taxCode)) return Promise.resolve()
+  return Promise.reject(new Error('Mã số thuế gồm 10 chữ số, hoặc 10 chữ số-3 chữ số cho chi nhánh'))
+}
+
 export function SupplierFormModal({ open, editing, onClose, onSaved }: SupplierFormModalProps) {
   const [form] = Form.useForm<UpdateSupplierInput>()
 
@@ -38,8 +45,13 @@ export function SupplierFormModal({ open, editing, onClose, onSaved }: SupplierF
       <Form.Item name="name" label="Tên nhà cung cấp" rules={[{ required: true, whitespace: true, max: 200 }]}>
         <Input placeholder="Ví dụ: Công ty CP Thức ăn chăn nuôi Việt" />
       </Form.Item>
-      <Form.Item name="contactName" label="Người liên hệ" rules={[{ required: true, whitespace: true, max: 200 }]}>
-        <Input placeholder="Họ tên người phụ trách" />
+      <Form.Item
+        name="taxCode"
+        label="Mã số thuế"
+        extra="10 chữ số, chi nhánh thêm -3 chữ số (0101234567-001). Không trùng nhà cung cấp khác."
+        rules={[{ validator: (_, value?: string) => validateTaxCode(value) }]}
+      >
+        <Input placeholder="Không bắt buộc" inputMode="numeric" />
       </Form.Item>
       <Form.Item name="phone" label="Số điện thoại" rules={[{ max: 20 }]}>
         <Input placeholder="Không bắt buộc" />

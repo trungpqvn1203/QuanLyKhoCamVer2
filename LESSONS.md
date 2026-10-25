@@ -5,6 +5,16 @@ Ghi dồn sau mỗi module, ôn tập ở cuối dự án. Mỗi mục: **khái 
 
 ---
 
+## Thay đổi: NCC bỏ "người liên hệ", thêm "mã số thuế" (2026-10-24, migration V15)
+
+- **Đổi nghĩa một cột = thêm cột mới + xóa cột cũ, không `RENAME`.** `ALTER TABLE ... RENAME COLUMN contact_name TO tax_code` chỉ đổi tên, dữ liệu giữ nguyên. Khi đó "Chị Lan" sẽ thành mã số thuế: dữ liệu sai, và còn vi phạm CHECK mới nên migration fail ngay. RENAME chỉ dùng khi **ý nghĩa giữ nguyên**, chỉ tên cột đổi.
+- **Migration xóa dữ liệu không quay lại được.** Flyway chạy V15 ngay lúc backend khởi động trên server, nên `DROP COLUMN contact_name` xóa luôn tên người liên hệ trên production. Muốn quay lại thì chỉ còn cách khôi phục từ bản backup. Vì vậy phải **backup DB trước khi deploy** (docs/maintenance/backup-restore.md). Và không "sửa" lại V15 sau khi đã chạy: Flyway lưu checksum, sửa file cũ thì validate thất bại. Muốn đổi gì nữa thì viết V16.
+- **Unique index một phần (partial index).** `CREATE UNIQUE INDEX ... ON supplier (tax_code) WHERE tax_code IS NOT NULL`: MST có nhập thì không được trùng, còn nhiều NCC chưa có MST vẫn hợp lệ. (Trong PostgreSQL, UNIQUE thường cũng coi các NULL là khác nhau; viết `WHERE` để ý đồ rõ ràng và index nhỏ hơn.) Đây là phiên bản "tùy chọn nhưng duy nhất" của `uk_customer_phone`.
+- **Exception mang theo field.** `DuplicateResourceException` có thêm `field` (tùy chọn). API 409 vẫn trả như cũ, nhưng khi nhập Excel, lỗi "MST đã thuộc về NCC X" được gắn vào đúng cột "Mã số thuế" thay vì cột "Tên". Tương tự, `ImportDefinition.duplicateKeys()` trả về một map field → khóa, để mỗi file so trùng **từng** field riêng (tên và MST).
+- **Đổi cấu trúc mẫu Excel thì tăng phiên bản** (`SUPPLIER_v1` → `v2`). Ai đang giữ file mẫu cũ sẽ nhận lỗi "không phải mẫu nhập", thay vì cột MST bị đọc nhầm thành "người liên hệ".
+
+---
+
 ## Module: Nhập hàng loạt từ Excel (2026-10-24, ADR-0004)
 
 ### Khái niệm

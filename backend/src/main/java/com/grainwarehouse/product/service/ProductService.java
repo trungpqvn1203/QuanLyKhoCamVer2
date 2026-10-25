@@ -99,10 +99,10 @@ public class ProductService {
     private void throwDuplicate(Product existing) {
         String label = "Sản phẩm '" + existing.getName() + "' (" + existing.getCode() + ")";
         if (!existing.isActive()) {
-            throw new DuplicateResourceException(label
+            throw new DuplicateResourceException("name", label
                     + " đã tồn tại nhưng đang ngừng kinh doanh. Hãy mở bán lại thay vì tạo mới");
         }
-        throw new DuplicateResourceException(label + " đã tồn tại");
+        throw new DuplicateResourceException("name", label + " đã tồn tại");
     }
 
     /** BR-PRD-06: đơn vị KG thì khối lượng một đơn vị phải đúng 1 kg. */

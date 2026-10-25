@@ -8,8 +8,9 @@ export interface Supplier {
   id: number
   code: string
   name: string
-  contactName: string
   // Trường tùy chọn: bỏ trống thì backend lưu NULL và bỏ khỏi JSON (NON_NULL)
+  /** BR-SUP-09: mã số thuế, đã chuẩn hóa (10 số hoặc 10 số-3 số) */
+  taxCode?: string
   phone?: string
   email?: string
   address?: string
@@ -20,7 +21,7 @@ export interface Supplier {
 
 export interface CreateSupplierInput {
   name: string
-  contactName: string
+  taxCode?: string
   phone?: string
   email?: string
   address?: string
@@ -44,7 +45,7 @@ export interface ProductSupplierLink {
   supplierId: number
   supplierCode: string
   supplierName: string
-  contactName: string
+  taxCode?: string
   phone?: string
   supplierActive: boolean
 }

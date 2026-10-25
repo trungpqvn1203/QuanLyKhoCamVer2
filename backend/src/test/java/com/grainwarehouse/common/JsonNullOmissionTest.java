@@ -41,7 +41,7 @@ class JsonNullOmissionTest {
                 "INSERT INTO category (name) VALUES ('Cám test') RETURNING id", Long.class);
         jdbcTemplate.update("INSERT INTO product (name, category_id, unit, net_weight_kg) VALUES ('Cám heo', ?, 'BAG', 25)",
                 categoryId);
-        jdbcTemplate.update("INSERT INTO supplier (name, contact_name) VALUES ('NCC test', 'A')");
+        jdbcTemplate.update("INSERT INTO supplier (name) VALUES ('NCC test')");
         jdbcTemplate.update("INSERT INTO warehouse (name, type, address) VALUES ('Kho test', 'CENTRAL', 'Hà Nội')");
         jdbcTemplate.update("INSERT INTO customer (name, type, phone) VALUES ('Khách test', 'RETAIL', '0901234567')");
         jdbcTemplate.update("INSERT INTO employee (name, ton_rate) VALUES ('NV test', 50000)");

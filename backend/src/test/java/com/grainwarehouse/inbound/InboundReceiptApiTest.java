@@ -654,7 +654,6 @@ class InboundReceiptApiTest {
     private Supplier saveSupplier(String name) {
         Supplier s = new Supplier();
         s.setName(name);
-        s.setContactName("Nguyễn Văn A");
         return supplierRepository.save(s);
     }
 

@@ -9,7 +9,7 @@ import lombok.Getter;
 import lombok.Setter;
 import org.hibernate.annotations.Generated;
 
-/** Nhà cung cấp (BR-SUP-01..04). */
+/** Nhà cung cấp (BR-SUP-01..04, BR-SUP-09). */
 @Getter
 @Setter
 @Entity
@@ -25,8 +25,9 @@ public class Supplier extends AuditableEntity {
     @Column(nullable = false, length = 200)
     private String name;
 
-    @Column(name = "contact_name", nullable = false, length = 200)
-    private String contactName;
+    // BR-SUP-09: tùy chọn; có thì đã chuẩn hóa, đúng định dạng (ck_supplier_tax_code) và duy nhất (uk_supplier_tax_code)
+    @Column(name = "tax_code", length = 14)
+    private String taxCode;
 
     @Column(length = 20)
     private String phone;

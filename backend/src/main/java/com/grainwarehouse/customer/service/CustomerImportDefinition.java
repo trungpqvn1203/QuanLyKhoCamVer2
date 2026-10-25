@@ -72,15 +72,10 @@ public class CustomerImportDefinition implements ImportDefinition<CreateCustomer
                 row.text("contactName"), row.text("address"), row.text("note"));
     }
 
-    @Override
-    public String duplicateField() {
-        return "phone";
-    }
-
     /** "0901 234 567" và "0901.234.567" là cùng một số → phải bị coi là trùng. */
     @Override
-    public String duplicateKey(CreateCustomerRequest request) {
-        return PhoneNumbers.normalize(request.phone());
+    public Map<String, String> duplicateKeys(CreateCustomerRequest request) {
+        return Map.of("phone", PhoneNumbers.normalize(request.phone()));
     }
 
     @Override

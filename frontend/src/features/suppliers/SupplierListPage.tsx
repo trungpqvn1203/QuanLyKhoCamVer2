@@ -25,7 +25,7 @@ import { SupplierProductsPanel } from './SupplierProductsPanel'
 const PRODUCTS_TAB = 'products'
 
 const FILTER_FIELDS: FilterField<SupplierFilters>[] = [
-  { type: 'keyword', name: 'keyword', placeholder: 'Tìm theo mã hoặc tên nhà cung cấp' },
+  { type: 'keyword', name: 'keyword', placeholder: 'Tìm theo mã, tên hoặc mã số thuế' },
   { type: 'status', name: 'active', activeLabel: 'Đang hoạt động', inactiveLabel: 'Ngừng hoạt động' },
 ]
 
@@ -87,7 +87,7 @@ export function SupplierListPage() {
       () =>
         supplierApi.update(supplier.id, {
           name: supplier.name,
-          contactName: supplier.contactName,
+          taxCode: supplier.taxCode,
           phone: supplier.phone,
           email: supplier.email,
           address: supplier.address,
@@ -105,7 +105,7 @@ export function SupplierListPage() {
       render: (code: string, supplier) => <CodeLink code={code} onClick={() => openDetail(supplier)} />,
     },
     { title: 'Tên nhà cung cấp', dataIndex: 'name', render: (name: string) => <Typography.Text strong>{name}</Typography.Text> },
-    { title: 'Người liên hệ', dataIndex: 'contactName' },
+    { title: 'Mã số thuế', dataIndex: 'taxCode', width: 150, render: (taxCode?: string) => orEmpty(taxCode) },
     { title: 'Số điện thoại', dataIndex: 'phone', width: 140, render: (phone?: string) => orEmpty(phone) },
     {
       title: 'Trạng thái',
@@ -155,7 +155,7 @@ export function SupplierListPage() {
           items: [
             { key: 'code', label: 'Mã NCC', children: <CodeText code={viewing.code} /> },
             { key: 'name', label: 'Tên nhà cung cấp', children: viewing.name },
-            { key: 'contactName', label: 'Người liên hệ', children: viewing.contactName },
+            { key: 'taxCode', label: 'Mã số thuế', children: orEmpty(viewing.taxCode) },
             { key: 'phone', label: 'Số điện thoại', children: orEmpty(viewing.phone) },
             { key: 'email', label: 'Email', children: orEmpty(viewing.email) },
             { key: 'address', label: 'Địa chỉ', children: orEmpty(viewing.address) },

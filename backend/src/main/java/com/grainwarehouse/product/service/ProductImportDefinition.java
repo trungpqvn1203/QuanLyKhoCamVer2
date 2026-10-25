@@ -103,13 +103,8 @@ public class ProductImportDefinition implements ImportDefinition<CreateProductRe
     }
 
     @Override
-    public String duplicateField() {
-        return "name";
-    }
-
-    @Override
-    public String duplicateKey(CreateProductRequest request) {
-        return ImportRow.normalizeKey(request.name());
+    public Map<String, String> duplicateKeys(CreateProductRequest request) {
+        return Map.of("name", ImportRow.normalizeKey(request.name()));
     }
 
     @Override
