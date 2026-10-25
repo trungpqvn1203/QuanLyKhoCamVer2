@@ -258,6 +258,24 @@ _(Trả lời BR-SAL-Q01: có công nợ, chỉ ở mức phiếu bán + lịch 
 - **BR-ATT-03:** Một ngày có thể ghi **cả hai loại tấn** (bốc xuống và giao hàng). Tấn giao hàng nhập tay trên bảng công như tấn bốc xuống (chưa lấy tự động từ phiếu bán, vì phiếu bán không ghi ai giao). _(Xác nhận 2026-10-26)_
 - **BR-PAY-04:** Tiền tấn bốc xuống và tiền tấn giao hàng tính **riêng** theo đơn giá của từng loại. Ví dụ 0,001 tấn × 52.500 = 52,5 → 53 ở cả hai loại: 53 + 53 = 106, **không** phải làm tròn tổng 105. Nhân viên không có đơn giá của loại nào thì tấn loại đó không tính tiền (tiền = 0). Dữ liệu trước 2026-10-26: toàn bộ tấn cũ là **tấn bốc xuống**, các bảng lương đã chốt giữ nguyên số tiền.
 
+## Công nợ nhân viên (trả lương, tạm ứng)
+
+> Thiết kế: migration V18. Hai món nợ ngược chiều: **lương chưa trả** (công ty nợ nhân viên) và **tạm ứng** (nhân viên nợ công ty). Cùng mẫu với công nợ khách / NCC: nhật ký bất biến + số tổng có CHECK ở DB.
+
+### ✅ Đã xác nhận (2026-10-26)
+
+- **BR-EPAY-01:** Chỉ bảng lương **đã chốt** mới có lương để trả. Mỗi **dòng lương** (nhân viên × tháng) là một món nợ: còn nợ = lương chốt − đã trả. Trả **theo từng bảng lương tháng**, không gộp nhiều tháng trong một lần trả. Tháng chưa chốt thì chưa nợ.
+- **BR-EPAY-02:** Một lần trả lương = **tiền mặt + chuyển khoản + số trừ vào tạm ứng** (người trả tự chọn trừ bao nhiêu). Tổng không vượt số còn nợ của dòng lương; số trừ không vượt **số dư tạm ứng hiện có**. Tiền tính đến đồng. Ngày trả mặc định hôm nay, chọn tự do. Trừ tạm ứng là một "hình thức" thanh toán nhưng **không có tiền ra khỏi quỹ**.
+- **BR-EPAY-03:** Tạm ứng là một khoản chi ra (tiền mặt hoặc chuyển khoản). **Số dư tạm ứng của nhân viên luôn ≥ 0**: kiểm tra + trừ trong cùng transaction, khóa dòng nhân viên `FOR UPDATE`, và `CHECK` ở DB. Nhân viên **không trả lại tiền mặt** (đã xác nhận) — chỉ trừ dần vào lương.
+- **BR-EPAY-04:** Nhật ký tạm ứng và trả lương **bất biến**. Ghi nhầm → **hoàn** toàn bộ khoản đó (lý do bắt buộc) bằng một dòng hoàn trỏ về khoản gốc; mỗi khoản hoàn một lần. Hoàn khoản trừ tạm ứng thì số dư tạm ứng cộng lại. **Hoàn khoản ứng** chỉ được khi số dư tạm ứng còn đủ (phần đã trừ vào lương phải hoàn trước).
+- **BR-EPAY-05:** Bảng lương đã **trả lương** (dù chỉ một người) thì **không hủy chốt được** — phải hoàn các khoản trả trước. Bảng lương chốt **trước module này** coi như **đã trả đủ**: không hiện ở công nợ, không ghi trả lương được; hủy chốt rồi chốt lại một tháng cũ thì bản mới phát sinh nợ bình thường.
+- **BR-EPAY-06:** Ai được ứng tiền, trả lương, xem công nợ nhân viên: **chỉ Quản lý hệ thống** (như bảng lương và nhân viên hiện tại). Công nợ nhân viên liệt kê người còn lương chưa trả **hoặc** còn dư tạm ứng; `netAmount = lương chưa trả − dư tạm ứng` (dương: công ty nợ nhân viên).
+
+### ⚠️ Giả định tạm thời
+
+- **BR-EPAY-A01:** Chỉ ứng tiền cho nhân viên **đang làm việc** (giống chấm công, BR-ATT-02). Trả lương cho nhân viên đã nghỉ vẫn được; hoàn khoản ứng cũ của người đã nghỉ vẫn được.
+- **BR-EPAY-A02:** Tạm ứng gắn với nhân viên, không gắn với tháng nào; người trả lương tự quyết định trừ vào tháng nào.
+
 ## Tài khoản, đăng nhập, phân quyền
 
 > Thiết kế kỹ thuật: [ADR-0003](../decisions/ADR-0003-authentication.md).

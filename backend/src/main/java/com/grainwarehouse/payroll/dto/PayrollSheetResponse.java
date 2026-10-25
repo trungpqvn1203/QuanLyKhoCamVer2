@@ -9,6 +9,8 @@ import java.util.List;
 
 /**
  * Bảng lương một tháng.
+ * paidAmount / outstandingAmount (BR-EPAY-01): chỉ có nghĩa khi đã chốt; tạm tính luôn 0. tracksDebt = false: bảng
+ * lương chốt trước khi có công nợ nhân viên, coi như đã trả đủ (BR-EPAY-05) → còn nợ luôn 0.
  * finalized = false: tạm tính trực tiếp từ chấm công với đơn giá HIỆN TẠI (BR-PAY-02), payrollId/finalizedAt vắng.
  * finalized = true: đọc từ bản chụp đã chốt — đơn giá lúc chốt.
  * history: các lần chốt đã bị hủy của tháng này (mới nhất trước), để còn dấu vết.
@@ -18,6 +20,7 @@ public record PayrollSheetResponse(
         boolean finalized,
         Long payrollId,
         Instant finalizedAt,
+        boolean tracksDebt,
         BigDecimal totalAmount,
         List<Line> items,
         List<HistoryEntry> history) {
@@ -36,7 +39,9 @@ public record PayrollSheetResponse(
             BigDecimal dayAmount,
             BigDecimal unloadAmount,
             BigDecimal deliveryAmount,
-            BigDecimal totalAmount) {
+            BigDecimal totalAmount,
+            BigDecimal paidAmount,
+            BigDecimal outstandingAmount) {
     }
 
     public record HistoryEntry(

@@ -43,6 +43,18 @@ public class Employee extends AuditableEntity {
     @Column(name = "delivery_ton_rate", precision = 15, scale = 2)
     private BigDecimal deliveryTonRate;
 
+    // BR-EPAY-03: số tiền đã ứng và chưa trừ vào lương — snapshot của employee_advance và các lần trừ lương
+    // (payroll_payment ADVANCE_DEDUCTION). Không bao giờ âm (ck_employee_advance_balance). Không có setter:
+    // chỉ đổi qua addAdvanceBalance, sau khi service khóa dòng nhân viên FOR UPDATE.
+    @Setter(AccessLevel.NONE)
+    @Column(name = "advance_balance", nullable = false, precision = 18, scale = 0)
+    private BigDecimal advanceBalance = BigDecimal.ZERO;
+
     @Column(nullable = false)
     private boolean active = true;
+
+    /** Cộng (ứng thêm) hoặc trừ (trừ lương, hoàn khoản ứng). Không tự kiểm tra âm — service kiểm tra, CHECK ở DB chặn cuối. */
+    public void addAdvanceBalance(BigDecimal delta) {
+        advanceBalance = advanceBalance.add(delta);
+    }
 }

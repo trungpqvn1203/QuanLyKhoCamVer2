@@ -169,6 +169,7 @@ DELETE /api/products/:id          # Xóa (soft delete)
 | Phiếu bán | `GET/POST /api/sales-orders`, `GET/PUT /api/sales-orders/{id}`, `POST …/{id}/complete`, `…/cancel`, `…/reverse`, `POST …/{id}/payments`, `POST …/{id}/payments/{paymentId}/reverse` | Xem mục **Phiếu bán, thanh toán, công nợ** bên dưới. Không có DELETE → 405 |
 | Giá riêng của khách | `GET /api/customers/{id}/prices`, `PUT/DELETE /api/customers/{id}/prices/{productId}` | Xem mục **Phiếu bán, thanh toán, công nợ** |
 | Công nợ khách | `GET /api/customer-debts?customerId=` | Xem mục **Phiếu bán, thanh toán, công nợ** |
+| Tạm ứng, trả lương, công nợ nhân viên | `GET/POST /api/employees/{id}/advances`, `POST …/advances/{advanceId}/reverse`; `GET /api/payrolls/{YYYY-MM}/items/{employeeId}`, `POST …/payments`, `POST …/payments/{paymentId}/reverse`; `GET /api/employee-debts?employeeId=` | Chỉ `SYSTEM_ADMIN`. Xem mục **Công nợ nhân viên** bên dưới |
 | Trả tiền NCC, công nợ NCC | `POST /api/inbound-receipts/{id}/payments`, `POST …/{id}/payments/{paymentId}/reverse`, `GET /api/supplier-debts?supplierId=` | Xem mục **Trả tiền và công nợ nhà cung cấp** bên dưới |
 | Lịch sử biến động tồn | `GET /api/inventory/transactions` | Chỉ đọc (POST → 405). Xem mục **Lịch sử biến động tồn** bên dưới |
 | Xác thực | `GET /api/auth/csrf`, `POST /api/auth/login`, `…/refresh`, `…/logout`, `GET /api/auth/me`, `PUT /api/auth/me/password` | Xem mục **Xác thực & phân quyền** bên dưới |
@@ -195,6 +196,21 @@ Lọc `GET /api/inbound-receipts` (tất cả tùy chọn):
 | `status` | `DRAFT` \| `COMPLETED` \| `CANCELLED` \| `REVERSED` | Sai giá trị → 400 |
 | `warehouseId`, `supplierId` | number | Kho nhận / NCC |
 | `documentDateFrom`, `documentDateTo` | `YYYY-MM-DD` | Ngày chứng từ trong khoảng, hai đầu đều tính |
+
+**Công nợ nhân viên: tạm ứng và trả lương** (thêm 2026-10-26, BR-EPAY-01..06) — chỉ `SYSTEM_ADMIN`:
+
+| Endpoint | Body | Kết quả / lỗi |
+|---|---|---|
+| `GET /api/employees/{id}/advances` | — | `{ employeeId, employeeCode, employeeName, employeeActive, advanceBalance, advances: [{ id, type (ADVANCE\|REVERSAL), method (CASH\|BANK_TRANSFER), amount, advanceDate, note?, reversalOfId?, reversed, createdAt }] }` (mới nhất trước) |
+| `POST /api/employees/{id}/advances` | `{ paymentDate?, cashAmount?, transferAmount?, note? }` | 201, trả lại sổ tạm ứng như trên. Cùng quy tắc số tiền như thu tiền phiếu bán (cả hai trống/0 → 400 field `cashAmount`; âm/lẻ → 400). Nhân viên đã nghỉ → 409; không tồn tại → 404. `paymentDate` là ngày ứng |
+| `POST /api/employees/{id}/advances/{advanceId}/reverse` | `{ reason }` (bắt buộc) | Dòng `REVERSAL`. Khoản của người khác → 404; đã hoàn / là dòng hoàn → 409; **số dư tạm ứng không đủ** (đã trừ vào lương) → 409 |
+| `GET /api/payrolls/{month}/items/{employeeId}` | — | `{ month, employeeId, employeeCode, employeeName, employeeActive, totalAmount, paidAmount, outstandingAmount, tracksDebt, advanceBalance, payments: [{ id, type (PAYMENT\|REVERSAL), method (CASH\|BANK_TRANSFER\|ADVANCE_DEDUCTION), amount, paymentDate, note?, reversalOfId?, reversed, createdAt }] }`. Tháng chưa chốt → 409; nhân viên không có lương tháng đó → 404 |
+| `POST /api/payrolls/{month}/items/{employeeId}/payments` | `{ paymentDate?, cashAmount?, transferAmount?, advanceDeduction?, note? }` | 201, trả lại tình trạng dòng lương. Mỗi phần > 0 thành một dòng. Cả ba trống/0 → 400 field `cashAmount`; tổng vượt số còn nợ → 409; `advanceDeduction` vượt số dư tạm ứng → 409; tháng chưa chốt hoặc bảng lương cũ (`tracksDebt = false`) → 409 |
+| `POST /api/payrolls/{month}/items/{employeeId}/payments/{paymentId}/reverse` | `{ reason }` (bắt buộc) | Hoàn một khoản trả; hoàn `ADVANCE_DEDUCTION` thì `advanceBalance` cộng lại. Khoản của dòng lương khác → 404; đã hoàn / là dòng hoàn → 409 |
+| `POST /api/payrolls/{month}/cancel` | `{ reason }` | **Thêm từ 2026-10-26:** bảng lương đã trả lương cho ít nhất một nhân viên → 409, phải hoàn các khoản trả trước |
+| `GET /api/employee-debts?employeeId=` | — | `[{ employeeId, employeeCode, employeeName, employeeActive, unpaidSalaryAmount, advanceBalance, netAmount, unpaidMonths: [{ month, totalAmount, paidAmount, outstandingAmount }] }]` — nhân viên còn lương chưa trả hoặc còn dư tạm ứng, lương chưa trả nhiều nhất lên đầu, không phân trang. `netAmount = unpaidSalaryAmount − advanceBalance` |
+
+`GET /api/payrolls/{month}` (bảng lương) có thêm `tracksDebt` ở cấp bảng và `paidAmount`, `outstandingAmount` ở từng dòng (tạm tính: luôn 0). `GET /api/employees` trả thêm `advanceBalance`.
 
 **Trả tiền và công nợ nhà cung cấp** (thêm 2026-10-25, BR-SPAY-01..06) — quyền: quản lý kho + quản lý hệ thống:
 

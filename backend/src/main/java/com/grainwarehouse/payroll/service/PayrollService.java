@@ -81,6 +81,13 @@ public class PayrollService {
         monthLock.lock(month);
         Payroll payroll = payrollRepository.findByPeriodAndStatus(month.atDay(1), PayrollStatus.FINALIZED)
                 .orElseThrow(() -> new BusinessException("Tháng " + label(month) + " chưa chốt lương, không có gì để hủy"));
+        // BR-EPAY-05: đã trả lương (kể cả trừ tạm ứng) thì không hủy chốt — hủy sẽ làm khoản đã trả mất chứng từ.
+        // Đọc SAU khi khóa tháng: trả lương cũng lấy khóa này nên không thể chen vào giữa lúc kiểm tra và lúc hủy
+        long paidEmployees = payroll.getItems().stream().filter(item -> item.getPaidAmount().signum() > 0).count();
+        if (paidEmployees > 0) {
+            throw new BusinessException("Bảng lương tháng " + label(month) + " đã trả lương cho " + paidEmployees
+                    + " nhân viên. Hãy hoàn các khoản đã trả trước khi hủy chốt");
+        }
         payroll.cancel(reason.trim(), Instant.now());
         payrollRepository.saveAndFlush(payroll);
         return sheet(month);
@@ -96,12 +103,12 @@ public class PayrollService {
                     return new PayrollSheetResponse.Line(e.getId(), e.getCode(), e.getName(), e.isActive(),
                             t.workUnits(), t.unloadTons(), t.deliveryTons(), e.getDailyWage(),
                             e.getUnloadTonRate(), e.getDeliveryTonRate(), day, unload, delivery,
-                            day.add(unload).add(delivery));
+                            day.add(unload).add(delivery), BigDecimal.ZERO, BigDecimal.ZERO);
                 })
                 .toList();
         BigDecimal total = lines.stream().map(PayrollSheetResponse.Line::totalAmount)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
-        return new PayrollSheetResponse(month, false, null, null, total, lines, history);
+        return new PayrollSheetResponse(month, false, null, null, true, total, lines, history);
     }
 
     private static PayrollSheetResponse fromSnapshot(Payroll payroll, List<PayrollSheetResponse.HistoryEntry> history) {
@@ -121,10 +128,12 @@ public class PayrollService {
                         item.getDayAmount(),
                         item.getUnloadAmount(),
                         item.getDeliveryAmount(),
-                        item.getTotalAmount()))
+                        item.getTotalAmount(),
+                        item.getPaidAmount(),
+                        payroll.isTracksDebt() ? item.getOutstandingAmount() : BigDecimal.ZERO))
                 .toList();
         return new PayrollSheetResponse(payroll.month(), true, payroll.getId(), payroll.getFinalizedAt(),
-                payroll.getTotalAmount(), lines, history);
+                payroll.isTracksDebt(), payroll.getTotalAmount(), lines, history);
     }
 
     private static PayrollSheetResponse.HistoryEntry toHistory(Payroll payroll) {

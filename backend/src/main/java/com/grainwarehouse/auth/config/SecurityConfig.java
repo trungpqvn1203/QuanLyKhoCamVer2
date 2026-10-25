@@ -127,7 +127,9 @@ public class SecurityConfig {
                 .requestMatchers("/api/inventory/**").authenticated()
 
                 .requestMatchers("/api/attendance/**").hasAnyRole(WAREHOUSE, ADMIN)
-                .requestMatchers("/api/employees/**", "/api/payrolls/**").hasRole(ADMIN)
+                // Gồm tạm ứng (/api/employees/{id}/advances), trả lương (/api/payrolls/{tháng}/items/...) và công nợ nhân viên
+                // (BR-EPAY-06): chỉ quản lý hệ thống
+                .requestMatchers("/api/employees/**", "/api/payrolls/**", "/api/employee-debts/**").hasRole(ADMIN)
 
                 .anyRequest().denyAll();
     }

@@ -32,6 +32,7 @@ Ràng buộc đổi: `ck_employee_has_rate` (ít nhất một trong ba đơn gi�
 | `customer_product_price` | Giá bán riêng hiện hành theo (khách, SP) — chỉ để điền sẵn | ✅ Đã duyệt 2026-10-20 (V13) |
 | `sale_payment` | Lịch sử thanh toán của phiếu bán (bất biến) | ✅ Đã duyệt 2026-10-20 (V13) |
 | `supplier_payment` | Lịch sử trả tiền NCC trên phiếu nhập (bất biến) | ✅ Đã duyệt 2026-10-25 (V16) |
+| `employee_advance`, `payroll_payment` | Nhật ký tạm ứng nhân viên và nhật ký trả lương theo dòng lương (bất biến) | ✅ Đã duyệt 2026-10-26 (V18) |
 | `app_user`, `app_user_role` | Tài khoản đăng nhập (mật khẩu băm BCrypt) + vai trò, một người nhiều vai trò | ✅ Đã duyệt 2026-10-20 (V14, ADR-0003) |
 | `refresh_token` | Refresh token đã phát — chỉ lưu SHA-256; rotation theo family, thu hồi được (KHÔNG bất biến) | ✅ Đã duyệt 2026-10-20 (V14, ADR-0003) |
 
@@ -304,6 +305,16 @@ erDiagram
 - `reversal_of_id` UNIQUE + `ck_sale_payment_reversal` (REVERSAL ⇔ có `reversal_of_id`): mỗi khoản hoàn đúng một lần.
 - Trigger `trg_sale_payment_immutable` / `trg_sale_payment_no_truncate` chặn UPDATE/DELETE/TRUNCATE như `stock_transaction`.
 - Công nợ khách = `SUM(total_amount − paid_amount)` của phiếu `OUTBOUND` + `COMPLETED` còn nợ, `GROUP BY customer_id` — không có bảng số dư.
+
+### employee_advance, payroll_payment, số dư tạm ứng (Công nợ nhân viên — BẤT BIẾN) (✅ đã duyệt — migration V18)
+
+- **Hai số tổng (snapshot) có CHECK:** `employee.advance_balance NUMERIC(18,0)` với `ck_employee_advance_balance` (≥ 0) và `payroll_item.paid_amount NUMERIC(18,0)` với `ck_payroll_item_paid` (0 ≤ paid ≤ `total_amount`). Chỉ đổi sau khi service khóa dòng nhân viên rồi dòng lương `FOR UPDATE` — CHECK chỉ chặn số **âm**, không chặn **cập nhật bị mất** (hai request cùng đọc 100.000 rồi cùng ghi 40.000), nên khóa là bắt buộc; đã kiểm bằng test đồng thời.
+- **`employee_advance`:** khoản ứng (`ADVANCE`) hoặc hoàn khoản ứng ghi nhầm (`REVERSAL`), `method` chỉ `CASH`/`BANK_TRANSFER` (tạm ứng luôn là tiền chi ra). Cấu trúc và ràng buộc như `sale_payment`.
+- **`payroll_payment`:** khoản trả lương (`PAYMENT`) hoặc hoàn (`REVERSAL`) gắn với dòng lương bằng **khóa ngoại kép** `(payroll_id, employee_id) → payroll_item`. `method` thêm `ADVANCE_DEDUCTION` (trừ vào tạm ứng — không có tiền ra khỏi quỹ). Hoàn khoản `ADVANCE_DEDUCTION` thì số dư tạm ứng cộng lại.
+- **Số dư tạm ứng** = Σ `employee_advance` (ADVANCE − REVERSAL) − Σ `payroll_payment` `ADVANCE_DEDUCTION` (PAYMENT − REVERSAL); test `assertAdvanceBalanceMatchesLedger` kiểm snapshot khớp nhật ký sau mỗi kịch bản.
+- **`payroll.tracks_debt`** (`BOOLEAN NOT NULL DEFAULT TRUE`): V18 đặt `FALSE` cho mọi bảng lương `FINALIZED` có trước (BR-EPAY-05). Cờ ở bảng lương (mỗi tháng một bản), không ở từng dòng.
+- `PayrollItem` không còn `@Immutable` của Hibernate (nó chặn cập nhật `paid_amount`); các cột bản chụp dùng `updatable = false`.
+- Công nợ nhân viên = Σ (`total_amount − paid_amount`) của dòng lương thuộc bảng `FINALIZED` + `tracks_debt` còn nợ, gộp theo nhân viên, cộng với `advance_balance` — không có bảng số dư riêng.
 
 ### supplier_payment (Trả tiền NCC — BẤT BIẾN) (✅ đã duyệt — migration V16)
 

@@ -48,6 +48,10 @@ public class Payroll extends AuditableEntity {
     @Column(name = "finalized_at", nullable = false, updatable = false)
     private Instant finalizedAt;
 
+    // BR-EPAY-05: false = bảng lương chốt trước khi có công nợ nhân viên, coi như đã trả đủ (V18). Chỉ migration đặt false
+    @Column(name = "tracks_debt", nullable = false, updatable = false)
+    private boolean tracksDebt = true;
+
     @Column(name = "cancelled_at")
     private Instant cancelledAt;
 

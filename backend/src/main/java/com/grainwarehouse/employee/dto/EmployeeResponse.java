@@ -13,6 +13,7 @@ public record EmployeeResponse(
         BigDecimal dailyWage,
         BigDecimal unloadTonRate,
         BigDecimal deliveryTonRate,
+        BigDecimal advanceBalance,
         boolean active,
         Instant createdAt,
         Instant updatedAt) {
@@ -26,6 +27,7 @@ public record EmployeeResponse(
                 employee.getDailyWage(),
                 employee.getUnloadTonRate(),
                 employee.getDeliveryTonRate(),
+                employee.getAdvanceBalance(),
                 employee.isActive(),
                 employee.getCreatedAt(),
                 employee.getUpdatedAt());
