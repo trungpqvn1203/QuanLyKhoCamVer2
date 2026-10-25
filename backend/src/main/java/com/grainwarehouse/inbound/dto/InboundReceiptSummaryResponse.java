@@ -20,6 +20,9 @@ public record InboundReceiptSummaryResponse(
         String supplierCode,
         String supplierName,
         BigDecimal totalAmount,
+        BigDecimal paidAmount,
+        BigDecimal outstandingAmount,
+        boolean tracksDebt,
         Instant completedAt,
         Instant createdAt) {
 
@@ -36,6 +39,9 @@ public record InboundReceiptSummaryResponse(
                 document.getSupplier().getCode(),
                 document.getSupplier().getName(),
                 document.getTotalAmount(),
+                document.getPaidAmount(),
+                document.getOutstandingAmount(),
+                document.isTracksDebt(),
                 document.getCompletedAt(),
                 document.getCreatedAt());
     }

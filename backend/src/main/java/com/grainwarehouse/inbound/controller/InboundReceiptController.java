@@ -9,6 +9,8 @@ import com.grainwarehouse.inbound.dto.InboundReceiptSearchCriteria;
 import com.grainwarehouse.inbound.dto.InboundReceiptSummaryResponse;
 import com.grainwarehouse.inbound.dto.ReverseInboundReceiptRequest;
 import com.grainwarehouse.inbound.service.InboundReceiptService;
+import com.grainwarehouse.sales.dto.ReasonRequest;
+import com.grainwarehouse.sales.dto.RecordPaymentRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
@@ -84,5 +86,21 @@ public class InboundReceiptController {
             @PathVariable Long id, @Valid @RequestBody ReverseInboundReceiptRequest request) {
         return ResponseEntity.ok(ApiResponse.ok(inboundReceiptService.reverse(id, request.reason()),
                 "Đảo phiếu nhập thành công"));
+    }
+
+    // BR-SPAY-02: trả tiền NCC (tiền mặt và/hoặc chuyển khoản) — 201 vì tạo dòng thanh toán mới
+    @PostMapping("/{id}/payments")
+    public ResponseEntity<ApiResponse<InboundReceiptResponse>> recordPayment(
+            @PathVariable Long id, @Valid @RequestBody RecordPaymentRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.ok(inboundReceiptService.recordPayment(id, request), "Ghi nhận trả tiền thành công"));
+    }
+
+    // BR-SPAY-03: hoàn khoản trả ghi nhầm, lý do bắt buộc
+    @PostMapping("/{id}/payments/{paymentId}/reverse")
+    public ResponseEntity<ApiResponse<InboundReceiptResponse>> reversePayment(
+            @PathVariable Long id, @PathVariable Long paymentId, @Valid @RequestBody ReasonRequest request) {
+        return ResponseEntity.ok(ApiResponse.ok(inboundReceiptService.reversePayment(id, paymentId, request.reason()),
+                "Hoàn khoản trả thành công"));
     }
 }

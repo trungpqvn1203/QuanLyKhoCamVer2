@@ -21,6 +21,7 @@
 | `stock_transaction` | Lịch sử biến động tồn kho (bất biến) | ✅ Đã duyệt 2026-10-19 (V6) |
 | `customer_product_price` | Giá bán riêng hiện hành theo (khách, SP) — chỉ để điền sẵn | ✅ Đã duyệt 2026-10-20 (V13) |
 | `sale_payment` | Lịch sử thanh toán của phiếu bán (bất biến) | ✅ Đã duyệt 2026-10-20 (V13) |
+| `supplier_payment` | Lịch sử trả tiền NCC trên phiếu nhập (bất biến) | ✅ Đã duyệt 2026-10-25 (V16) |
 | `app_user`, `app_user_role` | Tài khoản đăng nhập (mật khẩu băm BCrypt) + vai trò, một người nhiều vai trò | ✅ Đã duyệt 2026-10-20 (V14, ADR-0003) |
 | `refresh_token` | Refresh token đã phát — chỉ lưu SHA-256; rotation theo family, thu hồi được (KHÔNG bất biến) | ✅ Đã duyệt 2026-10-20 (V14, ADR-0003) |
 
@@ -173,6 +174,18 @@ erDiagram
         timestamptz created_at
     }
 
+    supplier_payment {
+        bigint id PK
+        bigint document_id FK "Phiếu nhập"
+        varchar type "PAYMENT | REVERSAL"
+        varchar method "CASH | BANK_TRANSFER"
+        numeric amount "NUMERIC(18,0), > 0"
+        date payment_date
+        varchar note "Ghi chú / lý do hoàn"
+        bigint reversal_of_id FK "UK; bắt buộc khi REVERSAL"
+        timestamptz created_at
+    }
+
     category ||--o{ product : "phân nhóm"
     product ||--o{ inventory : "tồn tại các kho"
     warehouse ||--o{ inventory : "chứa sản phẩm"
@@ -189,6 +202,7 @@ erDiagram
     customer ||--o{ customer_product_price : "có giá riêng"
     product ||--o{ customer_product_price : "được định giá"
     stock_document ||--o{ sale_payment : "được thanh toán"
+    stock_document ||--o{ supplier_payment : "được trả tiền NCC"
 ```
 
 ## Giải thích thiết kế
@@ -242,7 +256,8 @@ erDiagram
 
 - Dùng chung cho phiếu nhập / xuất / điều chuyển, phân biệt bằng `type`. V6 mở `INBOUND`; **V13 mở `OUTBOUND`** và thêm `customer_id`, `paid_amount`. Điều chuyển sẽ nới CHECK và thêm `target_warehouse_id` sau.
 - `ck_stock_document_customer` (V13): phiếu nhập không có khách; phiếu bán bắt buộc có khách, không có NCC (BR-SAL-01).
-- `paid_amount` (V13): tổng đã thu — **snapshot** của `sale_payment`, giống `inventory` ↔ `stock_transaction`. `ck_stock_document_paid`: `0 <= paid_amount <= total_amount` (BR-SAL-11). Chỉ đổi khi thu/hoàn tiền, sau khi khóa phiếu `FOR UPDATE`. Còn nợ = `total_amount − paid_amount` (không lưu).
+- `tracks_debt` (V16, `BOOLEAN NOT NULL DEFAULT TRUE`): phiếu có phát sinh công nợ hay không. Migration V16 đặt `FALSE` cho phiếu nhập đã `COMPLETED`/`REVERSED` trước module công nợ NCC (BR-SPAY-05). Chỉ migration đổi cột này; còn nợ của phiếu `tracks_debt = FALSE` luôn là 0.
+- `paid_amount` (V13, dùng chung từ V16): phiếu bán = tổng đã thu — **snapshot** của `sale_payment`; phiếu nhập = tổng đã trả NCC — snapshot của `supplier_payment`, giống `inventory` ↔ `stock_transaction`. `ck_stock_document_paid`: `0 <= paid_amount <= total_amount` (BR-SAL-11). Chỉ đổi khi thu/hoàn tiền, sau khi khóa phiếu `FOR UPDATE`. Còn nợ = `total_amount − paid_amount` (không lưu).
 - `code`: **không** có DEFAULT ở DB (khác `product`/`supplier`) vì các loại phiếu khác tiền tố (`PN`, `PX`, `PC`). Service gọi `nextval('inbound_code_seq')` rồi format `PN%06d`.
 - `status`: `DRAFT → COMPLETED`, `DRAFT → CANCELLED`, `COMPLETED → REVERSED` (BR-IMP-11, 12). CHECK đảm bảo mốc thời gian đi kèm trạng thái (`completed_at` khi COMPLETED/REVERSED, `cancelled_at`, `reversed_at`).
 - `ck_stock_document_supplier`: phiếu nhập bắt buộc có NCC.
@@ -279,6 +294,12 @@ erDiagram
 - `reversal_of_id` UNIQUE + `ck_sale_payment_reversal` (REVERSAL ⇔ có `reversal_of_id`): mỗi khoản hoàn đúng một lần.
 - Trigger `trg_sale_payment_immutable` / `trg_sale_payment_no_truncate` chặn UPDATE/DELETE/TRUNCATE như `stock_transaction`.
 - Công nợ khách = `SUM(total_amount − paid_amount)` của phiếu `OUTBOUND` + `COMPLETED` còn nợ, `GROUP BY customer_id` — không có bảng số dư.
+
+### supplier_payment (Trả tiền NCC — BẤT BIẾN) (✅ đã duyệt — migration V16)
+
+- Cùng cấu trúc và ràng buộc với `sale_payment` (PAYMENT/REVERSAL, hai dòng khi trả kết hợp, `reversal_of_id` UNIQUE, trigger `trg_supplier_payment_immutable` / `trg_supplier_payment_no_truncate`).
+- **Bảng riêng, không gộp với `sale_payment`:** chiều tiền (chi/thu) và quyền khác nhau, và không phải sửa module bán hàng đã duyệt. Gộp thành một bảng `document_payment` chỉ đáng làm khi có thêm loại thanh toán thứ ba.
+- Công nợ NCC = `SUM(total_amount − paid_amount)` của phiếu `INBOUND` + `COMPLETED` + `tracks_debt` còn nợ, `GROUP BY supplier_id` (index `idx_stock_document_supplier`).
 
 Ví dụ (khi có module điều chuyển): phiếu điều chuyển 100 bao cám A từ kho K1 sang K2 tạo:
 1. StockTransaction: product=A, warehouse=K1, type=OUT, quantity=100

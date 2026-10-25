@@ -14,6 +14,7 @@ import { PayrollPage } from './features/payroll/PayrollPage'
 import { ProductListPage } from './features/products/ProductListPage'
 import { SalesOrderListPage } from './features/sales-orders/SalesOrderListPage'
 import { StockTransactionPage } from './features/stock-transactions/StockTransactionPage'
+import { SupplierDebtPage } from './features/supplier-debts/SupplierDebtPage'
 import { SupplierListPage } from './features/suppliers/SupplierListPage'
 import { UserListPage } from './features/users/UserListPage'
 import { WarehouseListPage } from './features/warehouses/WarehouseListPage'
@@ -41,6 +42,7 @@ export const router = createBrowserRouter([
       { path: 'inbound-receipts', element: guarded('inbound', <InboundReceiptListPage />) },
       { path: 'sales-orders', element: <SalesOrderListPage /> },
       { path: 'customer-debts', element: guarded('debts', <CustomerDebtPage />) },
+      { path: 'supplier-debts', element: guarded('inbound', <SupplierDebtPage />) },
       { path: 'stock-transactions', element: <StockTransactionPage /> },
       { path: 'employees', element: guarded('employees', <EmployeeListPage />) },
       { path: 'attendance', element: guarded('attendance', <AttendancePage />) },

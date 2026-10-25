@@ -10,6 +10,9 @@ import com.grainwarehouse.inbound.dto.InboundReceiptRequest;
 import com.grainwarehouse.inbound.dto.InboundReceiptResponse;
 import com.grainwarehouse.inbound.dto.InboundReceiptSearchCriteria;
 import com.grainwarehouse.inbound.dto.InboundReceiptSummaryResponse;
+import com.grainwarehouse.inbound.entity.SupplierPayment;
+import com.grainwarehouse.inbound.entity.SupplierPaymentType;
+import com.grainwarehouse.inbound.repository.SupplierPaymentRepository;
 import com.grainwarehouse.inbound.repository.InboundReceiptSpecifications;
 import com.grainwarehouse.inventory.entity.StockDocument;
 import com.grainwarehouse.inventory.entity.StockDocumentItem;
@@ -20,6 +23,8 @@ import com.grainwarehouse.inventory.repository.StockTransactionRepository;
 import com.grainwarehouse.inventory.service.InventoryService;
 import com.grainwarehouse.product.entity.Product;
 import com.grainwarehouse.product.repository.ProductRepository;
+import com.grainwarehouse.sales.dto.RecordPaymentRequest;
+import com.grainwarehouse.sales.entity.PaymentMethod;
 import com.grainwarehouse.supplier.entity.ProductSupplier;
 import com.grainwarehouse.supplier.entity.ProductSupplierId;
 import com.grainwarehouse.supplier.entity.Supplier;
@@ -32,12 +37,15 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
@@ -63,6 +71,8 @@ public class InboundReceiptService {
 
     private static final StockDocumentType TYPE = StockDocumentType.INBOUND;
     private static final String CODE_FORMAT = "PN%06d";
+    // Dấu chấm ngăn cách hàng nghìn: 10.000.000 đ
+    private static final Locale VIETNAMESE = Locale.forLanguageTag("vi-VN");
 
     private final StockDocumentRepository stockDocumentRepository;
     private final StockTransactionRepository stockTransactionRepository;
@@ -71,6 +81,7 @@ public class InboundReceiptService {
     private final ProductRepository productRepository;
     private final ProductSupplierRepository productSupplierRepository;
     private final InventoryService inventoryService;
+    private final SupplierPaymentRepository supplierPaymentRepository;
 
     public PageResponse<InboundReceiptSummaryResponse> list(InboundReceiptSearchCriteria criteria, Pageable pageable) {
         return PageResponse.from(
@@ -79,7 +90,7 @@ public class InboundReceiptService {
     }
 
     public InboundReceiptResponse get(Long id) {
-        return InboundReceiptResponse.from(stockDocumentRepository.findWithDetailsByIdAndType(id, TYPE)
+        return toResponse(stockDocumentRepository.findWithDetailsByIdAndType(id, TYPE)
                 .orElseThrow(() -> notFound(id)));
     }
 
@@ -91,7 +102,7 @@ public class InboundReceiptService {
         String code = CODE_FORMAT.formatted(stockDocumentRepository.nextInboundCodeNumber());
         StockDocument document = new StockDocument(TYPE, code);
         apply(document, request, refs);
-        return InboundReceiptResponse.from(stockDocumentRepository.save(document));
+        return toResponse(stockDocumentRepository.save(document));
     }
 
     /** BR-IMP-11: chỉ phiếu Nháp được sửa, kể cả dòng hàng. */
@@ -100,7 +111,7 @@ public class InboundReceiptService {
         StockDocument document = lockForChange(id, DRAFT, "sửa");
         References refs = resolve(request);
         apply(document, request, refs);
-        return InboundReceiptResponse.from(stockDocumentRepository.saveAndFlush(document));
+        return toResponse(stockDocumentRepository.saveAndFlush(document));
     }
 
     /**
@@ -126,7 +137,7 @@ public class InboundReceiptService {
         received.forEach(item -> inventoryService.stockIn(item, document.getWarehouse(), item.getQuantity()));
 
         document.markCompleted(Instant.now());
-        return InboundReceiptResponse.from(stockDocumentRepository.saveAndFlush(document));
+        return toResponse(stockDocumentRepository.saveAndFlush(document));
     }
 
     /** BR-IMP-05, BR-IMP-11: chỉ phiếu Nháp được hủy; phiếu vẫn còn để tra cứu. */
@@ -134,7 +145,7 @@ public class InboundReceiptService {
     public InboundReceiptResponse cancel(Long id, String reason) {
         StockDocument document = lockForChange(id, DRAFT, "hủy");
         document.markCancelled(blankToNull(reason), Instant.now());
-        return InboundReceiptResponse.from(stockDocumentRepository.saveAndFlush(document));
+        return toResponse(stockDocumentRepository.saveAndFlush(document));
     }
 
     /**
@@ -144,9 +155,76 @@ public class InboundReceiptService {
     @Transactional
     public InboundReceiptResponse reverse(Long id, String reason) {
         StockDocument document = lockForChange(id, COMPLETED, "đảo");
+        // BR-SPAY-04: đã trả tiền NCC thì phải hoàn các khoản trả trước — đảo phiếu mà giữ khoản trả thì tiền
+        // đã chi không còn gắn với món nợ nào
+        if (document.getPaidAmount().signum() > 0) {
+            throw new BusinessException(label(document) + " đã trả " + money(document.getPaidAmount())
+                    + " cho nhà cung cấp. Hãy hoàn các khoản đã trả trước khi đảo phiếu");
+        }
         stockTransactionRepository.findOriginalsOfDocument(document.getId()).forEach(inventoryService::reverse);
         document.markReversed(reason.trim(), Instant.now());
-        return InboundReceiptResponse.from(stockDocumentRepository.saveAndFlush(document));
+        return toResponse(stockDocumentRepository.saveAndFlush(document));
+    }
+
+    /**
+     * BR-SPAY-01, 02: trả tiền NCC cho phiếu Hoàn tất, tiền mặt và/hoặc chuyển khoản — mỗi hình thức một dòng,
+     * cùng transaction. Tổng lần trả không được vượt số còn nợ. Phiếu cũ không theo dõi công nợ → từ chối (BR-SPAY-05).
+     */
+    @Transactional
+    public InboundReceiptResponse recordPayment(Long id, RecordPaymentRequest request) {
+        BigDecimal cash = zeroIfNull(request.cashAmount());
+        BigDecimal transfer = zeroIfNull(request.transferAmount());
+        BigDecimal total = cash.add(transfer);
+        if (total.signum() == 0) {
+            throw new InvalidRequestException("cashAmount", "Phải nhập số tiền mặt hoặc chuyển khoản lớn hơn 0");
+        }
+
+        StockDocument document = lockForChange(id, COMPLETED, "trả tiền");
+        if (!document.isTracksDebt()) {
+            throw new BusinessException(label(document)
+                    + " hoàn tất trước khi có công nợ nhà cung cấp nên được coi là đã trả đủ, không ghi trả tiền");
+        }
+        if (total.compareTo(document.getOutstandingAmount()) > 0) {
+            throw new BusinessException("Số tiền trả " + money(total) + " vượt số còn nợ "
+                    + money(document.getOutstandingAmount()) + " của " + label(document).toLowerCase());
+        }
+        // Ngày trả chọn tự do như thu tiền khách (BR-SAL-12); không gửi = hôm nay
+        LocalDate paymentDate = request.paymentDate() == null ? today() : request.paymentDate();
+
+        String note = blankToNull(request.note());
+        List<SupplierPayment> payments = new ArrayList<>();
+        if (cash.signum() > 0) {
+            payments.add(SupplierPayment.payment(document, PaymentMethod.CASH, cash, paymentDate, note));
+        }
+        if (transfer.signum() > 0) {
+            payments.add(SupplierPayment.payment(document, PaymentMethod.BANK_TRANSFER, transfer, paymentDate, note));
+        }
+        supplierPaymentRepository.saveAll(payments);
+        document.addPaidAmount(total);
+        return toResponse(stockDocumentRepository.saveAndFlush(document));
+    }
+
+    /**
+     * BR-SPAY-03: hoàn toàn bộ một khoản trả ghi nhầm bằng dòng REVERSAL trỏ về nó. Mỗi khoản chỉ hoàn một lần
+     * (UNIQUE reversal_of_id là tuyến phòng thủ cuối). Ngày hoàn = hôm nay.
+     */
+    @Transactional
+    public InboundReceiptResponse reversePayment(Long id, Long paymentId, String reason) {
+        StockDocument document = lockForChange(id, COMPLETED, "hoàn khoản trả");
+        SupplierPayment original = supplierPaymentRepository.findByIdAndDocumentId(paymentId, id)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Không tìm thấy khoản trả id=" + paymentId + " của " + label(document).toLowerCase()));
+        if (original.getType() != SupplierPaymentType.PAYMENT) {
+            throw new BusinessException("Chỉ hoàn được khoản trả, không hoàn một dòng hoàn");
+        }
+        if (supplierPaymentRepository.existsByReversalOfId(original.getId())) {
+            throw new BusinessException("Khoản trả này đã được hoàn. Mỗi khoản chỉ được hoàn một lần");
+        }
+
+        SupplierPayment reversal = SupplierPayment.reversalOf(original, today(), reason.trim());
+        supplierPaymentRepository.save(reversal);
+        document.addPaidAmount(reversal.signedAmount());
+        return toResponse(stockDocumentRepository.saveAndFlush(document));
     }
 
     /**
@@ -273,6 +351,25 @@ public class InboundReceiptService {
             item.setValues(line.orderedQuantity(), line.effectiveReceivedQuantity(), line.unitPrice());
         }
         document.recalculateTotal();
+    }
+
+    private InboundReceiptResponse toResponse(StockDocument document) {
+        List<SupplierPayment> payments = document.getId() == null
+                ? List.of() : supplierPaymentRepository.findByDocumentId(document.getId());
+        return InboundReceiptResponse.from(document, payments);
+    }
+
+    private static LocalDate today() {
+        return LocalDate.now(CommonSpecifications.BUSINESS_ZONE);
+    }
+
+    // 10000000 → "10.000.000 đ" (tiền trả và tổng phiếu luôn là số đồng nguyên)
+    private static String money(BigDecimal amount) {
+        return String.format(VIETNAMESE, "%,d đ", amount.toBigInteger());
+    }
+
+    private static BigDecimal zeroIfNull(BigDecimal value) {
+        return value == null ? BigDecimal.ZERO : value;
     }
 
     private static String label(StockDocument document) {

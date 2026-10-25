@@ -169,6 +169,7 @@ DELETE /api/products/:id          # Xóa (soft delete)
 | Phiếu bán | `GET/POST /api/sales-orders`, `GET/PUT /api/sales-orders/{id}`, `POST …/{id}/complete`, `…/cancel`, `…/reverse`, `POST …/{id}/payments`, `POST …/{id}/payments/{paymentId}/reverse` | Xem mục **Phiếu bán, thanh toán, công nợ** bên dưới. Không có DELETE → 405 |
 | Giá riêng của khách | `GET /api/customers/{id}/prices`, `PUT/DELETE /api/customers/{id}/prices/{productId}` | Xem mục **Phiếu bán, thanh toán, công nợ** |
 | Công nợ khách | `GET /api/customer-debts?customerId=` | Xem mục **Phiếu bán, thanh toán, công nợ** |
+| Trả tiền NCC, công nợ NCC | `POST /api/inbound-receipts/{id}/payments`, `POST …/{id}/payments/{paymentId}/reverse`, `GET /api/supplier-debts?supplierId=` | Xem mục **Trả tiền và công nợ nhà cung cấp** bên dưới |
 | Lịch sử biến động tồn | `GET /api/inventory/transactions` | Chỉ đọc (POST → 405). Xem mục **Lịch sử biến động tồn** bên dưới |
 | Xác thực | `GET /api/auth/csrf`, `POST /api/auth/login`, `…/refresh`, `…/logout`, `GET /api/auth/me`, `PUT /api/auth/me/password` | Xem mục **Xác thực & phân quyền** bên dưới |
 | Người dùng | `GET/POST /api/users`, `GET/PUT /api/users/{id}`, `POST /api/users/{id}/reset-password` | Chỉ `SYSTEM_ADMIN`. Không có DELETE (khóa = `active=false`) |
@@ -194,6 +195,17 @@ Lọc `GET /api/inbound-receipts` (tất cả tùy chọn):
 | `status` | `DRAFT` \| `COMPLETED` \| `CANCELLED` \| `REVERSED` | Sai giá trị → 400 |
 | `warehouseId`, `supplierId` | number | Kho nhận / NCC |
 | `documentDateFrom`, `documentDateTo` | `YYYY-MM-DD` | Ngày chứng từ trong khoảng, hai đầu đều tính |
+
+**Trả tiền và công nợ nhà cung cấp** (thêm 2026-10-25, BR-SPAY-01..06) — quyền: quản lý kho + quản lý hệ thống:
+
+| Endpoint | Body | Kết quả / lỗi |
+|---|---|---|
+| `POST /api/inbound-receipts/{id}/payments` | `{ paymentDate?, cashAmount?, transferAmount?, note? }` | 201, trả lại chi tiết phiếu nhập. Giống thu tiền phiếu bán: chỉ phiếu `COMPLETED`; cả hai trống/0 → 400 field `cashAmount`; âm/lẻ → 400; vượt số còn nợ → 409. Phiếu cũ `tracksDebt = false` → 409 |
+| `POST /api/inbound-receipts/{id}/payments/{paymentId}/reverse` | `{ reason }` (bắt buộc) | Dòng `REVERSAL` cùng hình thức, cùng số tiền, ngày = hôm nay. Khoản của phiếu khác → 404; đã hoàn / là dòng hoàn → 409 |
+| `POST /api/inbound-receipts/{id}/reverse` | `{ reason }` | **Thêm từ 2026-10-25:** đã trả tiền (`paidAmount > 0`) → 409, phải hoàn các khoản trả trước |
+| `GET /api/supplier-debts?supplierId=` | — | `[{ supplierId, supplierCode, supplierName, supplierTaxCode?, supplierPhone?, supplierActive, outstandingAmount, openReceiptCount, oldestDocumentDate }]` — chỉ NCC còn nợ, nợ nhiều nhất lên đầu, không phân trang |
+
+Response chi tiết phiếu nhập có thêm `paidAmount`, `outstandingAmount`, `tracksDebt`, `payments: [...]` (cùng dạng `payments` của phiếu bán); bản tóm tắt trong danh sách có thêm `paidAmount`, `outstandingAmount`, `tracksDebt`. `outstandingAmount` = `totalAmount − paidAmount` chỉ khi `COMPLETED` và `tracksDebt`, còn lại `0`. Lọc `GET /api/inbound-receipts` thêm `unpaidOnly=true` (phiếu Hoàn tất còn nợ NCC).
 
 **Phiếu bán, thanh toán, công nợ** (thêm 2026-10-20, BR-SAL-01..15):
 

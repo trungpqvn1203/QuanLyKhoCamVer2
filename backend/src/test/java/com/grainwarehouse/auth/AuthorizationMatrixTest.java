@@ -86,6 +86,10 @@ class AuthorizationMatrixTest {
                 new Rule(HttpMethod.GET, "/api/inbound-receipts", WAREHOUSE),
                 new Rule(HttpMethod.POST, "/api/inbound-receipts", WAREHOUSE),
                 new Rule(HttpMethod.POST, "/api/inbound-receipts/999999/complete", WAREHOUSE),
+                // Trả tiền NCC, công nợ NCC (BR-SPAY-06): quản lý kho
+                new Rule(HttpMethod.POST, "/api/inbound-receipts/999999/payments", WAREHOUSE),
+                new Rule(HttpMethod.POST, "/api/inbound-receipts/999999/payments/1/reverse", WAREHOUSE),
+                new Rule(HttpMethod.GET, "/api/supplier-debts", WAREHOUSE),
                 // Khách hàng, bảng giá, phiếu bán: ai cũng xem; bán hàng ghi
                 new Rule(HttpMethod.GET, "/api/customers", ALL),
                 new Rule(HttpMethod.GET, "/api/customers/999999/prices", ALL),

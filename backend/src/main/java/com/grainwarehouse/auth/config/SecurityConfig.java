@@ -114,7 +114,9 @@ public class SecurityConfig {
                 .authenticated()
                 .requestMatchers("/api/categories/**", "/api/products/**", "/api/warehouses/**").hasRole(ADMIN)
 
-                .requestMatchers("/api/suppliers/**", "/api/inbound-receipts/**").hasAnyRole(WAREHOUSE, ADMIN)
+                // Gồm cả trả tiền NCC (/api/inbound-receipts/{id}/payments) và công nợ NCC (BR-SPAY-06)
+                .requestMatchers("/api/suppliers/**", "/api/inbound-receipts/**", "/api/supplier-debts/**")
+                .hasAnyRole(WAREHOUSE, ADMIN)
 
                 // Khách hàng (gồm bảng giá riêng) và phiếu bán: ai cũng xem được, bán hàng + quản trị mới ghi
                 .requestMatchers(HttpMethod.GET, "/api/customers/**", "/api/sales-orders/**").authenticated()

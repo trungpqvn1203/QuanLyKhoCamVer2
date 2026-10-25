@@ -79,9 +79,15 @@ public class StockDocument extends AuditableEntity {
     @Column(name = "total_amount", nullable = false, precision = 18, scale = 0)
     private BigDecimal totalAmount = BigDecimal.ZERO;
 
-    // BR-SAL-10: tổng đã thu của phiếu bán (snapshot của sale_payment); phiếu nhập luôn 0
+    // Tổng đã thanh toán (snapshot): phiếu bán = đã thu (sale_payment, BR-SAL-10),
+    // phiếu nhập = đã trả NCC (supplier_payment, BR-SPAY-01)
     @Column(name = "paid_amount", nullable = false, precision = 18, scale = 0)
     private BigDecimal paidAmount = BigDecimal.ZERO;
+
+    // BR-SPAY-05: false = phiếu nhập hoàn tất trước khi có công nợ NCC, coi như đã trả đủ (V16). Chỉ migration đặt false
+    @Setter(AccessLevel.NONE)
+    @Column(name = "tracks_debt", nullable = false)
+    private boolean tracksDebt = true;
 
     // Lý do hủy hoặc đảo
     @Column(length = 500)
@@ -126,11 +132,13 @@ public class StockDocument extends AuditableEntity {
     }
 
     /**
-     * BR-SAL-10: số còn nợ = tổng phiếu − đã thu, CHỈ với phiếu Hoàn tất. Nháp chưa giao, Đã hủy không giao,
-     * Đã đảo thì hàng đã về kho — cả ba đều không phát sinh nợ (trước đây phiếu Đã đảo hiện nhầm "còn nợ 620.000 đ").
+     * BR-SAL-10, BR-SPAY-01: số còn nợ = tổng phiếu − đã thanh toán, CHỈ với phiếu Hoàn tất. Nháp chưa giao,
+     * Đã hủy không giao, Đã đảo thì hàng đã trả lại — cả ba đều không phát sinh nợ (trước đây phiếu Đã đảo hiện
+     * nhầm "còn nợ 620.000 đ"). Phiếu nhập cũ không theo dõi công nợ (BR-SPAY-05) cũng không còn nợ.
      */
     public BigDecimal getOutstandingAmount() {
-        return status == StockDocumentStatus.COMPLETED ? totalAmount.subtract(paidAmount) : BigDecimal.ZERO;
+        return status == StockDocumentStatus.COMPLETED && tracksDebt
+                ? totalAmount.subtract(paidAmount) : BigDecimal.ZERO;
     }
 
     /**

@@ -131,6 +131,21 @@ _(Trả lời BR-SAL-Q01: có công nợ, chỉ ở mức phiếu bán + lịch 
 
 ---
 
+## Công nợ nhà cung cấp
+
+> Thiết kế: migration V16. Cùng mẫu với công nợ khách (BR-SAL-09..14), chiều tiền ngược lại: mình trả cho NCC.
+
+### ✅ Đã xác nhận (2026-10-25)
+
+- **BR-SPAY-01:** Chỉ phiếu nhập **Hoàn tất** mới trả tiền. Nợ của phiếu = tổng phiếu (theo SL thực nhận, BR-IMP-03) − đã trả. Công nợ NCC = tổng nợ các phiếu Hoàn tất còn nợ. Trả **theo từng phiếu nhập**, không trả gộp theo NCC; không có số dư nợ lưu riêng.
+- **BR-SPAY-02:** Một lần trả không vượt số còn nợ của phiếu. Trả kết hợp tiền mặt + chuyển khoản được (mỗi hình thức một dòng). Tiền tính đến đồng. Ngày trả mặc định hôm nay, chọn tự do. Hoàn tất phiếu **không** có ô trả ngay — trả ngay thì bấm "Trả tiền" sau khi hoàn tất.
+- **BR-SPAY-03:** Lịch sử trả tiền **bất biến**. Trả nhầm → **hoàn** toàn bộ khoản đó (lý do bắt buộc) bằng một dòng hoàn trỏ về khoản gốc; mỗi khoản hoàn một lần.
+- **BR-SPAY-04:** Phiếu nhập **đã trả tiền** (đã trả > 0) **không được đảo** — phải hoàn hết các khoản trả trước.
+- **BR-SPAY-05:** Phiếu nhập đã hoàn tất (hoặc đã đảo) **trước khi có module này** coi như đã trả đủ: không hiện ở công nợ, không ghi trả tiền được, vẫn đảo được như trước. Phiếu nháp cũ hoàn tất sau này vẫn phát sinh nợ bình thường.
+- **BR-SPAY-06:** Ai được trả tiền NCC và xem công nợ NCC: **Quản lý kho + Quản lý hệ thống** (như phiếu nhập).
+
+---
+
 ## Điều chuyển kho
 
 ### ✅ Đã xác nhận
