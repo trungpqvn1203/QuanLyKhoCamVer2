@@ -57,3 +57,18 @@ describe('thanh toán kết hợp (BR-SAL-12)', () => {
     })
   })
 })
+
+describe('trả lương có trừ tạm ứng (BR-EPAY-02)', () => {
+  it('tổng = tiền mặt + chuyển khoản + trừ tạm ứng', () => {
+    expect(paymentTotal({ cashAmount: 300000, transferAmount: 100000, advanceDeduction: 150000 })).toBe(550000)
+    expect(paymentTotal({ advanceDeduction: 150000 })).toBe(150000)
+  })
+
+  it('phần trừ tạm ứng bỏ trống hoặc 0 → không gửi; có thì gửi kèm', () => {
+    expect(toPaymentInput({ cashAmount: 100000, advanceDeduction: 0 }).advanceDeduction).toBeUndefined()
+    expect(toPaymentInput({ cashAmount: 100000, advanceDeduction: 50000 })).toMatchObject({
+      cashAmount: 100000,
+      advanceDeduction: 50000,
+    })
+  })
+})

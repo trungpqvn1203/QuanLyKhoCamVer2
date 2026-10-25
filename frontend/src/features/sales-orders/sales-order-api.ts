@@ -99,6 +99,8 @@ export interface PaymentInput {
   paymentDate?: string
   cashAmount?: number
   transferAmount?: number
+  /** Chỉ trả lương (BR-EPAY-02): phần trừ vào tạm ứng của nhân viên */
+  advanceDeduction?: number
   note?: string
 }
 

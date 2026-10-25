@@ -176,6 +176,7 @@ export function EmployeeListPage() {
             { key: 'dailyWage', label: 'Lương ngày công', children: rateText(viewing.dailyWage, 'ngày') },
             { key: 'unloadTonRate', label: 'Đơn giá tấn bốc xuống', children: rateText(viewing.unloadTonRate, 'tấn') },
             { key: 'deliveryTonRate', label: 'Đơn giá tấn giao hàng', children: rateText(viewing.deliveryTonRate, 'tấn') },
+            { key: 'advanceBalance', label: 'Dư tạm ứng', children: formatVnd(viewing.advanceBalance) },
           ],
         },
         {

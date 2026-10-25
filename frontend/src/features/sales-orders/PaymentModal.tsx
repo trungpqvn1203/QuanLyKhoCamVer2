@@ -20,6 +20,11 @@ interface PaymentModalProps {
   open: boolean
   direction: PaymentDirection
   document: PayableDocument
+  /**
+   * Chỉ trả lương (BR-EPAY-02): số dư tạm ứng hiện có của nhân viên. Có giá trị → hiện thêm ô "Trừ tạm ứng"
+   * (tối đa bằng số dư này); không có → chỉ tiền mặt + chuyển khoản như thu tiền phiếu bán / trả NCC.
+   */
+  advanceBalance?: number
   /** Gọi API; ném ApiError nếu thất bại — FormModal giữ hộp mở và hiện lỗi */
   onSubmit: (input: ReturnType<typeof toPaymentInput>) => Promise<void>
   onClose: () => void
@@ -37,7 +42,9 @@ const wholeDongRule: Rule = {
  * hai. Mặc định điền tiền mặt = số còn nợ. Kiểm tra "không vượt số còn nợ" ngay trên trình duyệt cho nhanh;
  * backend kiểm tra lại sau khi khóa phiếu.
  */
-export function PaymentModal({ open, direction, document: order, onSubmit, onClose }: PaymentModalProps) {
+export function PaymentModal({ open, direction, document: order, advanceBalance, onSubmit, onClose }: PaymentModalProps) {
+  const deductible = advanceBalance != null
+  const colSpan = deductible ? 8 : 12
   const verb = PAYMENT_VERB[direction]
   const lowerVerb = verb.toLowerCase()
   const [form] = Form.useForm<PaymentFormValues>()
@@ -71,18 +78,22 @@ export function PaymentModal({ open, direction, document: order, onSubmit, onClo
         mặt lẫn chuyển khoản thì nhập cả hai ô.
       </Typography.Paragraph>
       <Row gutter={16}>
-        <Col span={12}>
+        <Col span={colSpan}>
           <Form.Item
             name="cashAmount"
             label="Tiền mặt"
-            dependencies={['transferAmount']}
+            dependencies={['transferAmount', 'advanceDeduction']}
             rules={[
               { type: 'number', min: 0, message: 'Không được âm' },
               wholeDongRule,
               ({ getFieldsValue }) => ({
                 validator: async () => {
-                  const sum = paymentTotal(getFieldsValue(['cashAmount', 'transferAmount']) as PaymentFormValues)
-                  if (sum <= 0) throw new Error('Nhập số tiền mặt hoặc chuyển khoản')
+                  const sum = paymentTotal(
+                    getFieldsValue(['cashAmount', 'transferAmount', 'advanceDeduction']) as PaymentFormValues,
+                  )
+                  if (sum <= 0) {
+                    throw new Error(deductible ? 'Nhập tiền mặt, chuyển khoản hoặc số trừ tạm ứng' : 'Nhập số tiền mặt hoặc chuyển khoản')
+                  }
                   if (sum > order.outstandingAmount) throw new Error(`Vượt số còn nợ ${formatVnd(order.outstandingAmount)}`)
                 },
               }),
@@ -91,7 +102,7 @@ export function PaymentModal({ open, direction, document: order, onSubmit, onClo
             {amountInput('Tiền mặt')}
           </Form.Item>
         </Col>
-        <Col span={12}>
+        <Col span={colSpan}>
           <Form.Item
             name="transferAmount"
             label="Chuyển khoản"
@@ -100,6 +111,26 @@ export function PaymentModal({ open, direction, document: order, onSubmit, onClo
             {amountInput('Chuyển khoản')}
           </Form.Item>
         </Col>
+        {deductible && (
+          <Col span={colSpan}>
+            <Form.Item
+              name="advanceDeduction"
+              label="Trừ tạm ứng"
+              extra={`Dư tạm ứng: ${formatVnd(advanceBalance)}`}
+              rules={[
+                { type: 'number', min: 0, message: 'Không được âm' },
+                wholeDongRule,
+                {
+                  validator: async (_, value?: number | null) => {
+                    if (value != null && value > advanceBalance) throw new Error(`Vượt dư tạm ứng ${formatVnd(advanceBalance)}`)
+                  },
+                },
+              ]}
+            >
+              {amountInput('Trừ tạm ứng')}
+            </Form.Item>
+          </Col>
+        )}
       </Row>
       <Typography.Paragraph>
         Tổng lần {lowerVerb}: <Typography.Text strong>{formatVnd(total)}</Typography.Text>

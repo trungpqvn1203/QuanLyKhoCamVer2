@@ -78,12 +78,14 @@ export interface PaymentFormValues {
   paymentDate?: string
   cashAmount?: number | null
   transferAmount?: number | null
+  /** Chỉ trả lương (BR-EPAY-02) */
+  advanceDeduction?: number | null
   note?: string
 }
 
-/** Tổng một lần thu = tiền mặt + chuyển khoản (ô trống = 0). */
+/** Tổng một lần thu / trả = tiền mặt + chuyển khoản + trừ tạm ứng (ô trống = 0). */
 export function paymentTotal(values: PaymentFormValues | undefined): number {
-  return (values?.cashAmount ?? 0) + (values?.transferAmount ?? 0)
+  return (values?.cashAmount ?? 0) + (values?.transferAmount ?? 0) + (values?.advanceDeduction ?? 0)
 }
 
 /** Ô trống / 0 → không gửi; backend chỉ ghi dòng cho phần > 0 (BR-SAL-12). */
@@ -92,6 +94,7 @@ export function toPaymentInput(values: PaymentFormValues): PaymentInput {
     paymentDate: values.paymentDate,
     cashAmount: values.cashAmount || undefined,
     transferAmount: values.transferAmount || undefined,
+    advanceDeduction: values.advanceDeduction || undefined,
     note: values.note?.trim() || undefined,
   }
 }

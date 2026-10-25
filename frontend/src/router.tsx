@@ -8,6 +8,7 @@ import { RequireAuth, RequirePermission } from './features/auth/RequireAuth'
 import type { Permission } from './features/auth/permissions'
 import { CustomerDebtPage } from './features/customer-debts/CustomerDebtPage'
 import { CustomerListPage } from './features/customers/CustomerListPage'
+import { EmployeeDebtPage } from './features/employee-debts/EmployeeDebtPage'
 import { EmployeeListPage } from './features/employees/EmployeeListPage'
 import { InboundReceiptListPage } from './features/inbound-receipts/InboundReceiptListPage'
 import { PayrollPage } from './features/payroll/PayrollPage'
@@ -47,6 +48,7 @@ export const router = createBrowserRouter([
       { path: 'employees', element: guarded('employees', <EmployeeListPage />) },
       { path: 'attendance', element: guarded('attendance', <AttendancePage />) },
       { path: 'payroll', element: guarded('payroll', <PayrollPage />) },
+      { path: 'employee-debts', element: guarded('payroll', <EmployeeDebtPage />) },
       { path: 'users', element: guarded('users', <UserListPage />) },
       {
         path: '*',

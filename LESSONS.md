@@ -5,6 +5,27 @@ Ghi dồn sau mỗi module, ôn tập ở cuối dự án. Mỗi mục: **khái 
 
 ---
 
+## Module: Công nợ nhân viên — trả lương và tạm ứng (2026-10-26, migration V18)
+
+- **Nợ hai chiều trong cùng một người.** Công ty nợ nhân viên lương chưa trả; nhân viên nợ công ty tiền đã ứng. Hai món nợ nằm ở hai chỗ: `payroll_item.paid_amount` (lương, theo từng tháng) và `employee.advance_balance` (tạm ứng, theo người). Màn công nợ tính `netAmount = lương chưa trả − dư tạm ứng`: dương là công ty nợ, âm là nhân viên đang giữ nhiều hơn.
+- **"Trừ tạm ứng" là một hình thức thanh toán, không phải một loại nợ riêng.** Cách gọn nhất: thêm `ADVANCE_DEDUCTION` vào cùng cột `method` của `payroll_payment` (bên cạnh `CASH`, `BANK_TRANSFER`). Một lần trả lương "300.000 tiền mặt + 150.000 trừ tạm ứng" thành 2 dòng, tổng 450.000 giảm nợ lương 450.000; dòng thứ hai còn làm giảm `advance_balance` 150.000. Hệ quả cần nhớ: dòng `ADVANCE_DEDUCTION` **không có tiền ra khỏi quỹ** — module dòng tiền sau này phải loại nó ra, nếu không sẽ đếm lương hai lần (một lần lúc ứng, một lần lúc trừ).
+- **CHECK ở DB chặn số ÂM, không chặn CẬP NHẬT BỊ MẤT.** Thử đột biến: bỏ khóa `FOR UPDATE` trên dòng nhân viên, rồi 5 luồng cùng trừ 60.000 từ số dư 100.000 ở 5 tháng khác nhau. Kết quả: cả 5 đều "thành công" (mong đợi 1). Mỗi luồng đọc số dư 100.000, thấy đủ, ghi 40.000 — số dư cuối vẫn là 40.000, **không âm nên CHECK không phản ứng**, nhưng tiền đã trừ 5 lần 60.000 = 300.000 trong nhật ký. Chỉ khóa (đọc nhân viên bằng `findForUpdate`) mới đúng. Bài học: ràng buộc DB là chốt chặn cuối cho những sai lầm *rõ ràng* (số âm, vượt tổng); sai lệch kiểu "hai người cùng thấy đủ" phải chặn bằng khóa + kiểm tra sau khi khóa.
+- **Thứ tự khóa cố định để không deadlock:** khóa THÁNG (advisory, cùng khóa với chấm công/chốt/hủy chốt lương) → khóa NHÂN VIÊN (số dư tạm ứng) → khóa DÒNG LƯƠNG. Mọi thao tác thay đổi đi theo đúng thứ tự này. Khóa tháng còn giải quyết một vấn đề khác: trả lương và hủy chốt bảng lương xếp hàng nhau, nên không thể "hủy chốt trong lúc có người đang trả lương".
+- **Hibernate `@Immutable` chặn luôn cập nhật.** `PayrollItem` trước đây `@Immutable` (bản chụp lương không bao giờ đổi). Thêm `paid_amount` cần cập nhật được, nhưng với `@Immutable` Hibernate lặng lẽ bỏ qua mọi UPDATE — không báo lỗi, chỉ là số không đổi. Cách làm: bỏ `@Immutable`, đặt `updatable = false` cho mọi cột bản chụp, chỉ để `paid_amount` đổi được qua `addPaidAmount`. Bài học: bảo vệ "bất biến" bằng nhiều lớp, và biết lớp nào chặn quá tay.
+- **Cờ cho dữ liệu cũ ở đúng mức của nó.** `tracks_debt` đặt ở `payroll` (mỗi tháng một bản), không ở từng dòng lương, vì "bảng lương này chốt trước module" là tính chất của cả bản chốt. Hủy chốt rồi chốt lại một tháng cũ tạo bản mới với `DEFAULT TRUE` → phát sinh nợ: hợp lý vì đó là một lần chốt mới.
+- **Hoàn khoản ứng không được làm số dư âm.** Ứng 200.000, đã trừ 150.000 vào lương, còn dư 50.000. Hoàn khoản ứng 200.000 sẽ đưa số dư về −150.000 — vô nghĩa. Vì vậy hoàn khoản ứng chỉ được khi `advance_balance ≥ amount`; muốn hoàn thì phải hoàn khoản trừ lương trước. Test `reverseAdvanceShouldRequireEnoughBalance` đi đủ chuỗi này.
+- **Kiểm tra bất biến tổng bằng nhật ký.** Số dư là snapshot, nhật ký là sự thật; test `assertAdvanceBalanceMatchesLedger` tính lại số dư từ hai bảng nhật ký sau mỗi kịch bản (ứng − hoàn ứng − trừ lương + hoàn trừ lương) và so với cột `advance_balance`. Nếu code quên cập nhật snapshot ở một đường nào đó, test này bắt được dù từng test riêng lẻ vẫn xanh.
+- **Component dùng chung bằng generic.** `PaymentSection<P extends PaymentRow>` dùng cho thu tiền phiếu bán, trả NCC và trả lương: ba loại dòng khác nhau về `method` (trả lương có thêm "Trừ tạm ứng") nhưng cùng hình dạng. `PaymentModal` có thêm ô "Trừ tạm ứng" chỉ khi truyền `advanceBalance`.
+
+### Câu hỏi ôn tập (để cuối dự án)
+
+1. `ck_employee_advance_balance` đã có mà vẫn cần khóa `FOR UPDATE` trên nhân viên — vì sao? Cho kịch bản hai request cùng lúc làm lộ ra điều đó.
+2. Vì sao trừ tạm ứng được ghi như một `method` của `payroll_payment` chứ không phải một bảng riêng? Hệ quả với báo cáo dòng tiền là gì?
+3. Thứ tự khóa tháng → nhân viên → dòng lương ngăn deadlock như thế nào? Điều gì xảy ra nếu một thao tác khóa dòng lương trước nhân viên?
+4. Vì sao hoàn một khoản tạm ứng có thể bị từ chối dù khoản đó chưa từng được hoàn?
+
+---
+
 ## Thay đổi: tách tấn bốc xuống / tấn giao hàng (2026-10-26, migration V17)
 
 - **RENAME hay thêm cột mới? Hỏi "ý nghĩa dữ liệu cũ có đổi không".** Lần đổi người liên hệ → mã số thuế (V15) phải xóa cột cũ vì "Chị Lan" không phải MST. Lần này tấn cũ **vốn là tấn bốc xuống** (đã xác nhận), nên `RENAME COLUMN tons TO unload_tons` giữ nguyên dữ liệu, không phải copy cột, không mất bản chụp của bảng lương đã chốt. Cột mới (`delivery_*`) chỉ cần giá trị mặc định "không có": 0 cho số lượng và tiền, NULL cho đơn giá. Nếu tấn cũ lẫn cả hai loại thì RENAME là sai và không có cách tự tách.

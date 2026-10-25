@@ -15,6 +15,8 @@ export interface Employee {
   unloadTonRate?: number
   /** BR-EMP-04: đơn giá 1 tấn đi giao hàng (khác đơn giá bốc xuống); không có = không hưởng theo cách này */
   deliveryTonRate?: number
+  /** BR-EPAY-03: tiền đã ứng và chưa trừ vào lương; luôn có, ≥ 0 */
+  advanceBalance: number
   active: boolean
   createdAt: string
   updatedAt: string

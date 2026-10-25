@@ -4,39 +4,58 @@ import type { TableProps } from 'antd'
 import { formatDate, formatDateTime, orEmpty } from '../../utils/format'
 import { formatVnd } from '../../utils/money'
 import { PAYMENT_METHOD_LABELS, PAYMENT_VERB } from './sales-order-api'
-import type { PaymentDirection, PaymentMethod, SalePayment } from './sales-order-api'
+import type { PaymentDirection } from './sales-order-api'
 
-interface PaymentSectionProps {
+/** Một dòng thanh toán, đủ cho cả thu tiền phiếu bán, trả NCC (PaymentMethod) và trả lương (có thêm trừ tạm ứng). */
+export interface PaymentRow {
+  id: number
+  type: 'PAYMENT' | 'REVERSAL'
+  method: string
+  amount: number
+  paymentDate: string
+  note?: string
+  /** Khoản này đã bị hoàn → không hoàn lại được */
+  reversed: boolean
+  createdAt: string
+}
+
+interface PaymentSectionProps<P extends PaymentRow> {
   direction: PaymentDirection
   totalAmount: number
   paidAmount: number
   outstandingAmount: number
-  payments: SalePayment[]
+  payments: P[]
+  /** Nhãn cột "Tổng …": mặc định "Tổng phiếu"; trả lương dùng "Tổng lương" */
+  totalLabel?: string
+  /** Nhãn hình thức; mặc định tiền mặt / chuyển khoản. Trả lương thêm "Trừ tạm ứng" */
+  methodLabels?: Record<string, string>
   /** Có = phiếu đang Hoàn tất → hiện nút Hoàn ở khoản chưa hoàn */
-  onReversePayment?: (payment: SalePayment) => void
+  onReversePayment?: (payment: P) => void
 }
 
 /**
  * Phần "Thanh toán" trong khung chi tiết phiếu: tổng phiếu / đã thu (trả) / còn nợ + lịch sử. Lịch sử bất biến:
  * khoản ghi nhầm hiện gạch ngang kèm dòng hoàn (BR-SAL-13, BR-SPAY-03).
  */
-export function PaymentSection({
+export function PaymentSection<P extends PaymentRow>({
   direction,
   totalAmount,
   paidAmount,
   outstandingAmount,
   payments,
+  totalLabel = 'Tổng phiếu',
+  methodLabels = PAYMENT_METHOD_LABELS,
   onReversePayment,
-}: PaymentSectionProps) {
+}: PaymentSectionProps<P>) {
   const verb = PAYMENT_VERB[direction]
 
-  const columns: TableProps<SalePayment>['columns'] = [
+  const columns: TableProps<P>['columns'] = [
     { title: 'Ngày', dataIndex: 'paymentDate', width: 110, render: (date: string) => formatDate(date) },
     {
       title: 'Loại',
       dataIndex: 'type',
       width: 110,
-      render: (type: SalePayment['type'], payment) =>
+      render: (type: P['type'], payment) =>
         type === 'REVERSAL' ? (
           <Tag color="warning" variant="filled">Hoàn tiền</Tag>
         ) : payment.reversed ? (
@@ -45,7 +64,7 @@ export function PaymentSection({
           <Tag color="success" variant="filled">{verb} tiền</Tag>
         ),
     },
-    { title: 'Hình thức', dataIndex: 'method', width: 120, render: (method: PaymentMethod) => PAYMENT_METHOD_LABELS[method] },
+    { title: 'Hình thức', dataIndex: 'method', width: 120, render: (method: string) => methodLabels[method] ?? method },
     {
       title: 'Số tiền',
       dataIndex: 'amount',
@@ -67,7 +86,7 @@ export function PaymentSection({
             key: 'actions',
             width: 90,
             align: 'center' as const,
-            render: (_: unknown, payment: SalePayment) =>
+            render: (_: unknown, payment: P) =>
               payment.type === 'PAYMENT' &&
               !payment.reversed && (
                 <Button size="small" type="link" danger icon={<RollbackOutlined />} onClick={() => onReversePayment(payment)}>
@@ -89,7 +108,7 @@ export function PaymentSection({
         bordered
         column={{ xs: 1, md: 3 }}
         items={[
-          { key: 'total', label: 'Tổng phiếu', children: formatVnd(totalAmount) },
+          { key: 'total', label: totalLabel, children: formatVnd(totalAmount) },
           { key: 'paid', label: `Đã ${verb.toLowerCase()}`, children: formatVnd(paidAmount) },
           {
             key: 'outstanding',
@@ -102,7 +121,7 @@ export function PaymentSection({
           },
         ]}
       />
-      <Table<SalePayment>
+      <Table<P>
         size="small"
         rowKey="id"
         columns={columns}
