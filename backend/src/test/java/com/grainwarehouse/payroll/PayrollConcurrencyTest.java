@@ -56,7 +56,7 @@ class PayrollConcurrencyTest {
     @BeforeEach
     void setUp() {
         employeeId = jdbcTemplate.queryForObject(
-                "INSERT INTO employee (name, ton_rate) VALUES ('NV chốt đồng thời', 50000) RETURNING id", Long.class);
+                "INSERT INTO employee (name, unload_ton_rate) VALUES ('NV chốt đồng thời', 50000) RETURNING id", Long.class);
     }
 
     @AfterEach
@@ -75,7 +75,7 @@ class PayrollConcurrencyTest {
             // Mỗi vòng một tháng riêng (lùi dần từ tháng trước) để vòng sau không dính khóa của vòng trước
             for (int round = 1; round <= ROUNDS; round++) {
                 YearMonth month = YearMonth.now(CommonSpecifications.BUSINESS_ZONE).minusMonths(round);
-                attendanceService.record(employeeId, month.atDay(1), new AttendanceRequest(DayStatus.FULL, BigDecimal.ONE, null));
+                attendanceService.record(employeeId, month.atDay(1), new AttendanceRequest(DayStatus.FULL, BigDecimal.ONE, null, null));
 
                 CountDownLatch start = new CountDownLatch(1);
                 List<Future<?>> writers = new ArrayList<>();
@@ -84,7 +84,7 @@ class PayrollConcurrencyTest {
                     writers.add(pool.submit(() -> {
                         start.await();
                         return attendanceService.record(employeeId, month.atDay(d),
-                                new AttendanceRequest(DayStatus.FULL, BigDecimal.ONE, null));
+                                new AttendanceRequest(DayStatus.FULL, BigDecimal.ONE, null, null));
                     }));
                 }
                 Future<PayrollSheetResponse> finalizer = pool.submit(() -> {
@@ -104,9 +104,9 @@ class PayrollConcurrencyTest {
                 PayrollSheetResponse snapshot = finalizer.get(30, TimeUnit.SECONDS);
 
                 BigDecimal tonsInDb = jdbcTemplate.queryForObject(
-                        "SELECT sum(tons) FROM attendance WHERE employee_id = ? AND work_date BETWEEN ? AND ?",
+                        "SELECT sum(unload_tons) FROM attendance WHERE employee_id = ? AND work_date BETWEEN ? AND ?",
                         BigDecimal.class, employeeId, month.atDay(1), month.atEndOfMonth());
-                assertThat(snapshot.items().getFirst().tons()).isEqualByComparingTo(tonsInDb);
+                assertThat(snapshot.items().getFirst().unloadTons()).isEqualByComparingTo(tonsInDb);
             }
         } finally {
             pool.shutdownNow();

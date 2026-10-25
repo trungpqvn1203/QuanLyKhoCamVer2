@@ -1,5 +1,5 @@
 import { DeleteOutlined } from '@ant-design/icons'
-import { App, Button, Form, Input, InputNumber, Popconfirm, Radio } from 'antd'
+import { App, Button, Flex, Form, Input, InputNumber, Popconfirm, Radio } from 'antd'
 import type { FormRule } from 'antd'
 import { ApiError } from '../../api/client'
 import { FormModal } from '../../components/ui/FormModal'
@@ -31,7 +31,7 @@ const tonsRule: FormRule = {
   },
 }
 
-/** Sửa một ô bảng công: trạng thái ngày + tấn bốc vác + ghi chú. */
+/** Sửa một ô bảng công: trạng thái ngày + tấn bốc xuống + tấn giao hàng + ghi chú (BR-ATT-01..03). */
 export function AttendanceCellModal({ open, row, date, current, onClose, onChanged }: AttendanceCellModalProps) {
   const { message } = App.useApp()
   const [form] = Form.useForm<AttendanceInput>()
@@ -39,7 +39,12 @@ export function AttendanceCellModal({ open, row, date, current, onClose, onChang
 
   const handleSubmit = async (values: AttendanceInput) => {
     // BR-ATT-02: ngày nghỉ không có tấn — gửi 0 thay vì số còn sót trong ô đã khóa
-    await attendanceApi.record(row.employeeId, date, { ...values, tons: values.status === 'ABSENT' ? 0 : values.tons })
+    const absent = values.status === 'ABSENT'
+    await attendanceApi.record(row.employeeId, date, {
+      ...values,
+      unloadTons: absent ? 0 : values.unloadTons,
+      deliveryTons: absent ? 0 : values.deliveryTons,
+    })
     onChanged()
   }
 
@@ -58,7 +63,7 @@ export function AttendanceCellModal({ open, row, date, current, onClose, onChang
       open={open}
       title={`${row.employeeCode} · ${row.employeeName} — ${formatDate(date)}`}
       form={form}
-      initialValues={current ?? { status: 'FULL', tons: 0 }}
+      initialValues={current ?? { status: 'FULL', unloadTons: 0, deliveryTons: 0 }}
       submitText="Lưu"
       onSubmit={handleSubmit}
       onClose={onClose}
@@ -66,22 +71,43 @@ export function AttendanceCellModal({ open, row, date, current, onClose, onChang
       <Form.Item name="status" label="Ngày công" rules={[{ required: true }]}>
         <Radio.Group options={STATUS_OPTIONS} optionType="button" buttonStyle="solid" />
       </Form.Item>
-      <Form.Item
-        name="tons"
-        label="Tấn bốc vác"
-        extra={row.paysByTon ? undefined : 'Nhân viên này không hưởng lương theo tấn — số tấn chỉ để ghi nhận'}
-        rules={[tonsRule]}
-      >
-        <InputNumber<number>
-          min={0}
-          step={0.5}
-          decimalSeparator=","
-          style={{ width: '100%' }}
-          suffix="tấn"
-          disabled={status === 'ABSENT'}
-          aria-label="Tấn bốc vác"
-        />
-      </Form.Item>
+      {/* Flex + gap thay vì Row gutter (gutter dùng margin âm → thân modal hiện thanh cuộn ngang) */}
+      <Flex gap={16}>
+        <Form.Item
+          name="unloadTons"
+          label="Tấn bốc xuống"
+          extra={row.paysByUnload ? undefined : 'Không hưởng lương bốc xuống — chỉ để ghi nhận'}
+          rules={[tonsRule]}
+          style={{ flex: 1 }}
+        >
+          <InputNumber<number>
+            min={0}
+            step={0.5}
+            decimalSeparator=","
+            style={{ width: '100%' }}
+            suffix="tấn"
+            disabled={status === 'ABSENT'}
+            aria-label="Tấn bốc xuống"
+          />
+        </Form.Item>
+        <Form.Item
+          name="deliveryTons"
+          label="Tấn giao hàng"
+          extra={row.paysByDelivery ? undefined : 'Không hưởng lương giao hàng — chỉ để ghi nhận'}
+          rules={[tonsRule]}
+          style={{ flex: 1 }}
+        >
+          <InputNumber<number>
+            min={0}
+            step={0.5}
+            decimalSeparator=","
+            style={{ width: '100%' }}
+            suffix="tấn"
+            disabled={status === 'ABSENT'}
+            aria-label="Tấn giao hàng"
+          />
+        </Form.Item>
+      </Flex>
       <Form.Item name="note" label="Ghi chú" rules={[{ max: 500 }]}>
         <Input placeholder="Không bắt buộc" />
       </Form.Item>

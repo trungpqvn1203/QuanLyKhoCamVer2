@@ -28,11 +28,14 @@ public record PayrollSheetResponse(
             String employeeName,
             boolean employeeActive,
             BigDecimal workUnits,
-            BigDecimal tons,
+            BigDecimal unloadTons,
+            BigDecimal deliveryTons,
             BigDecimal dailyWage,
-            BigDecimal tonRate,
+            BigDecimal unloadTonRate,
+            BigDecimal deliveryTonRate,
             BigDecimal dayAmount,
-            BigDecimal tonAmount,
+            BigDecimal unloadAmount,
+            BigDecimal deliveryAmount,
             BigDecimal totalAmount) {
     }
 

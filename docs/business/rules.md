@@ -246,13 +246,17 @@ _(Trả lời BR-SAL-Q01: có công nợ, chỉ ở mức phiếu bán + lịch 
 ### ✅ Đã xác nhận (2026-10-20)
 
 - **BR-EMP-01:** Mã nhân viên `NV` + 3 chữ số (`NV001`), tự sinh, không sửa được. Không xóa cứng: nghỉ việc = `active = false`; chấm công, bảng lương cũ vẫn giữ.
-- **BR-EMP-02:** Mỗi nhân viên có **lương ngày công**, **đơn giá tấn bốc vác**, hoặc **cả hai** (ít nhất một), mỗi đơn giá ≥ 0, 2 chữ số lẻ (BR-MON-04). Để trống = không hưởng theo cách đó.
+- **BR-EMP-02:** Mỗi nhân viên có **lương ngày công**, **đơn giá tấn bốc xuống**, **đơn giá tấn giao hàng**, hoặc nhiều cách cùng lúc (ít nhất một trong ba), mỗi đơn giá ≥ 0, 2 chữ số lẻ (BR-MON-04). Để trống = không hưởng theo cách đó. _(Sửa 2026-10-26: trước đây chỉ có "đơn giá tấn bốc vác" — nay tách đôi, xem BR-EMP-04.)_
 - **BR-EMP-03:** Tên được trùng. SĐT tùy chọn, **không** chặn trùng; có nhập thì chuẩn hóa như BR-CUS-06.
-- **BR-ATT-01:** Mỗi nhân viên mỗi ngày một dòng chấm công: trạng thái ngày Cả ngày (1 công) / Nửa ngày (0,5) / Nghỉ (0) + số tấn bốc vác (≥ 0, tối đa 3 chữ số lẻ). Quản lý nhập tay.
-- **BR-ATT-02:** Ngày Nghỉ thì số tấn = 0. Không chấm công ngày tương lai (giờ VN). Không chấm công cho nhân viên đã nghỉ.
-- **BR-PAY-01:** Lương tháng = tổng công × lương ngày + tổng tấn × đơn giá tấn; **mỗi phần làm tròn `HALF_UP` về đồng**, tổng = tổng hai phần đã làm tròn. Ví dụ 41,235 tấn × 52.500 = 2.164.837,5 → 2.164.838.
-- **BR-PAY-02:** Chưa chốt: bảng lương tính trực tiếp từ chấm công với đơn giá hiện tại. **Chốt lương** lưu bản chụp (công, tấn, **đơn giá lúc chốt**) — đổi đơn giá sau không đổi lương đã chốt.
+- **BR-EMP-04:** Tấn bốc xuống hàng và tấn đi giao hàng là **hai loại tấn có đơn giá khác nhau**. Mỗi nhân viên có thể có một, cả hai, hoặc không có đơn giá tấn nào (khi đó phải có lương ngày). Tấn của loại không có đơn giá vẫn ghi nhận được nhưng **không tính tiền**. _(Xác nhận 2026-10-26)_
+- **BR-ATT-01:** Mỗi nhân viên mỗi ngày một dòng chấm công: trạng thái ngày Cả ngày (1 công) / Nửa ngày (0,5) / Nghỉ (0) + số tấn bốc xuống và số tấn giao hàng (mỗi loại ≥ 0, tối đa 3 chữ số lẻ; không nhập = 0). Quản lý nhập tay. _(Sửa 2026-10-26: tách hai loại tấn, xem BR-ATT-03.)_
+- **BR-ATT-02:** Ngày Nghỉ thì **cả hai loại tấn** = 0. Không chấm công ngày tương lai (giờ VN). Không chấm công cho nhân viên đã nghỉ.
+- **BR-PAY-01:** Lương tháng = tổng công × lương ngày + tổng tấn bốc xuống × đơn giá bốc xuống + tổng tấn giao hàng × đơn giá giao hàng; **mỗi phần trong ba phần làm tròn `HALF_UP` về đồng riêng**, tổng = tổng ba phần đã làm tròn (không làm tròn lại tổng). Ví dụ 41,235 tấn × 52.500 = 2.164.837,5 → 2.164.838. _(Sửa 2026-10-26: từ hai phần thành ba phần, xem BR-PAY-04.)_
+- **BR-PAY-02:** Chưa chốt: bảng lương tính trực tiếp từ chấm công với đơn giá hiện tại. **Chốt lương** lưu bản chụp (công, tấn bốc xuống, tấn giao hàng, **đơn giá lúc chốt**) — đổi đơn giá sau không đổi lương đã chốt.
 - **BR-PAY-03:** Tháng đã chốt thì **khóa chấm công** của tháng đó. Sửa = **Hủy chốt** (bắt buộc lý do) → bảng lương cũ giữ lại với trạng thái Đã hủy, tháng mở lại để sửa và chốt lại. Mỗi tháng chỉ một bảng lương còn hiệu lực.
+
+- **BR-ATT-03:** Một ngày có thể ghi **cả hai loại tấn** (bốc xuống và giao hàng). Tấn giao hàng nhập tay trên bảng công như tấn bốc xuống (chưa lấy tự động từ phiếu bán, vì phiếu bán không ghi ai giao). _(Xác nhận 2026-10-26)_
+- **BR-PAY-04:** Tiền tấn bốc xuống và tiền tấn giao hàng tính **riêng** theo đơn giá của từng loại. Ví dụ 0,001 tấn × 52.500 = 52,5 → 53 ở cả hai loại: 53 + 53 = 106, **không** phải làm tròn tổng 105. Nhân viên không có đơn giá của loại nào thì tấn loại đó không tính tiền (tiền = 0). Dữ liệu trước 2026-10-26: toàn bộ tấn cũ là **tấn bốc xuống**, các bảng lương đã chốt giữ nguyên số tiền.
 
 ## Tài khoản, đăng nhập, phân quyền
 

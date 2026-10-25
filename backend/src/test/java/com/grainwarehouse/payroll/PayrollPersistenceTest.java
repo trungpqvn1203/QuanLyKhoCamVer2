@@ -26,7 +26,7 @@ class PayrollPersistenceTest {
     @BeforeEach
     void setUp() {
         employeeId = jdbcTemplate.queryForObject(
-                "INSERT INTO employee (name, ton_rate) VALUES ('A', 50000) RETURNING id", Long.class);
+                "INSERT INTO employee (name, unload_ton_rate) VALUES ('A', 50000) RETURNING id", Long.class);
     }
 
     @Test
@@ -58,12 +58,13 @@ class PayrollPersistenceTest {
     }
 
     @Test
-    @DisplayName("BR-PAY-01: DB chặn dòng lương có tổng khác tiền công + tiền bốc vác")
+    @DisplayName("BR-PAY-01: DB chặn dòng lương có tổng khác tiền công + tiền bốc xuống + tiền giao hàng")
     void dbShouldRejectItemWithWrongTotal() {
         long payrollId = insertFinalized("2026-01-01");
 
         assertThatThrownBy(() -> jdbcTemplate.update("INSERT INTO payroll_item (payroll_id, employee_id, work_units,"
-                + " tons, day_amount, ton_amount, total_amount) VALUES (?, ?, 1, 1, 100, 200, 301)", payrollId, employeeId))
+                + " unload_tons, delivery_tons, day_amount, unload_amount, delivery_amount, total_amount)"
+                + " VALUES (?, ?, 1, 1, 1, 100, 200, 50, 351)", payrollId, employeeId))
                 .isInstanceOf(DataIntegrityViolationException.class)
                 .hasMessageContaining("ck_payroll_item_total");
     }

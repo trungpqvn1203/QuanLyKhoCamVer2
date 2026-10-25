@@ -5,6 +5,17 @@ Ghi dồn sau mỗi module, ôn tập ở cuối dự án. Mỗi mục: **khái 
 
 ---
 
+## Thay đổi: tách tấn bốc xuống / tấn giao hàng (2026-10-26, migration V17)
+
+- **RENAME hay thêm cột mới? Hỏi "ý nghĩa dữ liệu cũ có đổi không".** Lần đổi người liên hệ → mã số thuế (V15) phải xóa cột cũ vì "Chị Lan" không phải MST. Lần này tấn cũ **vốn là tấn bốc xuống** (đã xác nhận), nên `RENAME COLUMN tons TO unload_tons` giữ nguyên dữ liệu, không phải copy cột, không mất bản chụp của bảng lương đã chốt. Cột mới (`delivery_*`) chỉ cần giá trị mặc định "không có": 0 cho số lượng và tiền, NULL cho đơn giá. Nếu tấn cũ lẫn cả hai loại thì RENAME là sai và không có cách tự tách.
+- **DEFAULT chỉ để lấp dữ liệu cũ.** Ở `payroll_item`, `delivery_tons` và `delivery_amount` thêm với `DEFAULT 0` để các dòng cũ có giá trị, rồi `DROP DEFAULT` ngay: dòng lương mới bắt buộc ghi rõ cả hai phần. Nếu để DEFAULT, một đoạn code quên tính phần giao hàng vẫn lưu được và âm thầm trả thiếu lương. Ngược lại `attendance.delivery_tons` giữ `DEFAULT 0` vì "không nhập = 0" là nghiệp vụ.
+- **Làm tròn từng phần, không làm tròn tổng.** `0,001 tấn × 52.500 = 52,5`. Làm tròn `HALF_UP` từng phần: 53 + 53 = **106**. Cộng trước rồi làm tròn: 105. Hai cách lệch nhau 1 đồng, nên quy tắc BR-PAY-01 phải nói rõ "mỗi phần", và có một ràng buộc CHECK `total = day + unload + delivery` chặn lưu tổng sai. Test `shouldRoundEachPartSeparately` kiểm đúng ca này.
+- **Kiểm chứng migration bằng dữ liệu thật, không chỉ bằng test.** Test của dự án chạy Flyway trên DB trống nên không chứng minh được "dữ liệu cũ còn nguyên sau V17". Cách làm: tạo DB tạm, chạy V1→V16, chèn dữ liệu kiểu cũ (nhân viên có `ton_rate`, chấm công có `tons`, bảng lương đã chốt), chạy V17, so sánh trước/sau, xong xóa DB tạm. Đây là bước nên làm cho mọi migration biến đổi dữ liệu.
+- **Lỗi nhỏ đáng nhớ:** gõ tiếng Việt vào `psql -c` trên shell Windows báo `invalid byte sequence for encoding "UTF8"` (shell gửi bảng mã Windows), trông giống lỗi ràng buộc nhưng không phải. Khi thử ràng buộc bằng tay, dùng tên không dấu.
+- **Đổi tên field thì mọi tầng đổi theo.** `tonRate` xuất hiện ở entity, DTO, service, mẫu Excel nhập nhân viên (nên phải tăng `EMPLOYEE_v1` → `v2`), response bảng công/bảng lương, kiểu TypeScript, form, danh sách, bảng lương và hơn 10 file test. TypeScript và trình biên dịch Java bắt được gần hết chỗ sót; chỗ trình biên dịch **không** bắt được là chuỗi trong JSON/SQL của test, nên phải tìm bằng `grep`.
+
+---
+
 ## Module: Công nợ nhà cung cấp (2026-10-25, migration V16)
 
 - **Dữ liệu cũ khi thêm nghiệp vụ mới: cờ hay số giả?** Phiếu nhập đã hoàn tất trước module này phải "coi như đã trả đủ". Cách dễ nghĩ ra là gán `paid_amount = total_amount`. Nhưng `paid_amount` là **snapshot** của nhật ký `supplier_payment`: gán như vậy thì tổng không khớp với nhật ký (đã trả 10 triệu mà không có dòng trả nào), và phiếu cũ bị khóa đảo theo BR-SPAY-04. Cờ `tracks_debt = FALSE` nói thẳng điều đã xảy ra: "phiếu này không theo dõi công nợ". Mọi chỗ tính nợ (`getOutstandingAmount`, câu GROUP BY, bộ lọc `unpaidOnly`) đều phải tôn trọng cờ này, nên test `legacyReceiptShouldBeTreatedAsPaid` kiểm cả bốn chỗ.

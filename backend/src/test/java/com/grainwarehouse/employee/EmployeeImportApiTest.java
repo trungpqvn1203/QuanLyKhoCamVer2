@@ -43,7 +43,7 @@ class EmployeeImportApiTest {
         long before = employeeRepository.count();
 
         mockMvc.perform(multipart(BASE).file(upload(file(
-                        row("Nguyễn Văn Bốc", "0912 345 678", 300000, 25000.1),
+                        row("Nguyễn Văn Bốc", "0912 345 678", 300000, 25000.1, 30000),
                         row("Trần Văn Xếp", null, null, 30000)))))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.data.importedCount").value(2));
@@ -52,7 +52,8 @@ class EmployeeImportApiTest {
         Employee first = employeeRepository.findAll().stream()
                 .filter(e -> e.getName().equals("Nguyễn Văn Bốc")).findFirst().orElseThrow();
         assertThat(first.getPhone()).isEqualTo("0912345678");
-        assertThat(first.getTonRate()).isEqualByComparingTo(new BigDecimal("25000.1"));
+        assertThat(first.getUnloadTonRate()).isEqualByComparingTo(new BigDecimal("25000.1"));
+        assertThat(first.getDeliveryTonRate()).isEqualByComparingTo(new BigDecimal("30000"));
     }
 
     @Test

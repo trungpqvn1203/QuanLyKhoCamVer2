@@ -11,7 +11,8 @@ public record EmployeeResponse(
         String name,
         String phone,
         BigDecimal dailyWage,
-        BigDecimal tonRate,
+        BigDecimal unloadTonRate,
+        BigDecimal deliveryTonRate,
         boolean active,
         Instant createdAt,
         Instant updatedAt) {
@@ -23,7 +24,8 @@ public record EmployeeResponse(
                 employee.getName(),
                 employee.getPhone(),
                 employee.getDailyWage(),
-                employee.getTonRate(),
+                employee.getUnloadTonRate(),
+                employee.getDeliveryTonRate(),
                 employee.isActive(),
                 employee.getCreatedAt(),
                 employee.getUpdatedAt());

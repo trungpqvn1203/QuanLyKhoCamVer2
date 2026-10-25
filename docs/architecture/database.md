@@ -12,9 +12,19 @@
 | `supplier` | Nhà cung cấp | ✅ Đã duyệt 2026-10-16 (V4) |
 | `product_supplier` | NCC được phép cung cấp SP nào (nhiều–nhiều) | ✅ Đã duyệt 2026-10-16 (V4) |
 | `customer` | Khách hàng (đại lý, trang trại, khách lẻ) | ✅ Đã duyệt 2026-10-20 (V8) |
-| `employee` | Nhân viên + đơn giá lương ngày / tấn bốc vác | ✅ Đã duyệt 2026-10-20 (V9) |
-| `attendance` | Chấm công: nhân viên × ngày (trạng thái ngày + tấn bốc vác) | ✅ Đã duyệt 2026-10-20 (V11) |
-| `payroll`, `payroll_item` | Bảng lương tháng đã chốt (bản chụp đơn giá) | ✅ Đã duyệt 2026-10-20 (V12) |
+| `employee` | Nhân viên + đơn giá lương ngày / tấn bốc xuống / tấn giao hàng | ✅ Đã duyệt 2026-10-20 (V9); V17 (2026-10-26) tách đơn giá tấn thành hai loại |
+| `attendance` | Chấm công: nhân viên × ngày (trạng thái ngày + tấn bốc xuống + tấn giao hàng) | ✅ Đã duyệt 2026-10-20 (V11); V17 thêm `delivery_tons` |
+| `payroll`, `payroll_item` | Bảng lương tháng đã chốt (bản chụp đơn giá) | ✅ Đã duyệt 2026-10-20 (V12); V17 tách phần tấn thành bốc xuống / giao hàng |
+
+**Migration V17 (2026-10-26) — tách hai loại tấn.** Đổi tên (`RENAME`) cột cũ sang "bốc xuống" và thêm cột "giao hàng":
+
+| Bảng | Cột cũ → cột mới | Cột thêm |
+|---|---|---|
+| `employee` | `ton_rate` → `unload_ton_rate` | `delivery_ton_rate NUMERIC(15,2)` nullable |
+| `attendance` | `tons` → `unload_tons` | `delivery_tons NUMERIC(8,3) NOT NULL DEFAULT 0` |
+| `payroll_item` | `tons` → `unload_tons`, `ton_rate` → `unload_ton_rate`, `ton_amount` → `unload_amount` | `delivery_tons`, `delivery_ton_rate`, `delivery_amount` (không có DEFAULT: dòng lương mới phải ghi rõ cả hai phần) |
+
+Ràng buộc đổi: `ck_employee_has_rate` (ít nhất một trong ba đơn giá), `ck_employee_rates`, `ck_attendance_tons`, `ck_attendance_absent_no_tons` (ngày nghỉ: cả hai loại tấn = 0), `ck_payroll_item_quantities`, `ck_payroll_item_amounts`, `ck_payroll_item_total` (`total = day + unload + delivery`). Dùng `RENAME` vì tấn cũ đã được xác nhận là tấn bốc xuống, nên ý nghĩa dữ liệu giữ nguyên; các bảng lương đã chốt giữ nguyên số tiền (phần giao hàng = 0, đơn giá = NULL). Đã kiểm chứng trên database tạm với dữ liệu kiểu cũ.
 | `inventory` | Tồn kho hiện tại (product × warehouse) | ✅ Đã duyệt 2026-10-19 (V6) |
 | `stock_document` | Chứng từ kho (phiếu nhập, phiếu bán/xuất, phiếu điều chuyển) | ✅ Đã duyệt 2026-10-19 (V6) — `INBOUND`; V13 (2026-10-20) mở `OUTBOUND` + `customer_id`, `paid_amount` |
 | `stock_document_item` | Dòng chi tiết trong chứng từ | ✅ Đã duyệt 2026-10-19 (V6) |

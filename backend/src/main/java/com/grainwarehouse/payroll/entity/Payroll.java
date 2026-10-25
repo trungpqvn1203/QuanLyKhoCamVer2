@@ -63,9 +63,10 @@ public class Payroll extends AuditableEntity {
         return payroll;
     }
 
-    public void addItem(Employee employee, BigDecimal workUnits, BigDecimal tons,
-                        BigDecimal dayAmount, BigDecimal tonAmount) {
-        PayrollItem item = new PayrollItem(this, employee, workUnits, tons, dayAmount, tonAmount);
+    public void addItem(Employee employee, BigDecimal workUnits, BigDecimal unloadTons, BigDecimal deliveryTons,
+                        BigDecimal dayAmount, BigDecimal unloadAmount, BigDecimal deliveryAmount) {
+        PayrollItem item = new PayrollItem(this, employee, workUnits, unloadTons, deliveryTons, dayAmount,
+                unloadAmount, deliveryAmount);
         items.add(item);
         totalAmount = totalAmount.add(item.getTotalAmount());
     }

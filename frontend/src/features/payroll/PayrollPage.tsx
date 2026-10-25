@@ -113,11 +113,19 @@ export function PayrollPage() {
       ],
     },
     {
-      title: 'Theo tấn bốc vác',
+      title: 'Tấn bốc xuống',
       children: [
-        { title: 'Tấn', dataIndex: 'tons', width: 90, align: 'right', render: (v: number) => tonsFormat.format(v) },
-        { title: 'Đơn giá tấn', dataIndex: 'tonRate', width: 130, align: 'right', render: rateOrEmpty },
-        { title: 'Thành tiền', dataIndex: 'tonAmount', width: 140, align: 'right', render: (v: number) => formatVnd(v) },
+        { title: 'Tấn', dataIndex: 'unloadTons', width: 90, align: 'right', render: (v: number) => tonsFormat.format(v) },
+        { title: 'Đơn giá tấn', dataIndex: 'unloadTonRate', width: 130, align: 'right', render: rateOrEmpty },
+        { title: 'Thành tiền', dataIndex: 'unloadAmount', width: 140, align: 'right', render: (v: number) => formatVnd(v) },
+      ],
+    },
+    {
+      title: 'Tấn giao hàng',
+      children: [
+        { title: 'Tấn', dataIndex: 'deliveryTons', width: 90, align: 'right', render: (v: number) => tonsFormat.format(v) },
+        { title: 'Đơn giá tấn', dataIndex: 'deliveryTonRate', width: 130, align: 'right', render: rateOrEmpty },
+        { title: 'Thành tiền', dataIndex: 'deliveryAmount', width: 140, align: 'right', render: (v: number) => formatVnd(v) },
       ],
     },
     {
@@ -153,7 +161,7 @@ export function PayrollPage() {
 
   return (
     <>
-      <PageHeader title="Bảng lương" description="Lương tháng theo ngày công và tấn bốc vác" actions={actions} />
+      <PageHeader title="Bảng lương" description="Lương tháng theo ngày công, tấn bốc xuống và tấn giao hàng" actions={actions} />
       <Flex justify="space-between" align="center" wrap gap="small" style={{ marginBottom: 12 }}>
         <MonthNavigator value={month} onChange={goTo} onReload={reload} />
         {sheet &&
@@ -198,7 +206,7 @@ export function PayrollPage() {
           sheet && sheet.items.length > 0 ? (
             <Table.Summary fixed>
               <Table.Summary.Row>
-                <Table.Summary.Cell index={0} colSpan={7}>
+                <Table.Summary.Cell index={0} colSpan={10}>
                   <Typography.Text strong>Tổng cộng {sheet.items.length} nhân viên</Typography.Text>
                 </Table.Summary.Cell>
                 <Table.Summary.Cell index={1} align="right">

@@ -11,7 +11,8 @@ public record AttendanceDay(
         Long employeeId,
         LocalDate date,
         DayStatus status,
-        BigDecimal tons,
+        BigDecimal unloadTons,
+        BigDecimal deliveryTons,
         String note) {
 
     public static AttendanceDay from(Attendance attendance) {
@@ -19,7 +20,8 @@ public record AttendanceDay(
                 attendance.getEmployee().getId(),
                 attendance.getWorkDate(),
                 attendance.getDayStatus(),
-                attendance.getTons(),
+                attendance.getUnloadTons(),
+                attendance.getDeliveryTons(),
                 attendance.getNote());
     }
 }

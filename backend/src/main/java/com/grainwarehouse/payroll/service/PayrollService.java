@@ -65,9 +65,10 @@ public class PayrollService {
         Payroll payroll = Payroll.create(month, Instant.now());
         for (Totals t : totals) {
             Employee e = t.employee();
-            payroll.addItem(e, t.workUnits(), t.tons(),
+            payroll.addItem(e, t.workUnits(), t.unloadTons(), t.deliveryTons(),
                     PayCalculator.dayAmount(t.workUnits(), e.getDailyWage()),
-                    PayCalculator.tonAmount(t.tons(), e.getTonRate()));
+                    PayCalculator.tonAmount(t.unloadTons(), e.getUnloadTonRate()),
+                    PayCalculator.tonAmount(t.deliveryTons(), e.getDeliveryTonRate()));
         }
         // Hai request chốt cùng lúc đã bị khóa tháng xếp hàng; uk_payroll_finalized_period là chốt chặn cuối
         payrollRepository.saveAndFlush(payroll);
@@ -90,9 +91,12 @@ public class PayrollService {
                 .map(t -> {
                     Employee e = t.employee();
                     BigDecimal day = PayCalculator.dayAmount(t.workUnits(), e.getDailyWage());
-                    BigDecimal ton = PayCalculator.tonAmount(t.tons(), e.getTonRate());
+                    BigDecimal unload = PayCalculator.tonAmount(t.unloadTons(), e.getUnloadTonRate());
+                    BigDecimal delivery = PayCalculator.tonAmount(t.deliveryTons(), e.getDeliveryTonRate());
                     return new PayrollSheetResponse.Line(e.getId(), e.getCode(), e.getName(), e.isActive(),
-                            t.workUnits(), t.tons(), e.getDailyWage(), e.getTonRate(), day, ton, day.add(ton));
+                            t.workUnits(), t.unloadTons(), t.deliveryTons(), e.getDailyWage(),
+                            e.getUnloadTonRate(), e.getDeliveryTonRate(), day, unload, delivery,
+                            day.add(unload).add(delivery));
                 })
                 .toList();
         BigDecimal total = lines.stream().map(PayrollSheetResponse.Line::totalAmount)
@@ -109,11 +113,14 @@ public class PayrollService {
                         item.getEmployee().getName(),
                         item.getEmployee().isActive(),
                         item.getWorkUnits(),
-                        item.getTons(),
+                        item.getUnloadTons(),
+                        item.getDeliveryTons(),
                         item.getDailyWage(),
-                        item.getTonRate(),
+                        item.getUnloadTonRate(),
+                        item.getDeliveryTonRate(),
                         item.getDayAmount(),
-                        item.getTonAmount(),
+                        item.getUnloadAmount(),
+                        item.getDeliveryAmount(),
                         item.getTotalAmount()))
                 .toList();
         return new PayrollSheetResponse(payroll.month(), true, payroll.getId(), payroll.getFinalizedAt(),
@@ -130,7 +137,7 @@ public class PayrollService {
         Map<Long, Totals> byEmployee = new LinkedHashMap<>();
         for (Attendance a : attendanceRepository.findInRange(month.atDay(1), month.atEndOfMonth())) {
             byEmployee.merge(a.getEmployee().getId(),
-                    new Totals(a.getEmployee(), a.getDayStatus().workUnits(), a.getTons()),
+                    new Totals(a.getEmployee(), a.getDayStatus().workUnits(), a.getUnloadTons(), a.getDeliveryTons()),
                     Totals::plus);
         }
         return byEmployee.values().stream().sorted(Comparator.comparing(t -> t.employee().getCode())).toList();
@@ -140,9 +147,10 @@ public class PayrollService {
         return String.format("%02d/%d", month.getMonthValue(), month.getYear());
     }
 
-    private record Totals(Employee employee, BigDecimal workUnits, BigDecimal tons) {
+    private record Totals(Employee employee, BigDecimal workUnits, BigDecimal unloadTons, BigDecimal deliveryTons) {
         Totals plus(Totals other) {
-            return new Totals(employee, workUnits.add(other.workUnits), tons.add(other.tons));
+            return new Totals(employee, workUnits.add(other.workUnits), unloadTons.add(other.unloadTons),
+                    deliveryTons.add(other.deliveryTons));
         }
     }
 }

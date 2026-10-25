@@ -30,7 +30,7 @@ class EmployeePersistenceTest {
     @DisplayName("BR-EMP-01: DB tự sinh mã NV + 3 chữ số; có một đơn giá là đủ")
     void shouldGenerateCode() {
         String code = jdbcTemplate.queryForObject(
-                "INSERT INTO employee (name, ton_rate) VALUES ('A', 50000) RETURNING code", String.class);
+                "INSERT INTO employee (name, unload_ton_rate) VALUES ('A', 50000) RETURNING code", String.class);
 
         assertThat(code).matches("NV\\d{3,}");
     }
@@ -41,6 +41,17 @@ class EmployeePersistenceTest {
         assertThatThrownBy(() -> insertEmployee(null, null, null))
                 .isInstanceOf(DataIntegrityViolationException.class)
                 .hasMessageContaining("ck_employee_has_rate");
+    }
+
+    @Test
+    @DisplayName("BR-EMP-04: chỉ cần đơn giá tấn giao hàng là đủ; DB chặn đơn giá giao hàng âm")
+    void dbShouldAcceptDeliveryRateOnlyAndRejectNegative() {
+        jdbcTemplate.update("INSERT INTO employee (name, delivery_ton_rate) VALUES ('A', 60000)");
+
+        assertThatThrownBy(() -> jdbcTemplate.update(
+                "INSERT INTO employee (name, daily_wage, delivery_ton_rate) VALUES ('B', 300000, -1)"))
+                .isInstanceOf(DataIntegrityViolationException.class)
+                .hasMessageContaining("ck_employee_rates");
     }
 
     @Test
@@ -60,7 +71,7 @@ class EmployeePersistenceTest {
     }
 
     private void insertEmployee(String phone, BigDecimal dailyWage, BigDecimal tonRate) {
-        jdbcTemplate.update("INSERT INTO employee (name, phone, daily_wage, ton_rate) VALUES ('A', ?, ?, ?)",
+        jdbcTemplate.update("INSERT INTO employee (name, phone, daily_wage, unload_ton_rate) VALUES ('A', ?, ?, ?)",
                 phone, dailyWage, tonRate);
     }
 }

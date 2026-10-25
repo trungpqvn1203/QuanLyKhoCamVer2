@@ -83,7 +83,8 @@ export function EmployeeListPage() {
           name: employee.name,
           phone: employee.phone,
           dailyWage: employee.dailyWage ?? null,
-          tonRate: employee.tonRate ?? null,
+          unloadTonRate: employee.unloadTonRate ?? null,
+          deliveryTonRate: employee.deliveryTonRate ?? null,
           active: true,
         }),
       'Đã cho nhân viên làm lại',
@@ -112,8 +113,15 @@ export function EmployeeListPage() {
       render: (rate?: number) => rateText(rate, 'ngày'),
     },
     {
-      title: 'Đơn giá bốc vác',
-      dataIndex: 'tonRate',
+      title: 'Đơn giá bốc xuống',
+      dataIndex: 'unloadTonRate',
+      width: 170,
+      align: 'right',
+      render: (rate?: number) => rateText(rate, 'tấn'),
+    },
+    {
+      title: 'Đơn giá giao hàng',
+      dataIndex: 'deliveryTonRate',
       width: 170,
       align: 'right',
       render: (rate?: number) => rateText(rate, 'tấn'),
@@ -166,7 +174,8 @@ export function EmployeeListPage() {
           title: 'Cách tính lương',
           items: [
             { key: 'dailyWage', label: 'Lương ngày công', children: rateText(viewing.dailyWage, 'ngày') },
-            { key: 'tonRate', label: 'Đơn giá bốc vác', children: rateText(viewing.tonRate, 'tấn') },
+            { key: 'unloadTonRate', label: 'Đơn giá tấn bốc xuống', children: rateText(viewing.unloadTonRate, 'tấn') },
+            { key: 'deliveryTonRate', label: 'Đơn giá tấn giao hàng', children: rateText(viewing.deliveryTonRate, 'tấn') },
           ],
         },
         {

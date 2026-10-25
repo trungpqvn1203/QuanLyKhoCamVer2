@@ -44,7 +44,7 @@ class JsonNullOmissionTest {
         jdbcTemplate.update("INSERT INTO supplier (name) VALUES ('NCC test')");
         jdbcTemplate.update("INSERT INTO warehouse (name, type, address) VALUES ('Kho test', 'CENTRAL', 'Hà Nội')");
         jdbcTemplate.update("INSERT INTO customer (name, type, phone) VALUES ('Khách test', 'RETAIL', '0901234567')");
-        jdbcTemplate.update("INSERT INTO employee (name, ton_rate) VALUES ('NV test', 50000)");
+        jdbcTemplate.update("INSERT INTO employee (name, unload_ton_rate) VALUES ('NV test', 50000)");
     }
 
     @ParameterizedTest(name = "{0}")

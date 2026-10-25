@@ -20,11 +20,11 @@ const priceRule: FormRule = {
   },
 }
 
-// BR-EMP-02: ít nhất một đơn giá. Gắn ở ô lương ngày — trùng field backend báo lỗi
+// BR-EMP-02, BR-EMP-04: ít nhất một trong ba đơn giá. Gắn ở ô lương ngày — trùng field backend báo lỗi
 const atLeastOneRateRule: FormRule = ({ getFieldValue }) => ({
   validator: async (_, dailyWage?: number | null) => {
-    if (dailyWage == null && getFieldValue('tonRate') == null) {
-      throw new Error('Nhập lương ngày hoặc đơn giá tấn (ít nhất một)')
+    if (dailyWage == null && getFieldValue('unloadTonRate') == null && getFieldValue('deliveryTonRate') == null) {
+      throw new Error('Nhập lương ngày, đơn giá bốc xuống hoặc đơn giá giao hàng (ít nhất một)')
     }
   },
 })
@@ -51,7 +51,12 @@ export function EmployeeFormModal({ open, editing, onClose, onSaved }: EmployeeF
 
   const handleSubmit = async ({ active, ...fields }: UpdateEmployeeInput) => {
     // Ô đơn giá bị xóa cho ra undefined → gửi null để PUT bỏ hẳn cách tính đó
-    const input = { ...fields, dailyWage: fields.dailyWage ?? null, tonRate: fields.tonRate ?? null }
+    const input = {
+      ...fields,
+      dailyWage: fields.dailyWage ?? null,
+      unloadTonRate: fields.unloadTonRate ?? null,
+      deliveryTonRate: fields.deliveryTonRate ?? null,
+    }
     const saved = editing ? await employeeApi.update(editing.id, { ...input, active }) : await employeeApi.create(input)
     onSaved(saved)
   }
@@ -83,19 +88,21 @@ export function EmployeeFormModal({ open, editing, onClose, onSaved }: EmployeeF
       >
         <Input placeholder="Không bắt buộc" inputMode="tel" />
       </Form.Item>
+      <Form.Item
+        name="dailyWage"
+        label="Lương ngày công"
+        dependencies={['unloadTonRate', 'deliveryTonRate']}
+        rules={[priceRule, atLeastOneRateRule]}
+      >
+        <PriceInput suffix="đ/ngày" aria-label="Lương ngày công" />
+      </Form.Item>
       {/* Flex + gap thay vì Row gutter: gutter dùng margin âm → thân modal (overflow: auto) hiện thanh cuộn ngang */}
       <Flex gap={16}>
-        <Form.Item
-          name="dailyWage"
-          label="Lương ngày công"
-          dependencies={['tonRate']}
-          rules={[priceRule, atLeastOneRateRule]}
-          style={{ flex: 1 }}
-        >
-          <PriceInput suffix="đ/ngày" aria-label="Lương ngày công" />
+        <Form.Item name="unloadTonRate" label="Đơn giá tấn bốc xuống" rules={[priceRule]} style={{ flex: 1 }}>
+          <PriceInput suffix="đ/tấn" aria-label="Đơn giá tấn bốc xuống" />
         </Form.Item>
-        <Form.Item name="tonRate" label="Đơn giá bốc vác" rules={[priceRule]} style={{ flex: 1 }}>
-          <PriceInput suffix="đ/tấn" aria-label="Đơn giá bốc vác" />
+        <Form.Item name="deliveryTonRate" label="Đơn giá tấn giao hàng" rules={[priceRule]} style={{ flex: 1 }}>
+          <PriceInput suffix="đ/tấn" aria-label="Đơn giá tấn giao hàng" />
         </Form.Item>
       </Flex>
       <Typography.Paragraph type="secondary" style={{ marginTop: -8 }}>

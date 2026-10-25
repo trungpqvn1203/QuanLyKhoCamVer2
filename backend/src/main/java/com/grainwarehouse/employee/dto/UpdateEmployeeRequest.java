@@ -9,7 +9,7 @@ import jakarta.validation.constraints.Size;
 import java.math.BigDecimal;
 
 /**
- * PUT = cập nhật toàn bộ: dailyWage/tonRate không gửi = bỏ cách tính lương đó.
+ * PUT = cập nhật toàn bộ: dailyWage/unloadTonRate/deliveryTonRate không gửi = bỏ cách tính lương đó.
  * Không có code (không sửa được); có active để mở lại nhân viên.
  */
 public record UpdateEmployeeRequest(
@@ -24,9 +24,13 @@ public record UpdateEmployeeRequest(
         @Digits(integer = 13, fraction = 2, message = "Lương ngày tối đa 13 chữ số phần nguyên và 2 chữ số thập phân")
         BigDecimal dailyWage,
 
-        @PositiveOrZero(message = "Đơn giá tấn không được âm")
-        @Digits(integer = 13, fraction = 2, message = "Đơn giá tấn tối đa 13 chữ số phần nguyên và 2 chữ số thập phân")
-        BigDecimal tonRate,
+        @PositiveOrZero(message = "Đơn giá tấn bốc xuống không được âm")
+        @Digits(integer = 13, fraction = 2, message = "Đơn giá tấn bốc xuống tối đa 13 chữ số phần nguyên và 2 chữ số thập phân")
+        BigDecimal unloadTonRate,
+
+        @PositiveOrZero(message = "Đơn giá tấn giao hàng không được âm")
+        @Digits(integer = 13, fraction = 2, message = "Đơn giá tấn giao hàng tối đa 13 chữ số phần nguyên và 2 chữ số thập phân")
+        BigDecimal deliveryTonRate,
 
         @NotNull(message = "Trạng thái không được để trống")
         Boolean active) {

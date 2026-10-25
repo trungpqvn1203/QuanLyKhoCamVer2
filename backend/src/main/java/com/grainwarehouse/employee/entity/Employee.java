@@ -11,7 +11,7 @@ import org.hibernate.annotations.Generated;
 
 import java.math.BigDecimal;
 
-/** Nhân viên (BR-EMP-01..03). */
+/** Nhân viên (BR-EMP-01..04). */
 @Getter
 @Setter
 @Entity
@@ -35,9 +35,13 @@ public class Employee extends AuditableEntity {
     @Column(name = "daily_wage", precision = 15, scale = 2)
     private BigDecimal dailyWage;
 
-    // BR-EMP-02: null = không hưởng lương theo tấn bốc vác
-    @Column(name = "ton_rate", precision = 15, scale = 2)
-    private BigDecimal tonRate;
+    // BR-EMP-02, BR-EMP-04: đơn giá tấn bốc xuống hàng; null = không hưởng theo cách này
+    @Column(name = "unload_ton_rate", precision = 15, scale = 2)
+    private BigDecimal unloadTonRate;
+
+    // BR-EMP-04: đơn giá tấn đi giao hàng, khác đơn giá bốc xuống; null = không hưởng theo cách này
+    @Column(name = "delivery_ton_rate", precision = 15, scale = 2)
+    private BigDecimal deliveryTonRate;
 
     @Column(nullable = false)
     private boolean active = true;

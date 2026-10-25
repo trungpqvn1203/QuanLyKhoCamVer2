@@ -34,11 +34,17 @@ describe('employeeApi', () => {
   it('update - đơn giá bị bỏ gửi null (PUT = thay toàn bộ), không bị JSON.stringify làm mất trường', async () => {
     const captured = stubFetch()
 
-    await employeeApi.update(5, { name: 'A', dailyWage: 300000, tonRate: null, active: true })
+    await employeeApi.update(5, { name: 'A', dailyWage: 300000, unloadTonRate: null, deliveryTonRate: 60000, active: true })
 
     const { url, init } = captured()
     expect(url.pathname).toBe('/api/employees/5')
     expect(init.method).toBe('PUT')
-    expect(JSON.parse(init.body as string)).toEqual({ name: 'A', dailyWage: 300000, tonRate: null, active: true })
+    expect(JSON.parse(init.body as string)).toEqual({
+      name: 'A',
+      dailyWage: 300000,
+      unloadTonRate: null,
+      deliveryTonRate: 60000,
+      active: true,
+    })
   })
 })

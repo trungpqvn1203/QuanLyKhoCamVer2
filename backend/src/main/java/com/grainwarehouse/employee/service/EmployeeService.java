@@ -46,7 +46,8 @@ public class EmployeeService {
      */
     public Employee prepareNew(CreateEmployeeRequest request) {
         Employee employee = new Employee();
-        apply(employee, request.name(), request.phone(), request.dailyWage(), request.tonRate());
+        apply(employee, request.name(), request.phone(), request.dailyWage(), request.unloadTonRate(),
+                request.deliveryTonRate());
         return employee;
     }
 
@@ -56,7 +57,8 @@ public class EmployeeService {
     @Transactional
     public EmployeeResponse update(Long id, UpdateEmployeeRequest request) {
         Employee employee = findOrThrow(id);
-        apply(employee, request.name(), request.phone(), request.dailyWage(), request.tonRate());
+        apply(employee, request.name(), request.phone(), request.dailyWage(), request.unloadTonRate(),
+                request.deliveryTonRate());
         employee.setActive(request.active());
         return EmployeeResponse.from(employeeRepository.saveAndFlush(employee));
     }
@@ -68,15 +70,17 @@ public class EmployeeService {
     }
 
     private static void apply(Employee employee, String name, String phone, BigDecimal dailyWage,
-                              BigDecimal tonRate) {
-        // BR-EMP-02: báo vào dailyWage vì đó là ô đầu tiên trong cặp trên form
-        if (dailyWage == null && tonRate == null) {
-            throw new InvalidRequestException("dailyWage", "Nhập lương ngày hoặc đơn giá tấn (ít nhất một)");
+                              BigDecimal unloadTonRate, BigDecimal deliveryTonRate) {
+        // BR-EMP-02: báo vào dailyWage vì đó là ô đầu tiên trong nhóm đơn giá trên form
+        if (dailyWage == null && unloadTonRate == null && deliveryTonRate == null) {
+            throw new InvalidRequestException("dailyWage",
+                    "Nhập lương ngày, đơn giá tấn bốc xuống hoặc đơn giá tấn giao hàng (ít nhất một)");
         }
         employee.setName(name.trim());
         employee.setPhone(normalizePhone(phone));
         employee.setDailyWage(dailyWage);
-        employee.setTonRate(tonRate);
+        employee.setUnloadTonRate(unloadTonRate);
+        employee.setDeliveryTonRate(deliveryTonRate);
     }
 
     /** BR-EMP-03: SĐT tùy chọn; có nhập thì chuẩn hóa như SĐT khách (BR-CUS-06). */

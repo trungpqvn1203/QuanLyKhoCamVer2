@@ -21,7 +21,9 @@ export interface AttendanceDay {
   /** "YYYY-MM-DD" */
   date: string
   status: DayStatus
-  tons: number
+  /** BR-ATT-03: tấn bốc xuống hàng và tấn đi giao hàng — hai đơn giá khác nhau */
+  unloadTons: number
+  deliveryTons: number
   note?: string
 }
 
@@ -30,11 +32,13 @@ export interface AttendanceRow {
   employeeCode: string
   employeeName: string
   active: boolean
-  /** Có lương ngày / đơn giá tấn không (BR-EMP-02) — không có thì phần đó không tính tiền */
+  /** Có lương ngày / đơn giá tấn bốc xuống / đơn giá tấn giao hàng không (BR-EMP-02, BR-EMP-04) — không có thì phần đó không tính tiền */
   paysByDay: boolean
-  paysByTon: boolean
+  paysByUnload: boolean
+  paysByDelivery: boolean
   totalWorkUnits: number
-  totalTons: number
+  totalUnloadTons: number
+  totalDeliveryTons: number
   /** Chỉ các ngày ĐÃ chấm; ngày vắng mặt trong danh sách = chưa chấm (khác "Nghỉ") */
   days: AttendanceDay[]
 }
@@ -52,7 +56,8 @@ export interface MonthlyAttendance {
 
 export interface AttendanceInput {
   status: DayStatus
-  tons?: number
+  unloadTons?: number
+  deliveryTons?: number
   note?: string
 }
 

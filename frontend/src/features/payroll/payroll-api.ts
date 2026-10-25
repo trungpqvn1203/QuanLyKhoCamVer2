@@ -6,12 +6,16 @@ export interface PayrollLine {
   employeeName: string
   employeeActive: boolean
   workUnits: number
-  tons: number
+  unloadTons: number
+  deliveryTons: number
   /** Đơn giá dùng để tính: bản chốt = đơn giá LÚC CHỐT; tạm tính = đơn giá hiện tại (BR-PAY-02) */
   dailyWage?: number
-  tonRate?: number
+  unloadTonRate?: number
+  deliveryTonRate?: number
+  /** BR-PAY-04: ba phần, mỗi phần làm tròn riêng; tổng = tổng ba phần */
   dayAmount: number
-  tonAmount: number
+  unloadAmount: number
+  deliveryAmount: number
   totalAmount: number
 }
 

@@ -17,7 +17,7 @@ import org.hibernate.annotations.Immutable;
 import java.math.BigDecimal;
 
 /**
- * Một dòng của bảng lương đã chốt: bản chụp số công, số tấn và ĐƠN GIÁ lúc chốt (BR-PAY-02).
+ * Một dòng của bảng lương đã chốt: bản chụp số công, số tấn (bốc xuống, giao hàng) và ĐƠN GIÁ lúc chốt (BR-PAY-02).
  * Bất biến: không setter, @Immutable — đổi đơn giá nhân viên sau này không đổi được dòng này.
  */
 @Getter
@@ -44,35 +44,47 @@ public class PayrollItem {
     @Column(name = "work_units", nullable = false, precision = 5, scale = 1)
     private BigDecimal workUnits;
 
-    @Column(nullable = false, precision = 12, scale = 3)
-    private BigDecimal tons;
+    @Column(name = "unload_tons", nullable = false, precision = 12, scale = 3)
+    private BigDecimal unloadTons;
+
+    @Column(name = "delivery_tons", nullable = false, precision = 12, scale = 3)
+    private BigDecimal deliveryTons;
 
     @Column(name = "daily_wage", precision = 15, scale = 2)
     private BigDecimal dailyWage;
 
-    @Column(name = "ton_rate", precision = 15, scale = 2)
-    private BigDecimal tonRate;
+    @Column(name = "unload_ton_rate", precision = 15, scale = 2)
+    private BigDecimal unloadTonRate;
+
+    @Column(name = "delivery_ton_rate", precision = 15, scale = 2)
+    private BigDecimal deliveryTonRate;
 
     @Column(name = "day_amount", nullable = false, precision = 18)
     private BigDecimal dayAmount;
 
-    @Column(name = "ton_amount", nullable = false, precision = 18)
-    private BigDecimal tonAmount;
+    @Column(name = "unload_amount", nullable = false, precision = 18)
+    private BigDecimal unloadAmount;
+
+    @Column(name = "delivery_amount", nullable = false, precision = 18)
+    private BigDecimal deliveryAmount;
 
     @Column(name = "total_amount", nullable = false, precision = 18)
     private BigDecimal totalAmount;
 
-    PayrollItem(Payroll payroll, Employee employee, BigDecimal workUnits, BigDecimal tons,
-                BigDecimal dayAmount, BigDecimal tonAmount) {
+    PayrollItem(Payroll payroll, Employee employee, BigDecimal workUnits, BigDecimal unloadTons,
+                BigDecimal deliveryTons, BigDecimal dayAmount, BigDecimal unloadAmount, BigDecimal deliveryAmount) {
         this.id = new PayrollItemId(null, employee.getId());
         this.payroll = payroll;
         this.employee = employee;
         this.workUnits = workUnits;
-        this.tons = tons;
+        this.unloadTons = unloadTons;
+        this.deliveryTons = deliveryTons;
         this.dailyWage = employee.getDailyWage();
-        this.tonRate = employee.getTonRate();
+        this.unloadTonRate = employee.getUnloadTonRate();
+        this.deliveryTonRate = employee.getDeliveryTonRate();
         this.dayAmount = dayAmount;
-        this.tonAmount = tonAmount;
-        this.totalAmount = dayAmount.add(tonAmount);
+        this.unloadAmount = unloadAmount;
+        this.deliveryAmount = deliveryAmount;
+        this.totalAmount = dayAmount.add(unloadAmount).add(deliveryAmount);
     }
 }
