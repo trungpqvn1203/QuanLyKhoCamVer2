@@ -56,14 +56,14 @@ class AttendanceApiTest {
         LocalDate day = LAST_MONTH.atDay(3);
 
         record(loaderId, day, """
-                {"status": "FULL", "tons": 12.5}
+                {"status": "FULL", "unloadTons": 12.5}
                 """)
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.status").value("FULL"))
-                .andExpect(jsonPath("$.data.tons").value(12.5));
+                .andExpect(jsonPath("$.data.unloadTons").value(12.5));
 
         record(loaderId, day, """
-                {"status": "HALF", "tons": 4.25, "note": "Chiều nghỉ"}
+                {"status": "HALF", "unloadTons": 4.25, "note": "Chiều nghỉ"}
                 """)
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.status").value("HALF"))
@@ -77,8 +77,8 @@ class AttendanceApiTest {
     @Test
     @DisplayName("BR-ATT-01: bảng công tháng - mọi nhân viên đang làm, tổng công (1 + 0,5) và tổng tấn")
     void shouldBuildMonthlySheetWithTotals() throws Exception {
-        record(loaderId, LAST_MONTH.atDay(1), "{\"status\": \"FULL\", \"tons\": 10.125}");
-        record(loaderId, LAST_MONTH.atDay(2), "{\"status\": \"HALF\", \"tons\": 3.5}");
+        record(loaderId, LAST_MONTH.atDay(1), "{\"status\": \"FULL\", \"unloadTons\": 10.125}");
+        record(loaderId, LAST_MONTH.atDay(2), "{\"status\": \"HALF\", \"unloadTons\": 3.5}");
         record(loaderId, LAST_MONTH.atDay(3), "{\"status\": \"ABSENT\"}");
         record(keeperId, LAST_MONTH.atDay(1), "{\"status\": \"FULL\"}");
 
@@ -88,9 +88,10 @@ class AttendanceApiTest {
                 .andExpect(jsonPath("$.data.daysInMonth").value(LAST_MONTH.lengthOfMonth()))
                 .andExpect(jsonPath("$.data.employees.length()").value(2))
                 .andExpect(jsonPath("$.data.employees[?(@.employeeId == %d)].totalWorkUnits", loaderId).value(1.5))
-                .andExpect(jsonPath("$.data.employees[?(@.employeeId == %d)].totalTons", loaderId).value(13.625))
+                .andExpect(jsonPath("$.data.employees[?(@.employeeId == %d)].totalUnloadTons", loaderId).value(13.625))
                 .andExpect(jsonPath("$.data.employees[?(@.employeeId == %d)].days.length()", loaderId).value(3))
-                .andExpect(jsonPath("$.data.employees[?(@.employeeId == %d)].paysByTon", loaderId).value(true))
+                .andExpect(jsonPath("$.data.employees[?(@.employeeId == %d)].paysByUnload", loaderId).value(true))
+                .andExpect(jsonPath("$.data.employees[?(@.employeeId == %d)].paysByDelivery", loaderId).value(false))
                 .andExpect(jsonPath("$.data.employees[?(@.employeeId == %d)].paysByDay", loaderId).value(false))
                 .andExpect(jsonPath("$.data.employees[?(@.employeeId == %d)].totalWorkUnits", keeperId).value(1));
     }
@@ -112,11 +113,51 @@ class AttendanceApiTest {
     }
 
     @Test
-    @DisplayName("BR-ATT-02: ngày nghỉ mà có tấn - 400 field tons")
+    @DisplayName("BR-ATT-02: ngày nghỉ mà có tấn bốc xuống - 400 field unloadTons")
     void shouldRejectTonsOnAbsentDay() throws Exception {
-        record(loaderId, LAST_MONTH.atDay(4), "{\"status\": \"ABSENT\", \"tons\": 2}")
+        record(loaderId, LAST_MONTH.atDay(4), "{\"status\": \"ABSENT\", \"unloadTons\": 2}")
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.error.details[0].field").value("tons"));
+                .andExpect(jsonPath("$.error.details[0].field").value("unloadTons"));
+    }
+
+    @Test
+    @DisplayName("BR-ATT-03: một ngày ghi cả tấn bốc xuống và tấn giao hàng; không gửi loại nào = 0; tổng tháng cộng riêng từng loại")
+    void shouldRecordBothTonnageTypes() throws Exception {
+        long hauler = insertEmployee("Lê Giao Hàng", "300000", "52500", "60000");
+
+        record(hauler, LAST_MONTH.atDay(1), "{\"status\": \"FULL\", \"unloadTons\": 10.125, \"deliveryTons\": 4.5}")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.unloadTons").value(10.125))
+                .andExpect(jsonPath("$.data.deliveryTons").value(4.5));
+        record(hauler, LAST_MONTH.atDay(2), "{\"status\": \"FULL\", \"deliveryTons\": 3.25}")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.unloadTons").value(0))
+                .andExpect(jsonPath("$.data.deliveryTons").value(3.25));
+
+        mockMvc.perform(get("/api/attendance").param("month", LAST_MONTH.toString()))
+                .andExpect(jsonPath("$.data.employees[?(@.employeeId == %d)].totalUnloadTons", hauler).value(10.125))
+                .andExpect(jsonPath("$.data.employees[?(@.employeeId == %d)].totalDeliveryTons", hauler).value(7.75))
+                .andExpect(jsonPath("$.data.employees[?(@.employeeId == %d)].paysByUnload", hauler).value(true))
+                .andExpect(jsonPath("$.data.employees[?(@.employeeId == %d)].paysByDelivery", hauler).value(true));
+    }
+
+    @Test
+    @DisplayName("BR-ATT-02: ngày nghỉ mà có tấn giao hàng - 400 field deliveryTons")
+    void shouldRejectDeliveryTonsOnAbsentDay() throws Exception {
+        record(loaderId, LAST_MONTH.atDay(4), "{\"status\": \"ABSENT\", \"deliveryTons\": 2}")
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.details[0].field").value("deliveryTons"));
+    }
+
+    @Test
+    @DisplayName("BR-ATT-01: tấn giao hàng âm hoặc quá 3 chữ số lẻ - 400 field deliveryTons")
+    void shouldRejectInvalidDeliveryTons() throws Exception {
+        record(loaderId, LAST_MONTH.atDay(5), "{\"status\": \"FULL\", \"deliveryTons\": -1}")
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.details[0].field").value("deliveryTons"));
+        record(loaderId, LAST_MONTH.atDay(5), "{\"status\": \"FULL\", \"deliveryTons\": 1.2345}")
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.details[0].field").value("deliveryTons"));
     }
 
     @Test
@@ -142,10 +183,10 @@ class AttendanceApiTest {
     @Test
     @DisplayName("Thiếu trạng thái, tấn âm, tấn quá 3 chữ số lẻ - 400")
     void shouldRejectInvalidBody() throws Exception {
-        record(loaderId, LAST_MONTH.atDay(1), "{\"tons\": -1}")
+        record(loaderId, LAST_MONTH.atDay(1), "{\"unloadTons\": -1}")
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error.code").value("VALIDATION_FAILED"));
-        record(loaderId, LAST_MONTH.atDay(1), "{\"status\": \"FULL\", \"tons\": 1.2345}")
+        record(loaderId, LAST_MONTH.atDay(1), "{\"status\": \"FULL\", \"unloadTons\": 1.2345}")
                 .andExpect(status().isBadRequest());
         record(loaderId, LAST_MONTH.atDay(1), "{\"status\": \"OVERTIME\"}")
                 .andExpect(status().isBadRequest());
@@ -155,7 +196,7 @@ class AttendanceApiTest {
     @DisplayName("DELETE ô - 204, ngày trở về chưa chấm; xóa ô chưa chấm - 404")
     void shouldClearCell() throws Exception {
         LocalDate day = LAST_MONTH.atDay(6);
-        record(loaderId, day, "{\"status\": \"FULL\", \"tons\": 3}");
+        record(loaderId, day, "{\"status\": \"FULL\", \"unloadTons\": 3}");
 
         mockMvc.perform(delete("/api/attendance/{employeeId}/{date}", loaderId, day))
                 .andExpect(status().isNoContent());
@@ -178,9 +219,14 @@ class AttendanceApiTest {
                 .content(json));
     }
 
-    private long insertEmployee(String name, String dailyWage, String tonRate) {
+    private long insertEmployee(String name, String dailyWage, String unloadTonRate) {
+        return insertEmployee(name, dailyWage, unloadTonRate, null);
+    }
+
+    private long insertEmployee(String name, String dailyWage, String unloadTonRate, String deliveryTonRate) {
         return jdbcTemplate.queryForObject(
-                "INSERT INTO employee (name, daily_wage, ton_rate) VALUES (?, ?::numeric, ?::numeric) RETURNING id",
-                Long.class, name, dailyWage, tonRate);
+                "INSERT INTO employee (name, daily_wage, unload_ton_rate, delivery_ton_rate)"
+                        + " VALUES (?, ?::numeric, ?::numeric, ?::numeric) RETURNING id",
+                Long.class, name, dailyWage, unloadTonRate, deliveryTonRate);
     }
 }

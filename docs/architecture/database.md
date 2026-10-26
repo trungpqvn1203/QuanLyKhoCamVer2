@@ -12,15 +12,27 @@
 | `supplier` | Nhà cung cấp | ✅ Đã duyệt 2026-10-16 (V4) |
 | `product_supplier` | NCC được phép cung cấp SP nào (nhiều–nhiều) | ✅ Đã duyệt 2026-10-16 (V4) |
 | `customer` | Khách hàng (đại lý, trang trại, khách lẻ) | ✅ Đã duyệt 2026-10-20 (V8) |
-| `employee` | Nhân viên + đơn giá lương ngày / tấn bốc vác | ✅ Đã duyệt 2026-10-20 (V9) |
-| `attendance` | Chấm công: nhân viên × ngày (trạng thái ngày + tấn bốc vác) | ✅ Đã duyệt 2026-10-20 (V11) |
-| `payroll`, `payroll_item` | Bảng lương tháng đã chốt (bản chụp đơn giá) | ✅ Đã duyệt 2026-10-20 (V12) |
+| `employee` | Nhân viên + đơn giá lương ngày / tấn bốc xuống / tấn giao hàng | ✅ Đã duyệt 2026-10-20 (V9); V17 (2026-10-26) tách đơn giá tấn thành hai loại |
+| `attendance` | Chấm công: nhân viên × ngày (trạng thái ngày + tấn bốc xuống + tấn giao hàng) | ✅ Đã duyệt 2026-10-20 (V11); V17 thêm `delivery_tons` |
+| `payroll`, `payroll_item` | Bảng lương tháng đã chốt (bản chụp đơn giá) | ✅ Đã duyệt 2026-10-20 (V12); V17 tách phần tấn thành bốc xuống / giao hàng |
+
+**Migration V17 (2026-10-26) — tách hai loại tấn.** Đổi tên (`RENAME`) cột cũ sang "bốc xuống" và thêm cột "giao hàng":
+
+| Bảng | Cột cũ → cột mới | Cột thêm |
+|---|---|---|
+| `employee` | `ton_rate` → `unload_ton_rate` | `delivery_ton_rate NUMERIC(15,2)` nullable |
+| `attendance` | `tons` → `unload_tons` | `delivery_tons NUMERIC(8,3) NOT NULL DEFAULT 0` |
+| `payroll_item` | `tons` → `unload_tons`, `ton_rate` → `unload_ton_rate`, `ton_amount` → `unload_amount` | `delivery_tons`, `delivery_ton_rate`, `delivery_amount` (không có DEFAULT: dòng lương mới phải ghi rõ cả hai phần) |
+
+Ràng buộc đổi: `ck_employee_has_rate` (ít nhất một trong ba đơn giá), `ck_employee_rates`, `ck_attendance_tons`, `ck_attendance_absent_no_tons` (ngày nghỉ: cả hai loại tấn = 0), `ck_payroll_item_quantities`, `ck_payroll_item_amounts`, `ck_payroll_item_total` (`total = day + unload + delivery`). Dùng `RENAME` vì tấn cũ đã được xác nhận là tấn bốc xuống, nên ý nghĩa dữ liệu giữ nguyên; các bảng lương đã chốt giữ nguyên số tiền (phần giao hàng = 0, đơn giá = NULL). Đã kiểm chứng trên database tạm với dữ liệu kiểu cũ.
 | `inventory` | Tồn kho hiện tại (product × warehouse) | ✅ Đã duyệt 2026-10-19 (V6) |
 | `stock_document` | Chứng từ kho (phiếu nhập, phiếu bán/xuất, phiếu điều chuyển) | ✅ Đã duyệt 2026-10-19 (V6) — `INBOUND`; V13 (2026-10-20) mở `OUTBOUND` + `customer_id`, `paid_amount` |
 | `stock_document_item` | Dòng chi tiết trong chứng từ | ✅ Đã duyệt 2026-10-19 (V6) |
 | `stock_transaction` | Lịch sử biến động tồn kho (bất biến) | ✅ Đã duyệt 2026-10-19 (V6) |
 | `customer_product_price` | Giá bán riêng hiện hành theo (khách, SP) — chỉ để điền sẵn | ✅ Đã duyệt 2026-10-20 (V13) |
 | `sale_payment` | Lịch sử thanh toán của phiếu bán (bất biến) | ✅ Đã duyệt 2026-10-20 (V13) |
+| `supplier_payment` | Lịch sử trả tiền NCC trên phiếu nhập (bất biến) | ✅ Đã duyệt 2026-10-25 (V16) |
+| `employee_advance`, `payroll_payment` | Nhật ký tạm ứng nhân viên và nhật ký trả lương theo dòng lương (bất biến) | ✅ Đã duyệt 2026-10-26 (V18) |
 | `app_user`, `app_user_role` | Tài khoản đăng nhập (mật khẩu băm BCrypt) + vai trò, một người nhiều vai trò | ✅ Đã duyệt 2026-10-20 (V14, ADR-0003) |
 | `refresh_token` | Refresh token đã phát — chỉ lưu SHA-256; rotation theo family, thu hồi được (KHÔNG bất biến) | ✅ Đã duyệt 2026-10-20 (V14, ADR-0003) |
 
@@ -173,6 +185,18 @@ erDiagram
         timestamptz created_at
     }
 
+    supplier_payment {
+        bigint id PK
+        bigint document_id FK "Phiếu nhập"
+        varchar type "PAYMENT | REVERSAL"
+        varchar method "CASH | BANK_TRANSFER"
+        numeric amount "NUMERIC(18,0), > 0"
+        date payment_date
+        varchar note "Ghi chú / lý do hoàn"
+        bigint reversal_of_id FK "UK; bắt buộc khi REVERSAL"
+        timestamptz created_at
+    }
+
     category ||--o{ product : "phân nhóm"
     product ||--o{ inventory : "tồn tại các kho"
     warehouse ||--o{ inventory : "chứa sản phẩm"
@@ -189,6 +213,7 @@ erDiagram
     customer ||--o{ customer_product_price : "có giá riêng"
     product ||--o{ customer_product_price : "được định giá"
     stock_document ||--o{ sale_payment : "được thanh toán"
+    stock_document ||--o{ supplier_payment : "được trả tiền NCC"
 ```
 
 ## Giải thích thiết kế
@@ -242,7 +267,8 @@ erDiagram
 
 - Dùng chung cho phiếu nhập / xuất / điều chuyển, phân biệt bằng `type`. V6 mở `INBOUND`; **V13 mở `OUTBOUND`** và thêm `customer_id`, `paid_amount`. Điều chuyển sẽ nới CHECK và thêm `target_warehouse_id` sau.
 - `ck_stock_document_customer` (V13): phiếu nhập không có khách; phiếu bán bắt buộc có khách, không có NCC (BR-SAL-01).
-- `paid_amount` (V13): tổng đã thu — **snapshot** của `sale_payment`, giống `inventory` ↔ `stock_transaction`. `ck_stock_document_paid`: `0 <= paid_amount <= total_amount` (BR-SAL-11). Chỉ đổi khi thu/hoàn tiền, sau khi khóa phiếu `FOR UPDATE`. Còn nợ = `total_amount − paid_amount` (không lưu).
+- `tracks_debt` (V16, `BOOLEAN NOT NULL DEFAULT TRUE`): phiếu có phát sinh công nợ hay không. Migration V16 đặt `FALSE` cho phiếu nhập đã `COMPLETED`/`REVERSED` trước module công nợ NCC (BR-SPAY-05). Chỉ migration đổi cột này; còn nợ của phiếu `tracks_debt = FALSE` luôn là 0.
+- `paid_amount` (V13, dùng chung từ V16): phiếu bán = tổng đã thu — **snapshot** của `sale_payment`; phiếu nhập = tổng đã trả NCC — snapshot của `supplier_payment`, giống `inventory` ↔ `stock_transaction`. `ck_stock_document_paid`: `0 <= paid_amount <= total_amount` (BR-SAL-11). Chỉ đổi khi thu/hoàn tiền, sau khi khóa phiếu `FOR UPDATE`. Còn nợ = `total_amount − paid_amount` (không lưu).
 - `code`: **không** có DEFAULT ở DB (khác `product`/`supplier`) vì các loại phiếu khác tiền tố (`PN`, `PX`, `PC`). Service gọi `nextval('inbound_code_seq')` rồi format `PN%06d`.
 - `status`: `DRAFT → COMPLETED`, `DRAFT → CANCELLED`, `COMPLETED → REVERSED` (BR-IMP-11, 12). CHECK đảm bảo mốc thời gian đi kèm trạng thái (`completed_at` khi COMPLETED/REVERSED, `cancelled_at`, `reversed_at`).
 - `ck_stock_document_supplier`: phiếu nhập bắt buộc có NCC.
@@ -279,6 +305,22 @@ erDiagram
 - `reversal_of_id` UNIQUE + `ck_sale_payment_reversal` (REVERSAL ⇔ có `reversal_of_id`): mỗi khoản hoàn đúng một lần.
 - Trigger `trg_sale_payment_immutable` / `trg_sale_payment_no_truncate` chặn UPDATE/DELETE/TRUNCATE như `stock_transaction`.
 - Công nợ khách = `SUM(total_amount − paid_amount)` của phiếu `OUTBOUND` + `COMPLETED` còn nợ, `GROUP BY customer_id` — không có bảng số dư.
+
+### employee_advance, payroll_payment, số dư tạm ứng (Công nợ nhân viên — BẤT BIẾN) (✅ đã duyệt — migration V18)
+
+- **Hai số tổng (snapshot) có CHECK:** `employee.advance_balance NUMERIC(18,0)` với `ck_employee_advance_balance` (≥ 0) và `payroll_item.paid_amount NUMERIC(18,0)` với `ck_payroll_item_paid` (0 ≤ paid ≤ `total_amount`). Chỉ đổi sau khi service khóa dòng nhân viên rồi dòng lương `FOR UPDATE` — CHECK chỉ chặn số **âm**, không chặn **cập nhật bị mất** (hai request cùng đọc 100.000 rồi cùng ghi 40.000), nên khóa là bắt buộc; đã kiểm bằng test đồng thời.
+- **`employee_advance`:** khoản ứng (`ADVANCE`) hoặc hoàn khoản ứng ghi nhầm (`REVERSAL`), `method` chỉ `CASH`/`BANK_TRANSFER` (tạm ứng luôn là tiền chi ra). Cấu trúc và ràng buộc như `sale_payment`.
+- **`payroll_payment`:** khoản trả lương (`PAYMENT`) hoặc hoàn (`REVERSAL`) gắn với dòng lương bằng **khóa ngoại kép** `(payroll_id, employee_id) → payroll_item`. `method` thêm `ADVANCE_DEDUCTION` (trừ vào tạm ứng — không có tiền ra khỏi quỹ). Hoàn khoản `ADVANCE_DEDUCTION` thì số dư tạm ứng cộng lại.
+- **Số dư tạm ứng** = Σ `employee_advance` (ADVANCE − REVERSAL) − Σ `payroll_payment` `ADVANCE_DEDUCTION` (PAYMENT − REVERSAL); test `assertAdvanceBalanceMatchesLedger` kiểm snapshot khớp nhật ký sau mỗi kịch bản.
+- **`payroll.tracks_debt`** (`BOOLEAN NOT NULL DEFAULT TRUE`): V18 đặt `FALSE` cho mọi bảng lương `FINALIZED` có trước (BR-EPAY-05). Cờ ở bảng lương (mỗi tháng một bản), không ở từng dòng.
+- `PayrollItem` không còn `@Immutable` của Hibernate (nó chặn cập nhật `paid_amount`); các cột bản chụp dùng `updatable = false`.
+- Công nợ nhân viên = Σ (`total_amount − paid_amount`) của dòng lương thuộc bảng `FINALIZED` + `tracks_debt` còn nợ, gộp theo nhân viên, cộng với `advance_balance` — không có bảng số dư riêng.
+
+### supplier_payment (Trả tiền NCC — BẤT BIẾN) (✅ đã duyệt — migration V16)
+
+- Cùng cấu trúc và ràng buộc với `sale_payment` (PAYMENT/REVERSAL, hai dòng khi trả kết hợp, `reversal_of_id` UNIQUE, trigger `trg_supplier_payment_immutable` / `trg_supplier_payment_no_truncate`).
+- **Bảng riêng, không gộp với `sale_payment`:** chiều tiền (chi/thu) và quyền khác nhau, và không phải sửa module bán hàng đã duyệt. Gộp thành một bảng `document_payment` chỉ đáng làm khi có thêm loại thanh toán thứ ba.
+- Công nợ NCC = `SUM(total_amount − paid_amount)` của phiếu `INBOUND` + `COMPLETED` + `tracks_debt` còn nợ, `GROUP BY supplier_id` (index `idx_stock_document_supplier`).
 
 Ví dụ (khi có module điều chuyển): phiếu điều chuyển 100 bao cám A từ kho K1 sang K2 tạo:
 1. StockTransaction: product=A, warehouse=K1, type=OUT, quantity=100

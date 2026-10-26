@@ -36,8 +36,12 @@ public class Attendance extends AuditableEntity {
     @Column(name = "day_status", nullable = false, length = 10)
     private DayStatus dayStatus;
 
-    @Column(nullable = false, precision = 8, scale = 3)
-    private BigDecimal tons;
+    // BR-ATT-03: hai loại tấn trong ngày, mỗi loại tính theo đơn giá riêng
+    @Column(name = "unload_tons", nullable = false, precision = 8, scale = 3)
+    private BigDecimal unloadTons;
+
+    @Column(name = "delivery_tons", nullable = false, precision = 8, scale = 3)
+    private BigDecimal deliveryTons;
 
     @Column(length = 500)
     private String note;
@@ -48,9 +52,10 @@ public class Attendance extends AuditableEntity {
     }
 
     /** Service đã kiểm BR-ATT-02 trước khi gọi; CHECK ck_attendance_absent_no_tons là chốt chặn cuối. */
-    public void record(DayStatus dayStatus, BigDecimal tons, String note) {
+    public void record(DayStatus dayStatus, BigDecimal unloadTons, BigDecimal deliveryTons, String note) {
         this.dayStatus = dayStatus;
-        this.tons = tons;
+        this.unloadTons = unloadTons;
+        this.deliveryTons = deliveryTons;
         this.note = note;
     }
 }

@@ -26,7 +26,7 @@ class AttendancePersistenceTest {
     @BeforeEach
     void setUp() {
         employeeId = jdbcTemplate.queryForObject(
-                "INSERT INTO employee (name, ton_rate) VALUES ('A', 50000) RETURNING id", Long.class);
+                "INSERT INTO employee (name, unload_ton_rate) VALUES ('A', 50000) RETURNING id", Long.class);
     }
 
     @Test
@@ -48,6 +48,22 @@ class AttendancePersistenceTest {
     }
 
     @Test
+    @DisplayName("BR-ATT-02: DB chặn ngày nghỉ có tấn giao hàng (dù tấn bốc xuống = 0)")
+    void dbShouldRejectDeliveryTonsOnAbsentDay() {
+        assertThatThrownBy(() -> insert("ABSENT", "0", "1.5"))
+                .isInstanceOf(DataIntegrityViolationException.class)
+                .hasMessageContaining("ck_attendance_absent_no_tons");
+    }
+
+    @Test
+    @DisplayName("BR-ATT-01: DB chặn tấn giao hàng âm; để mặc định thì bằng 0")
+    void dbShouldRejectNegativeDeliveryTons() {
+        assertThatThrownBy(() -> insert("FULL", "1", "-1"))
+                .isInstanceOf(DataIntegrityViolationException.class)
+                .hasMessageContaining("ck_attendance_tons");
+    }
+
+    @Test
     @DisplayName("BR-ATT-01: DB chặn tấn âm")
     void dbShouldRejectNegativeTons() {
         assertThatThrownBy(() -> insert("FULL", "-1"))
@@ -63,8 +79,14 @@ class AttendancePersistenceTest {
                 .hasMessageContaining("ck_attendance_status");
     }
 
-    private void insert(String status, String tons) {
-        jdbcTemplate.update("INSERT INTO attendance (employee_id, work_date, day_status, tons)"
-                + " VALUES (?, DATE '2026-01-05', ?, ?::numeric)", employeeId, status, tons);
+    private void insert(String status, String unloadTons) {
+        jdbcTemplate.update("INSERT INTO attendance (employee_id, work_date, day_status, unload_tons)"
+                + " VALUES (?, DATE '2026-01-05', ?, ?::numeric)", employeeId, status, unloadTons);
+    }
+
+    private void insert(String status, String unloadTons, String deliveryTons) {
+        jdbcTemplate.update("INSERT INTO attendance (employee_id, work_date, day_status, unload_tons, delivery_tons)"
+                + " VALUES (?, DATE '2026-01-05', ?, ?::numeric, ?::numeric)", employeeId, status, unloadTons,
+                deliveryTons);
     }
 }

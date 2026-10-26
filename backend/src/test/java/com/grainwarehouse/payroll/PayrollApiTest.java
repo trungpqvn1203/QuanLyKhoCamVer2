@@ -46,14 +46,14 @@ class PayrollApiTest {
     void setUp() throws Exception {
         // Hưởng cả hai cách: 1,5 công × 300.000 = 450.000; 13,625 tấn × 52.500 = 715.312,5 → 715.313
         bothId = createEmployee("""
-                {"name": "Nguyễn Văn Bốc", "dailyWage": 300000, "tonRate": 52500}
+                {"name": "Nguyễn Văn Bốc", "dailyWage": 300000, "unloadTonRate": 52500}
                 """);
         keeperId = createEmployee("""
                 {"name": "Trần Thủ Kho", "dailyWage": 350000}
                 """);
-        record(bothId, MONTH.atDay(1), "{\"status\": \"FULL\", \"tons\": 10.125}");
-        record(bothId, MONTH.atDay(2), "{\"status\": \"HALF\", \"tons\": 3.5}");
-        record(keeperId, MONTH.atDay(1), "{\"status\": \"FULL\", \"tons\": 2}");
+        record(bothId, MONTH.atDay(1), "{\"status\": \"FULL\", \"unloadTons\": 10.125}");
+        record(bothId, MONTH.atDay(2), "{\"status\": \"HALF\", \"unloadTons\": 3.5}");
+        record(keeperId, MONTH.atDay(1), "{\"status\": \"FULL\", \"unloadTons\": 2}");
     }
 
     @Test
@@ -64,14 +64,78 @@ class PayrollApiTest {
                 .andExpect(jsonPath("$.data.finalized").value(false))
                 .andExpect(jsonPath("$.data.payrollId").doesNotExist())
                 .andExpect(line(bothId, "workUnits").value(1.5))
-                .andExpect(line(bothId, "tons").value(13.625))
+                .andExpect(line(bothId, "unloadTons").value(13.625))
                 .andExpect(line(bothId, "dayAmount").value(450000))
-                .andExpect(line(bothId, "tonAmount").value(715313))
+                .andExpect(line(bothId, "unloadAmount").value(715313))
                 .andExpect(line(bothId, "totalAmount").value(1165313))
                 // Thủ kho có 2 tấn nhưng không có đơn giá tấn → tiền bốc vác 0 (BR-EMP-02)
-                .andExpect(line(keeperId, "tonAmount").value(0))
+                .andExpect(line(keeperId, "unloadAmount").value(0))
                 .andExpect(line(keeperId, "totalAmount").value(350000))
                 .andExpect(jsonPath("$.data.totalAmount").value(1515313));
+    }
+
+    @Test
+    @DisplayName("BR-PAY-04: tấn bốc xuống và tấn giao hàng tính theo đơn giá riêng, tổng = công + bốc xuống + giao hàng")
+    void shouldPayUnloadAndDeliveryTonsAtDifferentRates() throws Exception {
+        long hauler = createEmployee("""
+                {"name": "Lê Giao Hàng", "dailyWage": 300000, "unloadTonRate": 52500, "deliveryTonRate": 60000}
+                """);
+        record(hauler, MONTH.atDay(1), "{\"status\": \"FULL\", \"unloadTons\": 10.125, \"deliveryTons\": 4.5}");
+        record(hauler, MONTH.atDay(2), "{\"status\": \"HALF\", \"deliveryTons\": 3.25}");
+
+        // 1,5 công × 300.000 = 450.000 | 10,125 tấn × 52.500 = 531.562,5 → 531.563 | 7,75 tấn × 60.000 = 465.000
+        sheet()
+                .andExpect(line(hauler, "workUnits").value(1.5))
+                .andExpect(line(hauler, "unloadTons").value(10.125))
+                .andExpect(line(hauler, "deliveryTons").value(7.75))
+                .andExpect(line(hauler, "dayAmount").value(450000))
+                .andExpect(line(hauler, "unloadAmount").value(531563))
+                .andExpect(line(hauler, "deliveryAmount").value(465000))
+                .andExpect(line(hauler, "totalAmount").value(1446563));
+    }
+
+    @Test
+    @DisplayName("BR-PAY-04: mỗi phần làm tròn riêng - 0,001 tấn × 52.500 ở cả hai loại: 53 + 53 = 106, không phải làm tròn tổng 105")
+    void shouldRoundEachPartSeparately() throws Exception {
+        long hauler = createEmployee("""
+                {"name": "Lê Giao Hàng", "unloadTonRate": 52500, "deliveryTonRate": 52500}
+                """);
+        record(hauler, MONTH.atDay(1), "{\"status\": \"FULL\", \"unloadTons\": 0.001, \"deliveryTons\": 0.001}");
+
+        sheet()
+                .andExpect(line(hauler, "unloadAmount").value(53))
+                .andExpect(line(hauler, "deliveryAmount").value(53))
+                .andExpect(line(hauler, "totalAmount").value(106));
+    }
+
+    @Test
+    @DisplayName("BR-PAY-04: nhân viên chỉ có đơn giá bốc xuống - tấn giao hàng ghi nhận nhưng không tính tiền")
+    void deliveryTonsWithoutRateShouldNotBePaid() throws Exception {
+        record(bothId, MONTH.atDay(3), "{\"status\": \"FULL\", \"deliveryTons\": 5}");
+
+        sheet()
+                .andExpect(line(bothId, "deliveryTons").value(5))
+                .andExpect(line(bothId, "deliveryAmount").value(0))
+                .andExpect(line(bothId, "deliveryTonRate").isEmpty());
+    }
+
+    @Test
+    @DisplayName("BR-PAY-02, BR-PAY-04: chốt rồi đổi đơn giá giao hàng - bảng lương đã chốt giữ đơn giá và tiền giao hàng lúc chốt")
+    void finalizedPayrollShouldKeepDeliverySnapshot() throws Exception {
+        long hauler = createEmployee("""
+                {"name": "Lê Giao Hàng", "deliveryTonRate": 60000}
+                """);
+        record(hauler, MONTH.atDay(1), "{\"status\": \"FULL\", \"deliveryTons\": 2}");
+        finalizeMonth().andExpect(status().isOk());
+
+        mockMvc.perform(put("/api/employees/{id}", hauler).contentType(MediaType.APPLICATION_JSON).content("""
+                {"name": "Lê Giao Hàng", "deliveryTonRate": 1, "active": true}
+                """)).andExpect(status().isOk());
+
+        sheet()
+                .andExpect(line(hauler, "deliveryTonRate").value(60000))
+                .andExpect(line(hauler, "deliveryAmount").value(120000))
+                .andExpect(line(hauler, "totalAmount").value(120000));
     }
 
     @Test
@@ -82,12 +146,12 @@ class PayrollApiTest {
                 .andExpect(jsonPath("$.data.payrollId").exists());
 
         mockMvc.perform(put("/api/employees/{id}", bothId).contentType(MediaType.APPLICATION_JSON).content("""
-                {"name": "Nguyễn Văn Bốc", "dailyWage": 999999, "tonRate": 99999, "active": true}
+                {"name": "Nguyễn Văn Bốc", "dailyWage": 999999, "unloadTonRate": 99999, "active": true}
                 """)).andExpect(status().isOk());
 
         sheet()
                 .andExpect(line(bothId, "dailyWage").value(300000))
-                .andExpect(line(bothId, "tonRate").value(52500))
+                .andExpect(line(bothId, "unloadTonRate").value(52500))
                 .andExpect(line(bothId, "totalAmount").value(1165313));
     }
 

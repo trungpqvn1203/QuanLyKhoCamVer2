@@ -131,6 +131,21 @@ _(Trả lời BR-SAL-Q01: có công nợ, chỉ ở mức phiếu bán + lịch 
 
 ---
 
+## Công nợ nhà cung cấp
+
+> Thiết kế: migration V16. Cùng mẫu với công nợ khách (BR-SAL-09..14), chiều tiền ngược lại: mình trả cho NCC.
+
+### ✅ Đã xác nhận (2026-10-25)
+
+- **BR-SPAY-01:** Chỉ phiếu nhập **Hoàn tất** mới trả tiền. Nợ của phiếu = tổng phiếu (theo SL thực nhận, BR-IMP-03) − đã trả. Công nợ NCC = tổng nợ các phiếu Hoàn tất còn nợ. Trả **theo từng phiếu nhập**, không trả gộp theo NCC; không có số dư nợ lưu riêng.
+- **BR-SPAY-02:** Một lần trả không vượt số còn nợ của phiếu. Trả kết hợp tiền mặt + chuyển khoản được (mỗi hình thức một dòng). Tiền tính đến đồng. Ngày trả mặc định hôm nay, chọn tự do. Hoàn tất phiếu **không** có ô trả ngay — trả ngay thì bấm "Trả tiền" sau khi hoàn tất.
+- **BR-SPAY-03:** Lịch sử trả tiền **bất biến**. Trả nhầm → **hoàn** toàn bộ khoản đó (lý do bắt buộc) bằng một dòng hoàn trỏ về khoản gốc; mỗi khoản hoàn một lần.
+- **BR-SPAY-04:** Phiếu nhập **đã trả tiền** (đã trả > 0) **không được đảo** — phải hoàn hết các khoản trả trước.
+- **BR-SPAY-05:** Phiếu nhập đã hoàn tất (hoặc đã đảo) **trước khi có module này** coi như đã trả đủ: không hiện ở công nợ, không ghi trả tiền được, vẫn đảo được như trước. Phiếu nháp cũ hoàn tất sau này vẫn phát sinh nợ bình thường.
+- **BR-SPAY-06:** Ai được trả tiền NCC và xem công nợ NCC: **Quản lý kho + Quản lý hệ thống** (như phiếu nhập).
+
+---
+
 ## Điều chuyển kho
 
 ### ✅ Đã xác nhận
@@ -231,13 +246,35 @@ _(Trả lời BR-SAL-Q01: có công nợ, chỉ ở mức phiếu bán + lịch 
 ### ✅ Đã xác nhận (2026-10-20)
 
 - **BR-EMP-01:** Mã nhân viên `NV` + 3 chữ số (`NV001`), tự sinh, không sửa được. Không xóa cứng: nghỉ việc = `active = false`; chấm công, bảng lương cũ vẫn giữ.
-- **BR-EMP-02:** Mỗi nhân viên có **lương ngày công**, **đơn giá tấn bốc vác**, hoặc **cả hai** (ít nhất một), mỗi đơn giá ≥ 0, 2 chữ số lẻ (BR-MON-04). Để trống = không hưởng theo cách đó.
+- **BR-EMP-02:** Mỗi nhân viên có **lương ngày công**, **đơn giá tấn bốc xuống**, **đơn giá tấn giao hàng**, hoặc nhiều cách cùng lúc (ít nhất một trong ba), mỗi đơn giá ≥ 0, 2 chữ số lẻ (BR-MON-04). Để trống = không hưởng theo cách đó. _(Sửa 2026-10-26: trước đây chỉ có "đơn giá tấn bốc vác" — nay tách đôi, xem BR-EMP-04.)_
 - **BR-EMP-03:** Tên được trùng. SĐT tùy chọn, **không** chặn trùng; có nhập thì chuẩn hóa như BR-CUS-06.
-- **BR-ATT-01:** Mỗi nhân viên mỗi ngày một dòng chấm công: trạng thái ngày Cả ngày (1 công) / Nửa ngày (0,5) / Nghỉ (0) + số tấn bốc vác (≥ 0, tối đa 3 chữ số lẻ). Quản lý nhập tay.
-- **BR-ATT-02:** Ngày Nghỉ thì số tấn = 0. Không chấm công ngày tương lai (giờ VN). Không chấm công cho nhân viên đã nghỉ.
-- **BR-PAY-01:** Lương tháng = tổng công × lương ngày + tổng tấn × đơn giá tấn; **mỗi phần làm tròn `HALF_UP` về đồng**, tổng = tổng hai phần đã làm tròn. Ví dụ 41,235 tấn × 52.500 = 2.164.837,5 → 2.164.838.
-- **BR-PAY-02:** Chưa chốt: bảng lương tính trực tiếp từ chấm công với đơn giá hiện tại. **Chốt lương** lưu bản chụp (công, tấn, **đơn giá lúc chốt**) — đổi đơn giá sau không đổi lương đã chốt.
+- **BR-EMP-04:** Tấn bốc xuống hàng và tấn đi giao hàng là **hai loại tấn có đơn giá khác nhau**. Mỗi nhân viên có thể có một, cả hai, hoặc không có đơn giá tấn nào (khi đó phải có lương ngày). Tấn của loại không có đơn giá vẫn ghi nhận được nhưng **không tính tiền**. _(Xác nhận 2026-10-26)_
+- **BR-ATT-01:** Mỗi nhân viên mỗi ngày một dòng chấm công: trạng thái ngày Cả ngày (1 công) / Nửa ngày (0,5) / Nghỉ (0) + số tấn bốc xuống và số tấn giao hàng (mỗi loại ≥ 0, tối đa 3 chữ số lẻ; không nhập = 0). Quản lý nhập tay. _(Sửa 2026-10-26: tách hai loại tấn, xem BR-ATT-03.)_
+- **BR-ATT-02:** Ngày Nghỉ thì **cả hai loại tấn** = 0. Không chấm công ngày tương lai (giờ VN). Không chấm công cho nhân viên đã nghỉ.
+- **BR-PAY-01:** Lương tháng = tổng công × lương ngày + tổng tấn bốc xuống × đơn giá bốc xuống + tổng tấn giao hàng × đơn giá giao hàng; **mỗi phần trong ba phần làm tròn `HALF_UP` về đồng riêng**, tổng = tổng ba phần đã làm tròn (không làm tròn lại tổng). Ví dụ 41,235 tấn × 52.500 = 2.164.837,5 → 2.164.838. _(Sửa 2026-10-26: từ hai phần thành ba phần, xem BR-PAY-04.)_
+- **BR-PAY-02:** Chưa chốt: bảng lương tính trực tiếp từ chấm công với đơn giá hiện tại. **Chốt lương** lưu bản chụp (công, tấn bốc xuống, tấn giao hàng, **đơn giá lúc chốt**) — đổi đơn giá sau không đổi lương đã chốt.
 - **BR-PAY-03:** Tháng đã chốt thì **khóa chấm công** của tháng đó. Sửa = **Hủy chốt** (bắt buộc lý do) → bảng lương cũ giữ lại với trạng thái Đã hủy, tháng mở lại để sửa và chốt lại. Mỗi tháng chỉ một bảng lương còn hiệu lực.
+
+- **BR-ATT-03:** Một ngày có thể ghi **cả hai loại tấn** (bốc xuống và giao hàng). Tấn giao hàng nhập tay trên bảng công như tấn bốc xuống (chưa lấy tự động từ phiếu bán, vì phiếu bán không ghi ai giao). _(Xác nhận 2026-10-26)_
+- **BR-PAY-04:** Tiền tấn bốc xuống và tiền tấn giao hàng tính **riêng** theo đơn giá của từng loại. Ví dụ 0,001 tấn × 52.500 = 52,5 → 53 ở cả hai loại: 53 + 53 = 106, **không** phải làm tròn tổng 105. Nhân viên không có đơn giá của loại nào thì tấn loại đó không tính tiền (tiền = 0). Dữ liệu trước 2026-10-26: toàn bộ tấn cũ là **tấn bốc xuống**, các bảng lương đã chốt giữ nguyên số tiền.
+
+## Công nợ nhân viên (trả lương, tạm ứng)
+
+> Thiết kế: migration V18. Hai món nợ ngược chiều: **lương chưa trả** (công ty nợ nhân viên) và **tạm ứng** (nhân viên nợ công ty). Cùng mẫu với công nợ khách / NCC: nhật ký bất biến + số tổng có CHECK ở DB.
+
+### ✅ Đã xác nhận (2026-10-26)
+
+- **BR-EPAY-01:** Chỉ bảng lương **đã chốt** mới có lương để trả. Mỗi **dòng lương** (nhân viên × tháng) là một món nợ: còn nợ = lương chốt − đã trả. Trả **theo từng bảng lương tháng**, không gộp nhiều tháng trong một lần trả. Tháng chưa chốt thì chưa nợ.
+- **BR-EPAY-02:** Một lần trả lương = **tiền mặt + chuyển khoản + số trừ vào tạm ứng** (người trả tự chọn trừ bao nhiêu). Tổng không vượt số còn nợ của dòng lương; số trừ không vượt **số dư tạm ứng hiện có**. Tiền tính đến đồng. Ngày trả mặc định hôm nay, chọn tự do. Trừ tạm ứng là một "hình thức" thanh toán nhưng **không có tiền ra khỏi quỹ**.
+- **BR-EPAY-03:** Tạm ứng là một khoản chi ra (tiền mặt hoặc chuyển khoản). **Số dư tạm ứng của nhân viên luôn ≥ 0**: kiểm tra + trừ trong cùng transaction, khóa dòng nhân viên `FOR UPDATE`, và `CHECK` ở DB. Nhân viên **không trả lại tiền mặt** (đã xác nhận) — chỉ trừ dần vào lương.
+- **BR-EPAY-04:** Nhật ký tạm ứng và trả lương **bất biến**. Ghi nhầm → **hoàn** toàn bộ khoản đó (lý do bắt buộc) bằng một dòng hoàn trỏ về khoản gốc; mỗi khoản hoàn một lần. Hoàn khoản trừ tạm ứng thì số dư tạm ứng cộng lại. **Hoàn khoản ứng** chỉ được khi số dư tạm ứng còn đủ (phần đã trừ vào lương phải hoàn trước).
+- **BR-EPAY-05:** Bảng lương đã **trả lương** (dù chỉ một người) thì **không hủy chốt được** — phải hoàn các khoản trả trước. Bảng lương chốt **trước module này** coi như **đã trả đủ**: không hiện ở công nợ, không ghi trả lương được; hủy chốt rồi chốt lại một tháng cũ thì bản mới phát sinh nợ bình thường.
+- **BR-EPAY-06:** Ai được ứng tiền, trả lương, xem công nợ nhân viên: **chỉ Quản lý hệ thống** (như bảng lương và nhân viên hiện tại). Công nợ nhân viên liệt kê người còn lương chưa trả **hoặc** còn dư tạm ứng; `netAmount = lương chưa trả − dư tạm ứng` (dương: công ty nợ nhân viên).
+
+### ⚠️ Giả định tạm thời
+
+- **BR-EPAY-A01:** Chỉ ứng tiền cho nhân viên **đang làm việc** (giống chấm công, BR-ATT-02). Trả lương cho nhân viên đã nghỉ vẫn được; hoàn khoản ứng cũ của người đã nghỉ vẫn được.
+- **BR-EPAY-A02:** Tạm ứng gắn với nhân viên, không gắn với tháng nào; người trả lương tự quyết định trừ vào tháng nào.
 
 ## Tài khoản, đăng nhập, phân quyền
 

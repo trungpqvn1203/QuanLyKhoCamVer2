@@ -15,11 +15,11 @@ describe('attendanceApi', () => {
     )
     vi.stubGlobal('fetch', fetchMock)
 
-    await attendanceApi.record(7, '2026-10-05', { status: 'FULL', tons: 12.5 })
+    await attendanceApi.record(7, '2026-10-05', { status: 'FULL', unloadTons: 12.5, deliveryTons: 4 })
 
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit]
     expect(new URL(url, 'http://localhost').pathname).toBe('/api/attendance/7/2026-10-05')
     expect(init.method).toBe('PUT')
-    expect(JSON.parse(init.body as string)).toEqual({ status: 'FULL', tons: 12.5 })
+    expect(JSON.parse(init.body as string)).toEqual({ status: 'FULL', unloadTons: 12.5, deliveryTons: 4 })
   })
 })

@@ -1,4 +1,4 @@
-import { CheckCircleOutlined, LockOutlined, UnlockOutlined } from '@ant-design/icons'
+import { CheckCircleOutlined, DollarOutlined, LockOutlined, UnlockOutlined } from '@ant-design/icons'
 import { Alert, App, Button, Collapse, Flex, Popconfirm, Space, Table, Tag, Typography } from 'antd'
 import type { TableProps } from 'antd'
 import { useEffect, useState } from 'react'
@@ -9,6 +9,7 @@ import { ReasonModal } from '../../components/ui/ReasonModal'
 import { EMPTY_TEXT, formatDateTime } from '../../utils/format'
 import { formatVnd } from '../../utils/money'
 import { currentMonth, formatMonth } from '../../utils/month'
+import { SalaryPaymentDrawer } from '../employee-debts/SalaryPaymentDrawer'
 import { payrollApi } from './payroll-api'
 import type { PayrollLine, PayrollSheet } from './payroll-api'
 
@@ -32,6 +33,8 @@ export function PayrollPage() {
   const [error, setError] = useState<string | null>(null)
   const [finalizing, setFinalizing] = useState(false)
   const [cancelOpen, setCancelOpen] = useState(false)
+  // Nhân viên đang mở khung trả lương (BR-EPAY-02); chỉ dùng được khi bảng lương đã chốt
+  const [payingEmployeeId, setPayingEmployeeId] = useState<number | null>(null)
 
   useEffect(() => {
     let ignore = false
@@ -113,11 +116,19 @@ export function PayrollPage() {
       ],
     },
     {
-      title: 'Theo tấn bốc vác',
+      title: 'Tấn bốc xuống',
       children: [
-        { title: 'Tấn', dataIndex: 'tons', width: 90, align: 'right', render: (v: number) => tonsFormat.format(v) },
-        { title: 'Đơn giá tấn', dataIndex: 'tonRate', width: 130, align: 'right', render: rateOrEmpty },
-        { title: 'Thành tiền', dataIndex: 'tonAmount', width: 140, align: 'right', render: (v: number) => formatVnd(v) },
+        { title: 'Tấn', dataIndex: 'unloadTons', width: 90, align: 'right', render: (v: number) => tonsFormat.format(v) },
+        { title: 'Đơn giá tấn', dataIndex: 'unloadTonRate', width: 130, align: 'right', render: rateOrEmpty },
+        { title: 'Thành tiền', dataIndex: 'unloadAmount', width: 140, align: 'right', render: (v: number) => formatVnd(v) },
+      ],
+    },
+    {
+      title: 'Tấn giao hàng',
+      children: [
+        { title: 'Tấn', dataIndex: 'deliveryTons', width: 90, align: 'right', render: (v: number) => tonsFormat.format(v) },
+        { title: 'Đơn giá tấn', dataIndex: 'deliveryTonRate', width: 130, align: 'right', render: rateOrEmpty },
+        { title: 'Thành tiền', dataIndex: 'deliveryAmount', width: 140, align: 'right', render: (v: number) => formatVnd(v) },
       ],
     },
     {
@@ -125,9 +136,35 @@ export function PayrollPage() {
       dataIndex: 'totalAmount',
       width: 150,
       align: 'right',
-      fixed: 'right',
+      fixed: sheet?.finalized ? undefined : 'right',
       render: (v: number) => <Typography.Text strong>{formatVnd(v)}</Typography.Text>,
     },
+    // Thanh toán (BR-EPAY-01): chỉ có khi đã chốt — lương tạm tính chưa phải món nợ
+    ...(sheet?.finalized
+      ? [
+          { title: 'Đã trả', dataIndex: 'paidAmount', width: 140, align: 'right' as const, render: (v: number) => formatVnd(v) },
+          {
+            title: 'Còn nợ',
+            dataIndex: 'outstandingAmount',
+            width: 140,
+            align: 'right' as const,
+            render: (v: number) =>
+              v > 0 ? <Typography.Text type="danger">{formatVnd(v)}</Typography.Text> : <Typography.Text type="success">{formatVnd(v)}</Typography.Text>,
+          },
+          {
+            title: '',
+            key: 'pay',
+            width: 120,
+            align: 'center' as const,
+            fixed: 'right' as const,
+            render: (_: unknown, line: PayrollLine) => (
+              <Button size="small" icon={<DollarOutlined />} onClick={() => setPayingEmployeeId(line.employeeId)}>
+                Thanh toán
+              </Button>
+            ),
+          },
+        ]
+      : []),
   ]
 
   const actions = sheet && (
@@ -153,14 +190,17 @@ export function PayrollPage() {
 
   return (
     <>
-      <PageHeader title="Bảng lương" description="Lương tháng theo ngày công và tấn bốc vác" actions={actions} />
+      <PageHeader title="Bảng lương" description="Lương tháng theo ngày công, tấn bốc xuống và tấn giao hàng" actions={actions} />
       <Flex justify="space-between" align="center" wrap gap="small" style={{ marginBottom: 12 }}>
         <MonthNavigator value={month} onChange={goTo} onReload={reload} />
         {sheet &&
           (sheet.finalized ? (
-            <Tag icon={<CheckCircleOutlined />} color="success" variant="filled">
-              Đã chốt lúc {sheet.finalizedAt ? formatDateTime(sheet.finalizedAt) : EMPTY_TEXT}
-            </Tag>
+            <Flex gap={8}>
+              {!sheet.tracksDebt && <Tag variant="filled">Chốt trước khi có công nợ — coi như đã trả đủ</Tag>}
+              <Tag icon={<CheckCircleOutlined />} color="success" variant="filled">
+                Đã chốt lúc {sheet.finalizedAt ? formatDateTime(sheet.finalizedAt) : EMPTY_TEXT}
+              </Tag>
+            </Flex>
           ) : (
             <Tag color="warning" variant="filled">
               Tạm tính — chưa chốt
@@ -198,12 +238,25 @@ export function PayrollPage() {
           sheet && sheet.items.length > 0 ? (
             <Table.Summary fixed>
               <Table.Summary.Row>
-                <Table.Summary.Cell index={0} colSpan={7}>
+                <Table.Summary.Cell index={0} colSpan={10}>
                   <Typography.Text strong>Tổng cộng {sheet.items.length} nhân viên</Typography.Text>
                 </Table.Summary.Cell>
                 <Table.Summary.Cell index={1} align="right">
                   <Typography.Text strong>{formatVnd(sheet.totalAmount)}</Typography.Text>
                 </Table.Summary.Cell>
+                {sheet.finalized && (
+                  <>
+                    <Table.Summary.Cell index={2} align="right">
+                      <Typography.Text strong>{formatVnd(sheet.items.reduce((sum, line) => sum + line.paidAmount, 0))}</Typography.Text>
+                    </Table.Summary.Cell>
+                    <Table.Summary.Cell index={3} align="right">
+                      <Typography.Text strong>
+                        {formatVnd(sheet.items.reduce((sum, line) => sum + line.outstandingAmount, 0))}
+                      </Typography.Text>
+                    </Table.Summary.Cell>
+                    <Table.Summary.Cell index={4} />
+                  </>
+                )}
               </Table.Summary.Row>
             </Table.Summary>
           ) : null
@@ -230,11 +283,20 @@ export function PayrollPage() {
           ]}
         />
       )}
+      {payingEmployeeId !== null && (
+        <SalaryPaymentDrawer
+          key={`${month}-${payingEmployeeId}`}
+          month={month}
+          employeeId={payingEmployeeId}
+          onClose={() => setPayingEmployeeId(null)}
+          onChanged={reload}
+        />
+      )}
       {cancelOpen && (
         <ReasonModal
           open
           title={`Hủy chốt lương tháng ${formatMonth(month)}`}
-          description="Bảng lương đã chốt được giữ lại trong lịch sử. Bảng công tháng này mở lại để sửa; sửa xong cần chốt lại."
+          description="Bảng lương đã chốt được giữ lại trong lịch sử. Bảng công tháng này mở lại để sửa; sửa xong cần chốt lại. Đã trả lương cho ai thì phải hoàn khoản trả đó trước."
           submitText="Hủy chốt"
           required
           onSubmit={cancel}

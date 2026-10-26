@@ -67,13 +67,19 @@ public class AttendanceService {
         // và chốt lương (cùng khóa) không thể chen vào giữa lúc kiểm tra "chưa chốt" và lúc ghi
         lockMonthForChange(YearMonth.from(date));
         Employee employee = writableEmployee(employeeId, date);
-        if (request.status() == DayStatus.ABSENT && request.effectiveTons().signum() > 0) {
-            throw new InvalidRequestException("tons", "Ngày nghỉ thì không có tấn bốc vác");
+        if (request.status() == DayStatus.ABSENT) {
+            if (request.effectiveUnloadTons().signum() > 0) {
+                throw new InvalidRequestException("unloadTons", "Ngày nghỉ thì không có tấn bốc xuống");
+            }
+            if (request.effectiveDeliveryTons().signum() > 0) {
+                throw new InvalidRequestException("deliveryTons", "Ngày nghỉ thì không có tấn giao hàng");
+            }
         }
 
         Attendance attendance = attendanceRepository.findByEmployeeIdAndWorkDate(employeeId, date)
                 .orElseGet(() -> new Attendance(employee, date));
-        attendance.record(request.status(), request.effectiveTons(), blankToNull(request.note()));
+        attendance.record(request.status(), request.effectiveUnloadTons(), request.effectiveDeliveryTons(),
+                blankToNull(request.note()));
         return AttendanceDay.from(attendanceRepository.saveAndFlush(attendance));
     }
 
@@ -113,16 +119,19 @@ public class AttendanceService {
 
     private static MonthlyAttendanceResponse.Row toRow(Employee employee, List<AttendanceDay> days) {
         BigDecimal units = days.stream().map(d -> d.status().workUnits()).reduce(BigDecimal.ZERO, BigDecimal::add);
-        BigDecimal tons = days.stream().map(AttendanceDay::tons).reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal unloadTons = days.stream().map(AttendanceDay::unloadTons).reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal deliveryTons = days.stream().map(AttendanceDay::deliveryTons).reduce(BigDecimal.ZERO, BigDecimal::add);
         return new MonthlyAttendanceResponse.Row(
                 employee.getId(),
                 employee.getCode(),
                 employee.getName(),
                 employee.isActive(),
                 employee.getDailyWage() != null,
-                employee.getTonRate() != null,
+                employee.getUnloadTonRate() != null,
+                employee.getDeliveryTonRate() != null,
                 units,
-                tons,
+                unloadTons,
+                deliveryTons,
                 days);
     }
 

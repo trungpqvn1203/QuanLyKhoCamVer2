@@ -86,6 +86,10 @@ class AuthorizationMatrixTest {
                 new Rule(HttpMethod.GET, "/api/inbound-receipts", WAREHOUSE),
                 new Rule(HttpMethod.POST, "/api/inbound-receipts", WAREHOUSE),
                 new Rule(HttpMethod.POST, "/api/inbound-receipts/999999/complete", WAREHOUSE),
+                // Trả tiền NCC, công nợ NCC (BR-SPAY-06): quản lý kho
+                new Rule(HttpMethod.POST, "/api/inbound-receipts/999999/payments", WAREHOUSE),
+                new Rule(HttpMethod.POST, "/api/inbound-receipts/999999/payments/1/reverse", WAREHOUSE),
+                new Rule(HttpMethod.GET, "/api/supplier-debts", WAREHOUSE),
                 // Khách hàng, bảng giá, phiếu bán: ai cũng xem; bán hàng ghi
                 new Rule(HttpMethod.GET, "/api/customers", ALL),
                 new Rule(HttpMethod.GET, "/api/customers/999999/prices", ALL),
@@ -104,6 +108,14 @@ class AuthorizationMatrixTest {
                 new Rule(HttpMethod.PUT, "/api/attendance/999999/2026-10-01", WAREHOUSE),
                 new Rule(HttpMethod.GET, "/api/employees", ADMIN_ONLY),
                 new Rule(HttpMethod.POST, "/api/employees", ADMIN_ONLY),
+                // Tạm ứng, trả lương, công nợ nhân viên (BR-EPAY-06): chỉ quản lý hệ thống
+                new Rule(HttpMethod.GET, "/api/employees/999999/advances", ADMIN_ONLY),
+                new Rule(HttpMethod.POST, "/api/employees/999999/advances", ADMIN_ONLY),
+                new Rule(HttpMethod.POST, "/api/employees/999999/advances/1/reverse", ADMIN_ONLY),
+                new Rule(HttpMethod.GET, "/api/payrolls/2026-10/items/999999", ADMIN_ONLY),
+                new Rule(HttpMethod.POST, "/api/payrolls/2026-10/items/999999/payments", ADMIN_ONLY),
+                new Rule(HttpMethod.POST, "/api/payrolls/2026-10/items/999999/payments/1/reverse", ADMIN_ONLY),
+                new Rule(HttpMethod.GET, "/api/employee-debts", ADMIN_ONLY),
                 new Rule(HttpMethod.GET, "/api/payrolls/2026-10", ADMIN_ONLY),
                 new Rule(HttpMethod.GET, "/api/users", ADMIN_ONLY),
                 new Rule(HttpMethod.POST, "/api/users", ADMIN_ONLY),

@@ -1,13 +1,12 @@
-import { RollbackOutlined } from '@ant-design/icons'
-import { Alert, Button, Descriptions, Flex, Table, Tag, Typography } from 'antd'
+import { Alert, Descriptions, Flex, Table, Typography } from 'antd'
 import type { TableProps } from 'antd'
 import { CodeText } from '../../components/ui/CodeLink'
 import { formatDate, formatDateTime, orEmpty } from '../../utils/format'
 import { formatVnd } from '../../utils/money'
 import { PRODUCT_UNIT_LABELS } from '../products/product-api'
 import type { ProductUnit } from '../products/product-api'
-import { PAYMENT_METHOD_LABELS } from './sales-order-api'
-import type { PaymentMethod, SalePayment, SalesOrder, SalesOrderLine } from './sales-order-api'
+import { PaymentSection } from './PaymentSection'
+import type { SalePayment, SalesOrder, SalesOrderLine } from './sales-order-api'
 
 function StatusNotice({ order }: { order: SalesOrder }) {
   switch (order.status) {
@@ -61,55 +60,6 @@ export function SalesOrderView({ order, onReversePayment }: SalesOrderViewProps)
     { title: 'Thành tiền', dataIndex: 'lineAmount', width: 140, align: 'right', render: (amount: number) => formatVnd(amount) },
   ]
 
-  const paymentColumns: TableProps<SalePayment>['columns'] = [
-    { title: 'Ngày', dataIndex: 'paymentDate', width: 110, render: (date: string) => formatDate(date) },
-    {
-      title: 'Loại',
-      dataIndex: 'type',
-      width: 110,
-      render: (type: SalePayment['type'], payment) =>
-        type === 'REVERSAL' ? (
-          <Tag color="warning" variant="filled">Hoàn tiền</Tag>
-        ) : payment.reversed ? (
-          <Tag variant="filled">Đã hoàn</Tag>
-        ) : (
-          <Tag color="success" variant="filled">Thu tiền</Tag>
-        ),
-    },
-    { title: 'Hình thức', dataIndex: 'method', width: 120, render: (method: PaymentMethod) => PAYMENT_METHOD_LABELS[method] },
-    {
-      title: 'Số tiền',
-      dataIndex: 'amount',
-      width: 140,
-      align: 'right',
-      render: (amount: number, payment) =>
-        payment.type === 'REVERSAL' ? (
-          <Typography.Text type="warning">−{formatVnd(amount)}</Typography.Text>
-        ) : (
-          <Typography.Text delete={payment.reversed}>{formatVnd(amount)}</Typography.Text>
-        ),
-    },
-    { title: 'Ghi chú / lý do', dataIndex: 'note', render: (note?: string) => orEmpty(note) },
-    { title: 'Ghi lúc', dataIndex: 'createdAt', width: 150, render: (at: string) => formatDateTime(at) },
-    ...(onReversePayment
-      ? [
-          {
-            title: '',
-            key: 'actions',
-            width: 90,
-            align: 'center' as const,
-            render: (_: unknown, payment: SalePayment) =>
-              payment.type === 'PAYMENT' &&
-              !payment.reversed && (
-                <Button size="small" type="link" danger icon={<RollbackOutlined />} onClick={() => onReversePayment(payment)}>
-                  Hoàn
-                </Button>
-              ),
-          },
-        ]
-      : []),
-  ]
-
   const showPayments = order.status === 'COMPLETED' || order.payments.length > 0
 
   return (
@@ -153,38 +103,14 @@ export function SalesOrderView({ order, onReversePayment }: SalesOrderViewProps)
       />
 
       {showPayments && (
-        <>
-          <Typography.Title level={5} style={{ margin: 0 }}>
-            Thanh toán
-          </Typography.Title>
-          <Descriptions
-            size="small"
-            bordered
-            column={{ xs: 1, md: 3 }}
-            items={[
-              { key: 'total', label: 'Tổng phiếu', children: formatVnd(order.totalAmount) },
-              { key: 'paid', label: 'Đã thu', children: formatVnd(order.paidAmount) },
-              {
-                key: 'outstanding',
-                label: 'Còn nợ',
-                children: (
-                  <Typography.Text strong type={order.outstandingAmount > 0 ? 'danger' : 'success'}>
-                    {formatVnd(order.outstandingAmount)}
-                  </Typography.Text>
-                ),
-              },
-            ]}
-          />
-          <Table<SalePayment>
-            size="small"
-            rowKey="id"
-            columns={paymentColumns}
-            dataSource={order.payments}
-            pagination={false}
-            scroll={{ x: 'max-content' }}
-            locale={{ emptyText: 'Chưa thu khoản nào' }}
-          />
-        </>
+        <PaymentSection
+          direction="receive"
+          totalAmount={order.totalAmount}
+          paidAmount={order.paidAmount}
+          outstandingAmount={order.outstandingAmount}
+          payments={order.payments}
+          onReversePayment={onReversePayment}
+        />
       )}
     </Flex>
   )

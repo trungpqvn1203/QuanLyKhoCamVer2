@@ -5,6 +5,8 @@ import { formatDate, formatDateTime, orEmpty } from '../../utils/format'
 import { formatVnd } from '../../utils/money'
 import { PRODUCT_UNIT_LABELS } from '../products/product-api'
 import type { ProductUnit } from '../products/product-api'
+import { PaymentSection } from '../sales-orders/PaymentSection'
+import type { SalePayment } from '../sales-orders/sales-order-api'
 import type { InboundReceipt, InboundReceiptLine } from './inbound-receipt-api'
 
 /** Dòng giải thích trạng thái ở đầu khung: người xem biết phiếu đã tác động tồn kho hay chưa. */
@@ -42,8 +44,16 @@ function StatusNotice({ receipt }: { receipt: InboundReceipt }) {
   }
 }
 
-/** Phiếu ở trạng thái không sửa được (Hoàn tất / Đã hủy / Đã đảo): chỉ xem. */
-export function InboundReceiptView({ receipt }: { receipt: InboundReceipt }) {
+interface InboundReceiptViewProps {
+  receipt: InboundReceipt
+  /** Có = phiếu đang Hoàn tất → hiện nút Hoàn ở khoản trả chưa hoàn */
+  onReversePayment?: (payment: SalePayment) => void
+}
+
+/** Phiếu ở trạng thái không sửa được (Hoàn tất / Đã hủy / Đã đảo): chỉ xem, kèm trả tiền NCC (BR-SPAY). */
+export function InboundReceiptView({ receipt, onReversePayment }: InboundReceiptViewProps) {
+  const showPayments = (receipt.status === 'COMPLETED' && receipt.tracksDebt) || receipt.payments.length > 0
+
   const columns: TableProps<InboundReceiptLine>['columns'] = [
     { title: '#', key: 'index', width: 40, align: 'center', render: (_, __, index) => index + 1 },
     { title: 'Mã SP', dataIndex: 'productCode', width: 100, render: (code: string) => <CodeText code={code} /> },
@@ -102,6 +112,23 @@ export function InboundReceiptView({ receipt }: { receipt: InboundReceipt }) {
           </Table.Summary.Row>
         )}
       />
+      {receipt.status === 'COMPLETED' && !receipt.tracksDebt && (
+        <Alert
+          type="info"
+          showIcon
+          title="Phiếu hoàn tất trước khi có công nợ nhà cung cấp — coi như đã trả đủ, không ghi trả tiền"
+        />
+      )}
+      {showPayments && (
+        <PaymentSection
+          direction="pay"
+          totalAmount={receipt.totalAmount}
+          paidAmount={receipt.paidAmount}
+          outstandingAmount={receipt.outstandingAmount}
+          payments={receipt.payments}
+          onReversePayment={onReversePayment}
+        />
+      )}
     </Flex>
   )
 }

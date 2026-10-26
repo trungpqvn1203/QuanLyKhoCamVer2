@@ -2,6 +2,7 @@ import { apiRequest, withQuery } from '../../api/client'
 import type { PageQuery, PageResponse } from '../../api/types'
 import { toFilterParams } from '../../utils/filters'
 import type { ProductUnit } from '../products/product-api'
+import type { PaymentInput, SalePayment } from '../sales-orders/sales-order-api'
 
 /** BR-IMP-11, 12: Nháp → Hoàn tất / Đã hủy; Hoàn tất → Đã đảo. */
 export type ReceiptStatus = 'DRAFT' | 'COMPLETED' | 'CANCELLED' | 'REVERSED'
@@ -40,6 +41,12 @@ export interface InboundReceipt {
   supplierName: string
   note?: string
   totalAmount: number
+  /** Đã trả NCC (BR-SPAY-01) */
+  paidAmount: number
+  /** Chỉ phiếu Hoàn tất có theo dõi công nợ mới > 0 */
+  outstandingAmount: number
+  /** false = phiếu hoàn tất trước khi có công nợ NCC, coi như đã trả đủ (BR-SPAY-05) */
+  tracksDebt: boolean
   reason?: string
   completedAt?: string
   cancelledAt?: string
@@ -47,10 +54,15 @@ export interface InboundReceipt {
   createdAt: string
   updatedAt: string
   lines: InboundReceiptLine[]
+  /** Lịch sử trả tiền NCC — cùng dạng với lịch sử thu tiền của phiếu bán */
+  payments: SalePayment[]
 }
 
 /** Một dòng trong danh sách — không có dòng hàng. */
-export type InboundReceiptSummary = Omit<InboundReceipt, 'lines' | 'note' | 'reason' | 'cancelledAt' | 'reversedAt' | 'updatedAt'>
+export type InboundReceiptSummary = Omit<
+  InboundReceipt,
+  'lines' | 'payments' | 'note' | 'reason' | 'cancelledAt' | 'reversedAt' | 'updatedAt'
+>
 
 export interface InboundReceiptLineInput {
   productId: number
@@ -77,6 +89,21 @@ export type InboundReceiptFilters = {
   supplierId?: number
   documentDateFrom?: string
   documentDateTo?: string
+  /** 'true' = chỉ phiếu Hoàn tất còn nợ NCC (chuỗi để dùng với FilterBar, như phiếu bán) */
+  unpaidOnly?: 'true'
+}
+
+/** Công nợ phải trả một NCC (BR-SPAY-01). */
+export interface SupplierDebt {
+  supplierId: number
+  supplierCode: string
+  supplierName: string
+  supplierTaxCode?: string
+  supplierPhone?: string
+  supplierActive: boolean
+  outstandingAmount: number
+  openReceiptCount: number
+  oldestDocumentDate: string
 }
 
 const BASE = '/api/inbound-receipts'
@@ -109,4 +136,20 @@ export const inboundReceiptApi = {
   /** Hoàn tất → Đã đảo; lý do bắt buộc (BR-IMP-06). */
   reverse: (id: number, reason: string) =>
     apiRequest<InboundReceipt>(`${BASE}/${id}/reverse`, { method: 'POST', body: JSON.stringify({ reason }) }),
+
+  /** Trả tiền NCC: tiền mặt và/hoặc chuyển khoản, không vượt số còn nợ (BR-SPAY-02). */
+  recordPayment: (id: number, input: PaymentInput) =>
+    apiRequest<InboundReceipt>(`${BASE}/${id}/payments`, { method: 'POST', body: JSON.stringify(input) }),
+
+  /** Hoàn khoản trả ghi nhầm; lý do bắt buộc (BR-SPAY-03). */
+  reversePayment: (id: number, paymentId: number, reason: string) =>
+    apiRequest<InboundReceipt>(`${BASE}/${id}/payments/${paymentId}/reverse`, {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+    }),
+}
+
+export const supplierDebtApi = {
+  /** NCC đang còn nợ, nợ nhiều nhất lên đầu (không phân trang). */
+  list: () => apiRequest<SupplierDebt[]>('/api/supplier-debts'),
 }

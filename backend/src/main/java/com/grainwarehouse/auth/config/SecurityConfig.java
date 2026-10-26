@@ -114,7 +114,9 @@ public class SecurityConfig {
                 .authenticated()
                 .requestMatchers("/api/categories/**", "/api/products/**", "/api/warehouses/**").hasRole(ADMIN)
 
-                .requestMatchers("/api/suppliers/**", "/api/inbound-receipts/**").hasAnyRole(WAREHOUSE, ADMIN)
+                // Gồm cả trả tiền NCC (/api/inbound-receipts/{id}/payments) và công nợ NCC (BR-SPAY-06)
+                .requestMatchers("/api/suppliers/**", "/api/inbound-receipts/**", "/api/supplier-debts/**")
+                .hasAnyRole(WAREHOUSE, ADMIN)
 
                 // Khách hàng (gồm bảng giá riêng) và phiếu bán: ai cũng xem được, bán hàng + quản trị mới ghi
                 .requestMatchers(HttpMethod.GET, "/api/customers/**", "/api/sales-orders/**").authenticated()
@@ -125,7 +127,9 @@ public class SecurityConfig {
                 .requestMatchers("/api/inventory/**").authenticated()
 
                 .requestMatchers("/api/attendance/**").hasAnyRole(WAREHOUSE, ADMIN)
-                .requestMatchers("/api/employees/**", "/api/payrolls/**").hasRole(ADMIN)
+                // Gồm tạm ứng (/api/employees/{id}/advances), trả lương (/api/payrolls/{tháng}/items/...) và công nợ nhân viên
+                // (BR-EPAY-06): chỉ quản lý hệ thống
+                .requestMatchers("/api/employees/**", "/api/payrolls/**", "/api/employee-debts/**").hasRole(ADMIN)
 
                 .anyRequest().denyAll();
     }

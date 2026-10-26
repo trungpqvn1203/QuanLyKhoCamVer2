@@ -18,8 +18,8 @@ public record MonthlyAttendanceResponse(
         List<Row> employees) {
 
     /**
-     * paysByDay / paysByTon: nhân viên có lương ngày / đơn giá tấn không (BR-EMP-02) — để giao diện làm mờ phần
-     * không tính tiền, không lộ đơn giá ra bảng công.
+     * paysByDay / paysByUnload / paysByDelivery: nhân viên có lương ngày / đơn giá tấn bốc xuống / đơn giá tấn giao
+     * hàng không (BR-EMP-02, BR-EMP-04) — để giao diện làm mờ phần không tính tiền, không lộ đơn giá ra bảng công.
      */
     public record Row(
             Long employeeId,
@@ -27,9 +27,11 @@ public record MonthlyAttendanceResponse(
             String employeeName,
             boolean active,
             boolean paysByDay,
-            boolean paysByTon,
+            boolean paysByUnload,
+            boolean paysByDelivery,
             BigDecimal totalWorkUnits,
-            BigDecimal totalTons,
+            BigDecimal totalUnloadTons,
+            BigDecimal totalDeliveryTons,
             List<AttendanceDay> days) {
     }
 }

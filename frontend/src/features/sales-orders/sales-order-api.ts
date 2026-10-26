@@ -16,6 +16,11 @@ export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
   BANK_TRANSFER: 'Chuyển khoản',
 }
 
+/** Chiều tiền: thu của khách (phiếu bán) hay trả cho NCC (phiếu nhập, BR-SPAY). Chỉ đổi chữ hiển thị. */
+export type PaymentDirection = 'receive' | 'pay'
+
+export const PAYMENT_VERB: Record<PaymentDirection, string> = { receive: 'Thu', pay: 'Trả' }
+
 export interface SalesOrderLine {
   id: number
   productId: number
@@ -94,6 +99,8 @@ export interface PaymentInput {
   paymentDate?: string
   cashAmount?: number
   transferAmount?: number
+  /** Chỉ trả lương (BR-EPAY-02): phần trừ vào tạm ứng của nhân viên */
+  advanceDeduction?: number
   note?: string
 }
 

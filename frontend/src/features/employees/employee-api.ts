@@ -11,8 +11,12 @@ export interface Employee {
   phone?: string
   /** BR-EMP-02: lương 1 ngày công; không có = không hưởng theo ngày */
   dailyWage?: number
-  /** BR-EMP-02: đơn giá 1 tấn bốc vác; không có = không hưởng theo tấn */
-  tonRate?: number
+  /** BR-EMP-02: đơn giá 1 tấn bốc xuống hàng; không có = không hưởng theo cách này */
+  unloadTonRate?: number
+  /** BR-EMP-04: đơn giá 1 tấn đi giao hàng (khác đơn giá bốc xuống); không có = không hưởng theo cách này */
+  deliveryTonRate?: number
+  /** BR-EPAY-03: tiền đã ứng và chưa trừ vào lương; luôn có, ≥ 0 */
+  advanceBalance: number
   active: boolean
   createdAt: string
   updatedAt: string
@@ -23,7 +27,8 @@ export interface CreateEmployeeInput {
   phone?: string
   // null: người dùng xóa ô → backend bỏ cách tính lương đó (PUT = thay toàn bộ)
   dailyWage?: number | null
-  tonRate?: number | null
+  unloadTonRate?: number | null
+  deliveryTonRate?: number | null
 }
 
 export interface UpdateEmployeeInput extends CreateEmployeeInput {

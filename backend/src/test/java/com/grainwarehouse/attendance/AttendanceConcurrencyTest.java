@@ -49,7 +49,7 @@ class AttendanceConcurrencyTest {
     @BeforeEach
     void setUp() {
         employeeId = jdbcTemplate.queryForObject(
-                "INSERT INTO employee (name, ton_rate) VALUES ('NV đồng thời', 50000) RETURNING id", Long.class);
+                "INSERT INTO employee (name, unload_ton_rate) VALUES ('NV đồng thời', 50000) RETURNING id", Long.class);
     }
 
     @AfterEach
@@ -74,7 +74,7 @@ class AttendanceConcurrencyTest {
                     futures.add(pool.submit(() -> {
                         start.await();
                         return attendanceService.record(employeeId, date,
-                                new AttendanceRequest(DayStatus.FULL, tons, null));
+                                new AttendanceRequest(DayStatus.FULL, tons, null, null));
                     }));
                 }
                 start.countDown();

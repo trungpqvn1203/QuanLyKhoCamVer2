@@ -5,6 +5,47 @@ Ghi dồn sau mỗi module, ôn tập ở cuối dự án. Mỗi mục: **khái 
 
 ---
 
+## Module: Công nợ nhân viên — trả lương và tạm ứng (2026-10-26, migration V18)
+
+- **Nợ hai chiều trong cùng một người.** Công ty nợ nhân viên lương chưa trả; nhân viên nợ công ty tiền đã ứng. Hai món nợ nằm ở hai chỗ: `payroll_item.paid_amount` (lương, theo từng tháng) và `employee.advance_balance` (tạm ứng, theo người). Màn công nợ tính `netAmount = lương chưa trả − dư tạm ứng`: dương là công ty nợ, âm là nhân viên đang giữ nhiều hơn.
+- **"Trừ tạm ứng" là một hình thức thanh toán, không phải một loại nợ riêng.** Cách gọn nhất: thêm `ADVANCE_DEDUCTION` vào cùng cột `method` của `payroll_payment` (bên cạnh `CASH`, `BANK_TRANSFER`). Một lần trả lương "300.000 tiền mặt + 150.000 trừ tạm ứng" thành 2 dòng, tổng 450.000 giảm nợ lương 450.000; dòng thứ hai còn làm giảm `advance_balance` 150.000. Hệ quả cần nhớ: dòng `ADVANCE_DEDUCTION` **không có tiền ra khỏi quỹ** — module dòng tiền sau này phải loại nó ra, nếu không sẽ đếm lương hai lần (một lần lúc ứng, một lần lúc trừ).
+- **CHECK ở DB chặn số ÂM, không chặn CẬP NHẬT BỊ MẤT.** Thử đột biến: bỏ khóa `FOR UPDATE` trên dòng nhân viên, rồi 5 luồng cùng trừ 60.000 từ số dư 100.000 ở 5 tháng khác nhau. Kết quả: cả 5 đều "thành công" (mong đợi 1). Mỗi luồng đọc số dư 100.000, thấy đủ, ghi 40.000 — số dư cuối vẫn là 40.000, **không âm nên CHECK không phản ứng**, nhưng tiền đã trừ 5 lần 60.000 = 300.000 trong nhật ký. Chỉ khóa (đọc nhân viên bằng `findForUpdate`) mới đúng. Bài học: ràng buộc DB là chốt chặn cuối cho những sai lầm *rõ ràng* (số âm, vượt tổng); sai lệch kiểu "hai người cùng thấy đủ" phải chặn bằng khóa + kiểm tra sau khi khóa.
+- **Thứ tự khóa cố định để không deadlock:** khóa THÁNG (advisory, cùng khóa với chấm công/chốt/hủy chốt lương) → khóa NHÂN VIÊN (số dư tạm ứng) → khóa DÒNG LƯƠNG. Mọi thao tác thay đổi đi theo đúng thứ tự này. Khóa tháng còn giải quyết một vấn đề khác: trả lương và hủy chốt bảng lương xếp hàng nhau, nên không thể "hủy chốt trong lúc có người đang trả lương".
+- **Hibernate `@Immutable` chặn luôn cập nhật.** `PayrollItem` trước đây `@Immutable` (bản chụp lương không bao giờ đổi). Thêm `paid_amount` cần cập nhật được, nhưng với `@Immutable` Hibernate lặng lẽ bỏ qua mọi UPDATE — không báo lỗi, chỉ là số không đổi. Cách làm: bỏ `@Immutable`, đặt `updatable = false` cho mọi cột bản chụp, chỉ để `paid_amount` đổi được qua `addPaidAmount`. Bài học: bảo vệ "bất biến" bằng nhiều lớp, và biết lớp nào chặn quá tay.
+- **Cờ cho dữ liệu cũ ở đúng mức của nó.** `tracks_debt` đặt ở `payroll` (mỗi tháng một bản), không ở từng dòng lương, vì "bảng lương này chốt trước module" là tính chất của cả bản chốt. Hủy chốt rồi chốt lại một tháng cũ tạo bản mới với `DEFAULT TRUE` → phát sinh nợ: hợp lý vì đó là một lần chốt mới.
+- **Hoàn khoản ứng không được làm số dư âm.** Ứng 200.000, đã trừ 150.000 vào lương, còn dư 50.000. Hoàn khoản ứng 200.000 sẽ đưa số dư về −150.000 — vô nghĩa. Vì vậy hoàn khoản ứng chỉ được khi `advance_balance ≥ amount`; muốn hoàn thì phải hoàn khoản trừ lương trước. Test `reverseAdvanceShouldRequireEnoughBalance` đi đủ chuỗi này.
+- **Kiểm tra bất biến tổng bằng nhật ký.** Số dư là snapshot, nhật ký là sự thật; test `assertAdvanceBalanceMatchesLedger` tính lại số dư từ hai bảng nhật ký sau mỗi kịch bản (ứng − hoàn ứng − trừ lương + hoàn trừ lương) và so với cột `advance_balance`. Nếu code quên cập nhật snapshot ở một đường nào đó, test này bắt được dù từng test riêng lẻ vẫn xanh.
+- **Component dùng chung bằng generic.** `PaymentSection<P extends PaymentRow>` dùng cho thu tiền phiếu bán, trả NCC và trả lương: ba loại dòng khác nhau về `method` (trả lương có thêm "Trừ tạm ứng") nhưng cùng hình dạng. `PaymentModal` có thêm ô "Trừ tạm ứng" chỉ khi truyền `advanceBalance`.
+
+### Câu hỏi ôn tập (để cuối dự án)
+
+1. `ck_employee_advance_balance` đã có mà vẫn cần khóa `FOR UPDATE` trên nhân viên — vì sao? Cho kịch bản hai request cùng lúc làm lộ ra điều đó.
+2. Vì sao trừ tạm ứng được ghi như một `method` của `payroll_payment` chứ không phải một bảng riêng? Hệ quả với báo cáo dòng tiền là gì?
+3. Thứ tự khóa tháng → nhân viên → dòng lương ngăn deadlock như thế nào? Điều gì xảy ra nếu một thao tác khóa dòng lương trước nhân viên?
+4. Vì sao hoàn một khoản tạm ứng có thể bị từ chối dù khoản đó chưa từng được hoàn?
+
+---
+
+## Thay đổi: tách tấn bốc xuống / tấn giao hàng (2026-10-26, migration V17)
+
+- **RENAME hay thêm cột mới? Hỏi "ý nghĩa dữ liệu cũ có đổi không".** Lần đổi người liên hệ → mã số thuế (V15) phải xóa cột cũ vì "Chị Lan" không phải MST. Lần này tấn cũ **vốn là tấn bốc xuống** (đã xác nhận), nên `RENAME COLUMN tons TO unload_tons` giữ nguyên dữ liệu, không phải copy cột, không mất bản chụp của bảng lương đã chốt. Cột mới (`delivery_*`) chỉ cần giá trị mặc định "không có": 0 cho số lượng và tiền, NULL cho đơn giá. Nếu tấn cũ lẫn cả hai loại thì RENAME là sai và không có cách tự tách.
+- **DEFAULT chỉ để lấp dữ liệu cũ.** Ở `payroll_item`, `delivery_tons` và `delivery_amount` thêm với `DEFAULT 0` để các dòng cũ có giá trị, rồi `DROP DEFAULT` ngay: dòng lương mới bắt buộc ghi rõ cả hai phần. Nếu để DEFAULT, một đoạn code quên tính phần giao hàng vẫn lưu được và âm thầm trả thiếu lương. Ngược lại `attendance.delivery_tons` giữ `DEFAULT 0` vì "không nhập = 0" là nghiệp vụ.
+- **Làm tròn từng phần, không làm tròn tổng.** `0,001 tấn × 52.500 = 52,5`. Làm tròn `HALF_UP` từng phần: 53 + 53 = **106**. Cộng trước rồi làm tròn: 105. Hai cách lệch nhau 1 đồng, nên quy tắc BR-PAY-01 phải nói rõ "mỗi phần", và có một ràng buộc CHECK `total = day + unload + delivery` chặn lưu tổng sai. Test `shouldRoundEachPartSeparately` kiểm đúng ca này.
+- **Kiểm chứng migration bằng dữ liệu thật, không chỉ bằng test.** Test của dự án chạy Flyway trên DB trống nên không chứng minh được "dữ liệu cũ còn nguyên sau V17". Cách làm: tạo DB tạm, chạy V1→V16, chèn dữ liệu kiểu cũ (nhân viên có `ton_rate`, chấm công có `tons`, bảng lương đã chốt), chạy V17, so sánh trước/sau, xong xóa DB tạm. Đây là bước nên làm cho mọi migration biến đổi dữ liệu.
+- **Lỗi nhỏ đáng nhớ:** gõ tiếng Việt vào `psql -c` trên shell Windows báo `invalid byte sequence for encoding "UTF8"` (shell gửi bảng mã Windows), trông giống lỗi ràng buộc nhưng không phải. Khi thử ràng buộc bằng tay, dùng tên không dấu.
+- **Đổi tên field thì mọi tầng đổi theo.** `tonRate` xuất hiện ở entity, DTO, service, mẫu Excel nhập nhân viên (nên phải tăng `EMPLOYEE_v1` → `v2`), response bảng công/bảng lương, kiểu TypeScript, form, danh sách, bảng lương và hơn 10 file test. TypeScript và trình biên dịch Java bắt được gần hết chỗ sót; chỗ trình biên dịch **không** bắt được là chuỗi trong JSON/SQL của test, nên phải tìm bằng `grep`.
+
+---
+
+## Module: Công nợ nhà cung cấp (2026-10-25, migration V16)
+
+- **Dữ liệu cũ khi thêm nghiệp vụ mới: cờ hay số giả?** Phiếu nhập đã hoàn tất trước module này phải "coi như đã trả đủ". Cách dễ nghĩ ra là gán `paid_amount = total_amount`. Nhưng `paid_amount` là **snapshot** của nhật ký `supplier_payment`: gán như vậy thì tổng không khớp với nhật ký (đã trả 10 triệu mà không có dòng trả nào), và phiếu cũ bị khóa đảo theo BR-SPAY-04. Cờ `tracks_debt = FALSE` nói thẳng điều đã xảy ra: "phiếu này không theo dõi công nợ". Mọi chỗ tính nợ (`getOutstandingAmount`, câu GROUP BY, bộ lọc `unpaidOnly`) đều phải tôn trọng cờ này, nên test `legacyReceiptShouldBeTreatedAsPaid` kiểm cả bốn chỗ.
+- **Hibernate giữ bản cũ trong bộ nhớ.** Test giả lập phiếu cũ bằng `jdbcTemplate.update("... tracks_debt = FALSE")`. Phiếu đó vẫn nằm trong persistence context với `tracksDebt = true`, nên request sau đọc lại **object trong bộ nhớ**, không đọc DB. Phải gọi `flush()` (đẩy thay đổi của Hibernate xuống DB) trước câu UPDATE, rồi `clear()` (bỏ bản cũ) sau câu UPDATE.
+- **Dùng lại mẫu, không dùng lại bảng.** Trả tiền NCC giống hệt thu tiền khách về cấu trúc (PAYMENT/REVERSAL, hai dòng khi trả kết hợp, trigger bất biến, khóa phiếu `FOR UPDATE` rồi mới kiểm tra). Code dùng chung kiểu `PaymentMethod` và DTO request, nhưng dữ liệu nằm ở **bảng riêng** `supplier_payment`. Lý do: chiều tiền và quyền khác nhau, và module bán hàng đã duyệt không bị đụng tới. Ở frontend, phần "Thanh toán" và hộp thoại trả/thu tiền được tách thành component dùng chung, chỉ khác chữ ("Thu" / "Trả").
+- **Quy tắc chéo giữa hai nghiệp vụ.** Đảo phiếu nhập (nghiệp vụ kho) giờ phụ thuộc trả tiền (nghiệp vụ tiền): đã trả thì không đảo được. Nếu không chặn, đảo phiếu xong thì món nợ biến mất mà tiền đã chi vẫn nằm đó, không gắn với chứng từ nào. Đây cũng là lý do module **dòng tiền** phải làm sau công nợ: nó gom các khoản thu/chi từ `sale_payment` và `supplier_payment`.
+
+---
+
 ## Thay đổi: NCC bỏ "người liên hệ", thêm "mã số thuế" (2026-10-24, migration V15)
 
 - **Đổi nghĩa một cột = thêm cột mới + xóa cột cũ, không `RENAME`.** `ALTER TABLE ... RENAME COLUMN contact_name TO tax_code` chỉ đổi tên, dữ liệu giữ nguyên. Khi đó "Chị Lan" sẽ thành mã số thuế: dữ liệu sai, và còn vi phạm CHECK mới nên migration fail ngay. RENAME chỉ dùng khi **ý nghĩa giữ nguyên**, chỉ tên cột đổi.

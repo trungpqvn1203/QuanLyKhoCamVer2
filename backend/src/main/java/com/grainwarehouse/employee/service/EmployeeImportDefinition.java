@@ -27,7 +27,8 @@ public class EmployeeImportDefinition implements ImportDefinition<CreateEmployee
 
     @Override
     public String templateId() {
-        return "EMPLOYEE_v1";
+        // v2 (2026-10-26): "Đơn giá tấn" tách thành đơn giá tấn bốc xuống và tấn giao hàng — mẫu v1 bị từ chối, không đọc lệch cột
+        return "EMPLOYEE_v2";
     }
 
     @Override
@@ -47,20 +48,22 @@ public class EmployeeImportDefinition implements ImportDefinition<CreateEmployee
                 ImportColumn.optional("phone", "Số điện thoại",
                         "Bắt đầu bằng 0, 10–11 chữ số; được dùng khoảng trắng, dấu chấm, gạch ngang").asText(),
                 ImportColumn.optional("dailyWage", "Lương ngày (đồng)",
-                        "Số ≥ 0, tối đa 2 chữ số thập phân. Phải có lương ngày hoặc đơn giá tấn"),
-                ImportColumn.optional("tonRate", "Đơn giá tấn (đồng/tấn)",
-                        "Số ≥ 0, tối đa 2 chữ số thập phân. Phải có lương ngày hoặc đơn giá tấn"));
+                        "Số ≥ 0, tối đa 2 chữ số thập phân. Phải có ít nhất một trong ba loại lương"),
+                ImportColumn.optional("unloadTonRate", "Đơn giá tấn bốc xuống (đồng/tấn)",
+                        "Số ≥ 0, tối đa 2 chữ số thập phân. Phải có ít nhất một trong ba loại lương"),
+                ImportColumn.optional("deliveryTonRate", "Đơn giá tấn giao hàng (đồng/tấn)",
+                        "Số ≥ 0, tối đa 2 chữ số thập phân. Phải có ít nhất một trong ba loại lương"));
     }
 
     @Override
     public List<String> example() {
-        return List.of("Nguyễn Văn Bốc", "0912 345 678", "300000", "25000");
+        return List.of("Nguyễn Văn Bốc", "0912 345 678", "300000", "25000", "30000");
     }
 
     @Override
     public CreateEmployeeRequest parse(ImportRow row) {
         return new CreateEmployeeRequest(row.text("name"), row.text("phone"), row.decimal("dailyWage"),
-                row.decimal("tonRate"));
+                row.decimal("unloadTonRate"), row.decimal("deliveryTonRate"));
     }
 
     @Override

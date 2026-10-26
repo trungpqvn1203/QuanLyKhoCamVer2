@@ -1,8 +1,13 @@
-import { CheckOutlined, RollbackOutlined, SaveOutlined, StopOutlined } from '@ant-design/icons'
+import { CheckOutlined, DollarOutlined, RollbackOutlined, SaveOutlined, StopOutlined } from '@ant-design/icons'
 import { Alert, App, Button, Drawer, Flex, Form, Skeleton } from 'antd'
 import { useEffect, useMemo, useState } from 'react'
 import { ApiError } from '../../api/client'
 import { toFormFieldErrors } from '../../api/form-errors'
+import { formatDate } from '../../utils/format'
+import { formatVnd } from '../../utils/money'
+import { PaymentModal } from '../sales-orders/PaymentModal'
+import { PAYMENT_METHOD_LABELS } from '../sales-orders/sales-order-api'
+import type { PaymentInput, SalePayment } from '../sales-orders/sales-order-api'
 import { inboundReceiptApi } from './inbound-receipt-api'
 import type { InboundReceipt } from './inbound-receipt-api'
 import { InboundReceiptForm } from './InboundReceiptForm'
@@ -26,13 +31,13 @@ interface InboundReceiptDrawerProps {
 /** Rộng đủ cho bảng dòng hàng 8 cột; màn hình hẹp hơn thì Drawer tự co, bảng cuộn ngang. */
 const DRAWER_WIDTH = 1080
 
-type ReasonAction = 'cancel' | 'reverse'
+type ReasonAction = { kind: 'cancel' } | { kind: 'reverse' } | { kind: 'reversePayment'; payment: SalePayment }
 
 /**
  * Khung phiếu nhập — một phiếu một khung, từ lúc tạo đến lúc hoàn tất/đảo (ADR-0002: Drawer thay trang riêng).
  * Nội dung theo trạng thái (BR-IMP-11..13):
  * - Tạo mới / Nháp: form sửa được; nút Lưu nháp, Hoàn tất; phiếu nháp đã lưu có thêm Hủy phiếu.
- * - Hoàn tất: chỉ xem; nút Đảo phiếu.
+ * - Hoàn tất: chỉ xem; nút Đảo phiếu, Trả tiền NCC (BR-SPAY), Hoàn khoản trả trong bảng thanh toán.
  * - Đã hủy / Đã đảo: chỉ xem.
  * Nút chỉ là gợi ý cho người dùng — quyết định cuối cùng ở backend (khóa + kiểm tra lại trạng thái),
  * nên phiếu bị người khác đổi trạng thái trong lúc đang mở vẫn được chặn đúng, lỗi hiện trong khung.
@@ -49,6 +54,7 @@ export function InboundReceiptDrawer({ open, receiptId, references, onClose, onC
   const [busy, setBusy] = useState<'save' | 'complete' | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [reasonAction, setReasonAction] = useState<ReasonAction | null>(null)
+  const [paying, setPaying] = useState(false)
 
   useEffect(() => {
     if (receiptId === null) return
@@ -170,23 +176,73 @@ export function InboundReceiptDrawer({ open, receiptId, references, onClose, onC
     })
   }
 
-  // Ném lỗi ra để ReasonModal (FormModal) giữ hộp mở và hiện lỗi, ví dụ "Không đủ tồn" khi đảo
-  const submitReason = async (reason: string | undefined) => {
-    if (!receipt || !reasonAction) return
-    const updated =
-      reasonAction === 'cancel'
-        ? await inboundReceiptApi.cancel(receipt.id, reason)
-        : await inboundReceiptApi.reverse(receipt.id, reason ?? '')
+  // Ném lỗi ra để PaymentModal giữ hộp mở và hiện lỗi (ví dụ vượt số còn nợ do người khác vừa trả)
+  const submitPayment = async (input: PaymentInput) => {
+    if (!receipt) return
+    const updated = await inboundReceiptApi.recordPayment(receipt.id, input)
     setReceipt(updated)
     setErrorMessage(null)
     notification.success({
-      title: reasonAction === 'cancel' ? 'Đã hủy phiếu nhập' : 'Đã đảo phiếu nhập',
-      description:
-        reasonAction === 'cancel'
-          ? `${updated.code} · phiếu được giữ lại để tra cứu`
-          : `${updated.code} · tồn kho ${updated.warehouseName} đã trừ lại`,
+      title: 'Đã ghi nhận trả tiền nhà cung cấp',
+      description: `${updated.code} · còn nợ ${formatVnd(updated.outstandingAmount)}`,
     })
     onChanged()
+  }
+
+  // Ném lỗi ra để ReasonModal (FormModal) giữ hộp mở và hiện lỗi, ví dụ "Không đủ tồn" / "đã trả tiền" khi đảo
+  const submitReason = async (reason: string | undefined) => {
+    if (!receipt || !reasonAction) return
+    let updated: InboundReceipt
+    let title: string
+    let description: string
+    if (reasonAction.kind === 'cancel') {
+      updated = await inboundReceiptApi.cancel(receipt.id, reason)
+      title = 'Đã hủy phiếu nhập'
+      description = `${updated.code} · phiếu được giữ lại để tra cứu`
+    } else if (reasonAction.kind === 'reverse') {
+      updated = await inboundReceiptApi.reverse(receipt.id, reason ?? '')
+      title = 'Đã đảo phiếu nhập'
+      description = `${updated.code} · tồn kho ${updated.warehouseName} đã trừ lại`
+    } else {
+      updated = await inboundReceiptApi.reversePayment(receipt.id, reasonAction.payment.id, reason ?? '')
+      title = 'Đã hoàn khoản trả'
+      description = `${updated.code} · còn nợ ${formatVnd(updated.outstandingAmount)}`
+    }
+    setReceipt(updated)
+    setErrorMessage(null)
+    notification.success({ title, description })
+    onChanged()
+  }
+
+  const reasonTexts = (action: ReasonAction, current: InboundReceipt) => {
+    switch (action.kind) {
+      case 'cancel':
+        return {
+          title: `Hủy phiếu nhập ${current.code}?`,
+          description:
+            'Phiếu nháp chưa tác động tồn kho. Sau khi hủy, phiếu được giữ lại để tra cứu nhưng không sửa hay hoàn tất được nữa.',
+          submitText: 'Hủy phiếu',
+        }
+      case 'reverse':
+        return {
+          title: `Đảo phiếu nhập ${current.code}?`,
+          description:
+            `Tồn kho ${current.warehouseName} sẽ bị trừ lại đúng số đã nhập; lịch sử giữ cả giao dịch nhập và giao dịch đảo. ` +
+            'Mỗi phiếu chỉ đảo được một lần. Nếu hàng đã xuất bớt và tồn không đủ, hệ thống sẽ từ chối.' +
+            (current.paidAmount > 0
+              ? ` Phiếu đã trả ${formatVnd(current.paidAmount)} cho NCC — phải hoàn các khoản trả trước, nếu không hệ thống sẽ từ chối.`
+              : ''),
+          submitText: 'Đảo phiếu',
+        }
+      case 'reversePayment':
+        return {
+          title: `Hoàn khoản trả ${formatVnd(action.payment.amount)}?`,
+          description:
+            `${PAYMENT_METHOD_LABELS[action.payment.method]} ngày ${formatDate(action.payment.paymentDate)}. ` +
+            'Khoản trả gốc được giữ lại trong lịch sử, kèm một dòng hoàn trỏ về nó; số còn nợ NCC tăng lại tương ứng.',
+          submitText: 'Hoàn khoản trả',
+        }
+    }
   }
 
   const requestClose = () => {
@@ -221,13 +277,18 @@ export function InboundReceiptDrawer({ open, receiptId, references, onClose, onC
       <Flex justify="space-between" gap={8} wrap>
         <Flex gap={8}>
           {receipt?.status === 'DRAFT' && (
-            <Button danger icon={<StopOutlined />} disabled={busy !== null} onClick={() => setReasonAction('cancel')}>
+            <Button danger icon={<StopOutlined />} disabled={busy !== null} onClick={() => setReasonAction({ kind: 'cancel' })}>
               Hủy phiếu
             </Button>
           )}
           {receipt?.status === 'COMPLETED' && (
-            <Button danger icon={<RollbackOutlined />} onClick={() => setReasonAction('reverse')}>
+            <Button danger icon={<RollbackOutlined />} onClick={() => setReasonAction({ kind: 'reverse' })}>
               Đảo phiếu
+            </Button>
+          )}
+          {receipt?.status === 'COMPLETED' && receipt.outstandingAmount > 0 && (
+            <Button icon={<DollarOutlined />} onClick={() => setPaying(true)}>
+              Trả tiền
             </Button>
           )}
         </Flex>
@@ -291,27 +352,36 @@ export function InboundReceiptDrawer({ open, receiptId, references, onClose, onC
               disabled={busy !== null}
             />
           ) : (
-            receipt && <InboundReceiptView receipt={receipt} />
+            receipt && (
+              <InboundReceiptView
+                receipt={receipt}
+                onReversePayment={
+                  receipt.status === 'COMPLETED' ? (payment) => setReasonAction({ kind: 'reversePayment', payment }) : undefined
+                }
+              />
+            )
           )}
         </>
       )}
 
-      {receipt && (
+      {receipt && reasonAction && (
         <ReasonModal
           // Đổi key theo thao tác → form lý do luôn trống khi mở lại
-          key={reasonAction ?? 'closed'}
-          open={reasonAction !== null}
-          required={reasonAction === 'reverse'}
-          title={reasonAction === 'reverse' ? `Đảo phiếu nhập ${receipt.code}?` : `Hủy phiếu nhập ${receipt.code}?`}
-          description={
-            reasonAction === 'reverse'
-              ? `Tồn kho ${receipt.warehouseName} sẽ bị trừ lại đúng số đã nhập; lịch sử giữ cả giao dịch nhập và giao dịch đảo. ` +
-                'Mỗi phiếu chỉ đảo được một lần. Nếu hàng đã xuất bớt và tồn không đủ, hệ thống sẽ từ chối.'
-              : 'Phiếu nháp chưa tác động tồn kho. Sau khi hủy, phiếu được giữ lại để tra cứu nhưng không sửa hay hoàn tất được nữa.'
-          }
-          submitText={reasonAction === 'reverse' ? 'Đảo phiếu' : 'Hủy phiếu'}
+          key={reasonAction.kind === 'reversePayment' ? `payment-${reasonAction.payment.id}` : reasonAction.kind}
+          open
+          required={reasonAction.kind !== 'cancel'}
+          {...reasonTexts(reasonAction, receipt)}
           onSubmit={submitReason}
           onClose={() => setReasonAction(null)}
+        />
+      )}
+      {receipt && paying && (
+        <PaymentModal
+          open
+          direction="pay"
+          document={{ code: receipt.code, counterpartyName: receipt.supplierName, outstandingAmount: receipt.outstandingAmount }}
+          onSubmit={submitPayment}
+          onClose={() => setPaying(false)}
         />
       )}
     </Drawer>

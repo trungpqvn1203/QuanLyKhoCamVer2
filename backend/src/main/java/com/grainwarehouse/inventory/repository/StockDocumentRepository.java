@@ -60,4 +60,21 @@ public interface StockDocumentRepository
             group by d.customer.id
             """)
     List<CustomerDebtRow> sumOutstandingByCustomer(@Param("customerId") Long customerId);
+
+    /**
+     * BR-SPAY-01: công nợ theo NCC = tổng (tổng phiếu − đã trả) của phiếu nhập Hoàn tất còn nợ.
+     * Bỏ phiếu cũ không theo dõi công nợ (BR-SPAY-05) và phiếu Đã đảo (đảo chỉ được khi chưa trả, BR-SPAY-04).
+     */
+    @Query("""
+            select d.supplier.id as supplierId, sum(d.totalAmount - d.paidAmount) as outstandingAmount,
+                   count(d) as openReceiptCount, min(d.documentDate) as oldestDocumentDate
+            from StockDocument d
+            where d.type = com.grainwarehouse.inventory.entity.StockDocumentType.INBOUND
+              and d.status = com.grainwarehouse.inventory.entity.StockDocumentStatus.COMPLETED
+              and d.tracksDebt = true
+              and d.paidAmount < d.totalAmount
+              and (:supplierId is null or d.supplier.id = :supplierId)
+            group by d.supplier.id
+            """)
+    List<SupplierDebtRow> sumOutstandingBySupplier(@Param("supplierId") Long supplierId);
 }

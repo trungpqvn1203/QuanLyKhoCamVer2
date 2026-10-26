@@ -23,7 +23,11 @@ public record CreateEmployeeRequest(
         @Digits(integer = 13, fraction = 2, message = "Lương ngày tối đa 13 chữ số phần nguyên và 2 chữ số thập phân")
         BigDecimal dailyWage,
 
-        @PositiveOrZero(message = "Đơn giá tấn không được âm")
-        @Digits(integer = 13, fraction = 2, message = "Đơn giá tấn tối đa 13 chữ số phần nguyên và 2 chữ số thập phân")
-        BigDecimal tonRate) {
+        @PositiveOrZero(message = "Đơn giá tấn bốc xuống không được âm")
+        @Digits(integer = 13, fraction = 2, message = "Đơn giá tấn bốc xuống tối đa 13 chữ số phần nguyên và 2 chữ số thập phân")
+        BigDecimal unloadTonRate,
+
+        @PositiveOrZero(message = "Đơn giá tấn giao hàng không được âm")
+        @Digits(integer = 13, fraction = 2, message = "Đơn giá tấn giao hàng tối đa 13 chữ số phần nguyên và 2 chữ số thập phân")
+        BigDecimal deliveryTonRate) {
 }

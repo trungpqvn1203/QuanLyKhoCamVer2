@@ -22,7 +22,9 @@ function cellTooltip(
 ): string {
   if (future) return 'Chưa đến ngày'
   const content = day
-    ? `${DAY_STATUS_LABELS[day.status]}${day.tons > 0 ? ` · ${tonsFormat.format(day.tons)} tấn` : ''}${day.note ? ` · ${day.note}` : ''}`
+    ? `${DAY_STATUS_LABELS[day.status]}${day.unloadTons > 0 ? ` · ${tonsFormat.format(day.unloadTons)} tấn bốc xuống` : ''}${
+        day.deliveryTons > 0 ? ` · ${tonsFormat.format(day.deliveryTons)} tấn giao hàng` : ''
+      }${day.note ? ` · ${day.note}` : ''}`
     : 'Chưa chấm'
   if (payrollLocked) return `${content} — tháng đã chốt lương, không sửa được`
   if (inactive) return `${content} — nhân viên đã nghỉ việc, cho làm lại nếu cần sửa công`
@@ -117,8 +119,12 @@ export function AttendancePage() {
           }}
         >
           <div style={{ fontWeight: 600 }}>{day ? DAY_STATUS_SYMBOLS[day.status] : '·'}</div>
-          {day && day.tons > 0 && (
-            <div style={{ fontSize: 11, color: token.colorText }}>{tonsFormat.format(day.tons)}</div>
+          {/* Hai số nhỏ: đen = tấn bốc xuống, màu chủ đạo = tấn giao hàng (chú giải ở dưới tiêu đề) */}
+          {day && day.unloadTons > 0 && (
+            <div style={{ fontSize: 11, color: token.colorText }}>{tonsFormat.format(day.unloadTons)}</div>
+          )}
+          {day && day.deliveryTons > 0 && (
+            <div style={{ fontSize: 11, color: token.colorPrimary }}>{tonsFormat.format(day.deliveryTons)}</div>
           )}
         </button>
       </Tooltip>
@@ -187,14 +193,26 @@ export function AttendancePage() {
         ),
     },
     {
-      title: 'Tấn',
-      key: 'tons',
+      title: 'Bốc xuống',
+      key: 'unloadTons',
       fixed: 'right',
       width: 90,
       align: 'right',
       render: (_, row) => (
-        <Typography.Text strong={row.paysByTon} type={row.paysByTon ? undefined : 'secondary'}>
-          {tonsFormat.format(row.totalTons)}
+        <Typography.Text strong={row.paysByUnload} type={row.paysByUnload ? undefined : 'secondary'}>
+          {tonsFormat.format(row.totalUnloadTons)}
+        </Typography.Text>
+      ),
+    },
+    {
+      title: 'Giao hàng',
+      key: 'deliveryTons',
+      fixed: 'right',
+      width: 90,
+      align: 'right',
+      render: (_, row) => (
+        <Typography.Text strong={row.paysByDelivery} type={row.paysByDelivery ? undefined : 'secondary'}>
+          {tonsFormat.format(row.totalDeliveryTons)}
         </Typography.Text>
       ),
     },
@@ -202,7 +220,7 @@ export function AttendancePage() {
 
   return (
     <>
-      <PageHeader title="Chấm công" description="Bảng công tháng: ngày công và tấn bốc vác của từng nhân viên" />
+      <PageHeader title="Chấm công" description="Bảng công tháng: ngày công, tấn bốc xuống và tấn giao hàng của từng nhân viên" />
       <Flex justify="space-between" align="center" wrap gap="small" style={{ marginBottom: 12 }}>
         <MonthNavigator value={month} onChange={goTo} onReload={reload} />
         <Space size="middle" wrap>
@@ -212,7 +230,10 @@ export function AttendancePage() {
               {DAY_STATUS_LABELS[status]}
             </Typography.Text>
           ))}
-          <Typography.Text type="secondary">· Chưa chấm · số nhỏ dưới ký hiệu = tấn bốc vác</Typography.Text>
+          <Typography.Text type="secondary">
+            · Chưa chấm · số nhỏ dưới ký hiệu: <span>tấn bốc xuống</span>,{' '}
+            <span style={{ color: token.colorPrimary }}>tấn giao hàng</span>
+          </Typography.Text>
         </Space>
       </Flex>
       {sheet?.payrollFinalized && (

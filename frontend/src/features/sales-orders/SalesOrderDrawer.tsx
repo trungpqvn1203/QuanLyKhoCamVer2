@@ -359,7 +359,15 @@ export function SalesOrderDrawer({ open, orderId, references, onClose, onChanged
           onClose={() => setReasonAction(null)}
         />
       )}
-      {order && paying && <PaymentModal open order={order} onSubmit={submitPayment} onClose={() => setPaying(false)} />}
+      {order && paying && (
+        <PaymentModal
+          open
+          direction="receive"
+          document={{ code: order.code, counterpartyName: order.customerName, outstandingAmount: order.outstandingAmount }}
+          onSubmit={submitPayment}
+          onClose={() => setPaying(false)}
+        />
+      )}
     </Drawer>
   )
 }

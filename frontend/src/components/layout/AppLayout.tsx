@@ -1,4 +1,4 @@
-import { AccountBookOutlined, AppstoreOutlined, CalendarOutlined, DollarOutlined, DownOutlined, ExportOutlined, HistoryOutlined, HomeOutlined, IdcardOutlined, ImportOutlined, KeyOutlined, LogoutOutlined, SafetyOutlined, ShopOutlined, TeamOutlined, UserOutlined } from '@ant-design/icons'
+import { AccountBookOutlined, AppstoreOutlined, CalendarOutlined, DollarOutlined, DownOutlined, ExportOutlined, HistoryOutlined, HomeOutlined, IdcardOutlined, ImportOutlined, KeyOutlined, LogoutOutlined, SafetyOutlined, ShopOutlined, TeamOutlined, UserOutlined, UsergroupAddOutlined, WalletOutlined } from '@ant-design/icons'
 import { App, Breadcrumb, Button, Dropdown, Flex, Layout, Menu, Typography, theme } from 'antd'
 import type { MenuProps } from 'antd'
 import type { ReactNode } from 'react'
@@ -28,11 +28,15 @@ const MENU_ITEMS: MenuEntry[] = [
   { key: '/customers', icon: <TeamOutlined />, label: 'Khách hàng' },
   { key: '/inbound-receipts', icon: <ImportOutlined />, label: 'Nhập kho', permission: 'inbound' },
   { key: '/sales-orders', icon: <ExportOutlined />, label: 'Bán hàng' },
-  { key: '/customer-debts', icon: <AccountBookOutlined />, label: 'Công nợ', permission: 'debts' },
+  { key: '/customer-debts', icon: <AccountBookOutlined />, label: 'Công nợ khách', permission: 'debts' },
+  // Cùng quyền với phiếu nhập: quản lý kho trả tiền NCC (BR-SPAY-06)
+  { key: '/supplier-debts', icon: <WalletOutlined />, label: 'Công nợ NCC', permission: 'inbound' },
   { key: '/stock-transactions', icon: <HistoryOutlined />, label: 'Lịch sử kho' },
   { key: '/employees', icon: <IdcardOutlined />, label: 'Nhân viên', permission: 'employees' },
   { key: '/attendance', icon: <CalendarOutlined />, label: 'Chấm công', permission: 'attendance' },
   { key: '/payroll', icon: <DollarOutlined />, label: 'Bảng lương', permission: 'payroll' },
+  // Cùng quyền với bảng lương: chỉ quản lý hệ thống (BR-EPAY-06)
+  { key: '/employee-debts', icon: <UsergroupAddOutlined />, label: 'Công nợ NV', permission: 'payroll' },
   { key: '/users', icon: <SafetyOutlined />, label: 'Người dùng', permission: 'users' },
 ]
 
