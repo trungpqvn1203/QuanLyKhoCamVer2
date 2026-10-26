@@ -276,6 +276,25 @@ _(Trả lời BR-SAL-Q01: có công nợ, chỉ ở mức phiếu bán + lịch 
 - **BR-EPAY-A01:** Chỉ ứng tiền cho nhân viên **đang làm việc** (giống chấm công, BR-ATT-02). Trả lương cho nhân viên đã nghỉ vẫn được; hoàn khoản ứng cũ của người đã nghỉ vẫn được.
 - **BR-EPAY-A02:** Tạm ứng gắn với nhân viên, không gắn với tháng nào; người trả lương tự quyết định trừ vào tháng nào.
 
+## Sổ quỹ (tiền mặt, tài khoản)
+
+> Thiết kế: migration V19. Sổ quỹ đọc thẳng từ các bảng thanh toán đã có qua VIEW `cash_flow_entry` — không chép tiền sang bảng mới.
+
+### ✅ Đã xác nhận (2026-10-26)
+
+- **BR-CASH-01:** Hai nơi giữ tiền: **một quỹ tiền mặt** (`CASH`) và **một tài khoản ngân hàng** (`BANK`). Thu/chi bằng tiền mặt vào quỹ, bằng chuyển khoản vào tài khoản. Không có nhiều tài khoản / nhiều quỹ.
+- **BR-CASH-02:** Sổ quỹ gồm: thu tiền khách (+), trả NCC (−), trả lương (−) **trừ phần "trừ tạm ứng"** (không có tiền ra), tạm ứng nhân viên (−), phiếu thu (+) / phiếu chi (−) khác. Dòng hoàn tính ngược chiều khoản gốc. Ngày ghi sổ = ngày thu / trả / ứng / lập phiếu (không phải lúc bấm nút). Một ngày sắp theo thời điểm ghi.
+- **BR-CASH-03:** Sổ quỹ bắt đầu từ **ngày đầu kỳ** với số dư tiền mặt và tài khoản (≥ 0, đồng nguyên) do người dùng nhập; khoản có ngày trước đó **không tính**. Ngày đầu kỳ không ở tương lai. Đầu kỳ **sửa được** (là cấu hình), nhưng mọi lần đặt/sửa ghi lịch sử (giá trị cũ, giá trị mới, người sửa, thời điểm). Chưa đặt đầu kỳ thì chưa xem sổ, chưa lập phiếu được.
+- **BR-CASH-04:** **Phiếu thu / phiếu chi khác** (tiền điện, xăng xe, góp vốn...): mã tự sinh `PT` / `PC` + 6 chữ số, có tài khoản (CASH/BANK), danh mục, số tiền (> 0, đồng nguyên), ngày (mặc định hôm nay, chọn tự do nhưng **không trước ngày đầu kỳ**), người nộp / nhận (tùy chọn), ghi chú. Phiếu **bất biến**: ghi nhầm → **phiếu hoàn** (mã gốc + `-H`, lý do bắt buộc, ngày = hôm nay), mỗi phiếu hoàn một lần.
+- **BR-CASH-05:** Danh mục thu/chi do người dùng tạo, mỗi danh mục thuộc chiều **Thu** hoặc **Chi** (cố định từ lúc tạo), tên không trùng (không phân biệt hoa thường). Phiếu chỉ dùng danh mục **đang dùng** và **cùng chiều**. Không xóa danh mục, chỉ ngừng dùng.
+- **BR-CASH-06:** Số dư được phép **âm** — **không chặn** khoản chi nào, chỉ **cảnh báo đỏ** (số âm báo hiệu số dư đầu kỳ sai hoặc có khoản thu chưa ghi). Số dư "hiện tại" = đầu kỳ + mọi khoản có ngày từ đầu kỳ tới **hôm nay**; khoản ghi ngày tương lai chưa tính.
+- **BR-CASH-07:** Xem sổ quỹ, lập phiếu thu/chi, đặt đầu kỳ, quản lý danh mục: **chỉ Quản lý hệ thống** (sổ quỹ lộ cả doanh thu lẫn lương).
+
+### ❓ Câu hỏi mở
+
+- **BR-CASH-Q01:** Có cần **chuyển tiền nội bộ** (nộp tiền mặt vào tài khoản, rút tài khoản về quỹ) không? Hiện có thể ghi tạm bằng một phiếu chi tiền mặt + một phiếu thu tài khoản.
+- **BR-CASH-Q02:** Khi nào cần **chặn quỹ âm** hoặc **nhiều tài khoản**? Khi đó phải chuyển sổ quỹ từ VIEW sang bảng ghi kèm từng giao dịch (để khóa số dư) — xem database.md.
+
 ## Tài khoản, đăng nhập, phân quyền
 
 > Thiết kế kỹ thuật: [ADR-0003](../decisions/ADR-0003-authentication.md).

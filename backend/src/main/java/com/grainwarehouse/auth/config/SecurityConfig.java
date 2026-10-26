@@ -130,6 +130,8 @@ public class SecurityConfig {
                 // Gồm tạm ứng (/api/employees/{id}/advances), trả lương (/api/payrolls/{tháng}/items/...) và công nợ nhân viên
                 // (BR-EPAY-06): chỉ quản lý hệ thống
                 .requestMatchers("/api/employees/**", "/api/payrolls/**", "/api/employee-debts/**").hasRole(ADMIN)
+                // Sổ quỹ lộ cả doanh thu lẫn lương (BR-CASH-07): chỉ quản lý hệ thống
+                .requestMatchers("/api/cash-book/**", "/api/cash-vouchers/**", "/api/cash-categories/**").hasRole(ADMIN)
 
                 .anyRequest().denyAll();
     }

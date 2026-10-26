@@ -169,6 +169,7 @@ DELETE /api/products/:id          # Xóa (soft delete)
 | Phiếu bán | `GET/POST /api/sales-orders`, `GET/PUT /api/sales-orders/{id}`, `POST …/{id}/complete`, `…/cancel`, `…/reverse`, `POST …/{id}/payments`, `POST …/{id}/payments/{paymentId}/reverse` | Xem mục **Phiếu bán, thanh toán, công nợ** bên dưới. Không có DELETE → 405 |
 | Giá riêng của khách | `GET /api/customers/{id}/prices`, `PUT/DELETE /api/customers/{id}/prices/{productId}` | Xem mục **Phiếu bán, thanh toán, công nợ** |
 | Công nợ khách | `GET /api/customer-debts?customerId=` | Xem mục **Phiếu bán, thanh toán, công nợ** |
+| Sổ quỹ, phiếu thu/chi | `GET /api/cash-book?account=`, `GET /api/cash-book/summary`, `GET/PUT /api/cash-book/opening`; `GET/POST /api/cash-vouchers`, `POST …/{id}/reverse`; `GET/POST /api/cash-categories`, `PUT …/{id}` | Chỉ `SYSTEM_ADMIN`. Xem mục **Sổ quỹ** bên dưới |
 | Tạm ứng, trả lương, công nợ nhân viên | `GET/POST /api/employees/{id}/advances`, `POST …/advances/{advanceId}/reverse`; `GET /api/payrolls/{YYYY-MM}/items/{employeeId}`, `POST …/payments`, `POST …/payments/{paymentId}/reverse`; `GET /api/employee-debts?employeeId=` | Chỉ `SYSTEM_ADMIN`. Xem mục **Công nợ nhân viên** bên dưới |
 | Trả tiền NCC, công nợ NCC | `POST /api/inbound-receipts/{id}/payments`, `POST …/{id}/payments/{paymentId}/reverse`, `GET /api/supplier-debts?supplierId=` | Xem mục **Trả tiền và công nợ nhà cung cấp** bên dưới |
 | Lịch sử biến động tồn | `GET /api/inventory/transactions` | Chỉ đọc (POST → 405). Xem mục **Lịch sử biến động tồn** bên dưới |
@@ -196,6 +197,23 @@ Lọc `GET /api/inbound-receipts` (tất cả tùy chọn):
 | `status` | `DRAFT` \| `COMPLETED` \| `CANCELLED` \| `REVERSED` | Sai giá trị → 400 |
 | `warehouseId`, `supplierId` | number | Kho nhận / NCC |
 | `documentDateFrom`, `documentDateTo` | `YYYY-MM-DD` | Ngày chứng từ trong khoảng, hai đầu đều tính |
+
+**Sổ quỹ: tiền mặt, tài khoản, phiếu thu/chi** (thêm 2026-10-26, BR-CASH-01..07) — chỉ `SYSTEM_ADMIN`:
+
+| Endpoint | Body / tham số | Kết quả / lỗi |
+|---|---|---|
+| `GET /api/cash-book/opening` | — | `{ configured, startDate?, openingCash?, openingBank?, updatedAt?, changes: [{ oldStartDate?, oldOpeningCash?, oldOpeningBank?, newStartDate, newOpeningCash, newOpeningBank, changedBy, changedAt }] }` (lịch sử mới nhất trước) |
+| `PUT /api/cash-book/opening` | `{ startDate, openingCash, openingBank }` | 200, như trên. Ngày tương lai → 400 field `startDate`; số âm / lẻ đồng / thiếu → 400 field tương ứng. Mỗi lần gọi thêm một dòng lịch sử |
+| `GET /api/cash-book/summary` | — | `{ configured, today, startDate?, cash?, bank? }`, mỗi tài khoản `{ account, balance, todayIn, todayOut, negative }`. Chưa đặt đầu kỳ → `configured: false` (200) |
+| `GET /api/cash-book` | `account` (bắt buộc: `CASH`\|`BANK`), `from`, `to` (`YYYY-MM-DD`, mặc định đầu tháng → hôm nay), `source` (tùy chọn: `SALE_PAYMENT`\|`SUPPLIER_PAYMENT`\|`PAYROLL_PAYMENT`\|`EMPLOYEE_ADVANCE`\|`CASH_VOUCHER`) | `{ account, startDate, from, to, source?, openingBalance, totalIn, totalOut, closingBalance, negative, entries: [{ source, sourceId, account, entryDate, amount (có dấu), direction (IN\|OUT), reference?, counterparty?, category?, note?, reversal, reversed, createdAt, balance? }] }`. `from` sớm hơn đầu kỳ → kéo về ngày đầu kỳ. Lọc `source` → tổng thu/chi chỉ của nguồn đó, không có `balance` từng dòng; đầu/cuối khoảng vẫn của cả tài khoản. Chưa đặt đầu kỳ → 409; thiếu `account` → 400 field `account`; `to` < `from` hoặc trước đầu kỳ → 400 field `to`; quá 366 ngày → 400 field `from` |
+| `GET /api/cash-vouchers` | `keyword` (mã / người nộp-nhận), `direction`, `account`, `categoryId`, `voucherDateFrom`, `voucherDateTo`, phân trang (mặc định id giảm dần) | Trang `{ id, code, type (VOUCHER\|REVERSAL), direction, account, categoryId, categoryName, amount, voucherDate, counterparty?, note?, reversalOfId?, reversalOfCode?, reversed, createdAt }` |
+| `POST /api/cash-vouchers` | `{ direction (IN\|OUT), account, categoryId, amount, voucherDate?, counterparty?, note? }` | 201, mã `PT…` / `PC…`. Chưa đặt đầu kỳ → 409; danh mục khác chiều → 400 field `categoryId`; danh mục ngừng dùng → 409; không có → 404; ngày trước đầu kỳ → 400 field `voucherDate`; số tiền ≤ 0 / lẻ → 400 field `amount` |
+| `POST /api/cash-vouchers/{id}/reverse` | `{ reason }` (bắt buộc) | 201, phiếu hoàn mã gốc + `-H`, ngày hôm nay. Đã hoàn / là phiếu hoàn → 409 |
+| `GET /api/cash-categories` | — | `[{ id, name, direction, active, createdAt, updatedAt }]` — thu trước, chi sau, theo tên |
+| `POST /api/cash-categories` | `{ name, direction }` | 201. Trùng tên (kể cả đã ngừng) → 409 `DUPLICATE_RESOURCE` |
+| `PUT /api/cash-categories/{id}` | `{ name, active }` | 200. Không đổi được `direction` |
+
+Thiếu query param bắt buộc (mọi endpoint, thêm 2026-10-26) → 400 `VALIDATION_FAILED`, `details: [{ field: <tên tham số> }]` (trước đây rơi vào 500).
 
 **Công nợ nhân viên: tạm ứng và trả lương** (thêm 2026-10-26, BR-EPAY-01..06) — chỉ `SYSTEM_ADMIN`:
 

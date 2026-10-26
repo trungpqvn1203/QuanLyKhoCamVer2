@@ -32,6 +32,7 @@ Ràng buộc đổi: `ck_employee_has_rate` (ít nhất một trong ba đơn gi�
 | `customer_product_price` | Giá bán riêng hiện hành theo (khách, SP) — chỉ để điền sẵn | ✅ Đã duyệt 2026-10-20 (V13) |
 | `sale_payment` | Lịch sử thanh toán của phiếu bán (bất biến) | ✅ Đã duyệt 2026-10-20 (V13) |
 | `supplier_payment` | Lịch sử trả tiền NCC trên phiếu nhập (bất biến) | ✅ Đã duyệt 2026-10-25 (V16) |
+| `cash_book`, `cash_book_change`, `cash_category`, `cash_voucher` + VIEW `cash_flow_entry` | Sổ quỹ: đầu kỳ (1 dòng) + lịch sử sửa, danh mục thu/chi, phiếu thu/chi khác (bất biến); VIEW gộp mọi biến động tiền | ✅ Đã duyệt 2026-10-26 (V19) |
 | `employee_advance`, `payroll_payment` | Nhật ký tạm ứng nhân viên và nhật ký trả lương theo dòng lương (bất biến) | ✅ Đã duyệt 2026-10-26 (V18) |
 | `app_user`, `app_user_role` | Tài khoản đăng nhập (mật khẩu băm BCrypt) + vai trò, một người nhiều vai trò | ✅ Đã duyệt 2026-10-20 (V14, ADR-0003) |
 | `refresh_token` | Refresh token đã phát — chỉ lưu SHA-256; rotation theo family, thu hồi được (KHÔNG bất biến) | ✅ Đã duyệt 2026-10-20 (V14, ADR-0003) |
@@ -305,6 +306,14 @@ erDiagram
 - `reversal_of_id` UNIQUE + `ck_sale_payment_reversal` (REVERSAL ⇔ có `reversal_of_id`): mỗi khoản hoàn đúng một lần.
 - Trigger `trg_sale_payment_immutable` / `trg_sale_payment_no_truncate` chặn UPDATE/DELETE/TRUNCATE như `stock_transaction`.
 - Công nợ khách = `SUM(total_amount − paid_amount)` của phiếu `OUTBOUND` + `COMPLETED` còn nợ, `GROUP BY customer_id` — không có bảng số dư.
+
+### Sổ quỹ: VIEW cash_flow_entry + phiếu thu/chi (✅ đã duyệt — migration V19)
+
+- **Không chép tiền sang bảng mới.** `cash_flow_entry` là VIEW `UNION ALL` của `sale_payment` (+), `supplier_payment` (−), `payroll_payment` (−, **bỏ** `ADVANCE_DEDUCTION`), `employee_advance` (−) và `cash_voucher` (phiếu thu +, phiếu chi −). Dòng hoàn đảo dấu. `method` `CASH` → tài khoản `CASH`, `BANK_TRANSFER` → `BANK`. Cột: `source, source_id, account, entry_date, amount` (có dấu)`, reference, counterparty, category, note, is_reversal, reversed, created_at`.
+- **Vì sao VIEW:** một nguồn số liệu duy nhất (sổ quỹ không bao giờ lệch chứng từ) và không sửa 4 module đã duyệt. **Đổi sang bảng ghi kèm từng giao dịch** (cùng transaction với thanh toán) khi cần **chặn quỹ âm** hoặc **nhiều tài khoản** — lúc đó phải có số dư lưu riêng để khóa `FOR UPDATE`, VIEW không khóa được.
+- Số dư không lưu: số dư tại ngày D = đầu kỳ + `SUM(amount)` các dòng có `entry_date` trong [đầu kỳ, D]. Số dư lũy kế từng dòng dùng `SUM(amount) OVER (ORDER BY entry_date, created_at, source, source_id)` — thứ tự đủ chặt để số dư không nhảy. Đọc bằng `NamedParameterJdbcTemplate` (VIEW không có entity JPA).
+- `cash_book`: đúng một dòng (`CHECK id = 1`), số dư đầu kỳ ≥ 0. `cash_book_change`: lịch sử đặt/sửa đầu kỳ, bất biến (trigger).
+- `cash_voucher`: mã `PT`/`PC` + 6 số (2 sequence), phiếu hoàn = mã gốc + `-H`; `direction` là chiều của phiếu GỐC (phiếu hoàn giữ nguyên, dấu đảo nhờ `type = REVERSAL`); `reversal_of_id` UNIQUE; trigger chặn UPDATE/DELETE/TRUNCATE (hàm `prevent_cash_change` dùng chung, thông báo nêu tên bảng). `cash_category`: `UNIQUE (lower(name))`, `direction` không đổi sau khi tạo.
 
 ### employee_advance, payroll_payment, số dư tạm ứng (Công nợ nhân viên — BẤT BIẾN) (✅ đã duyệt — migration V18)
 

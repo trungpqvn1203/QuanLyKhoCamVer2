@@ -15,6 +15,7 @@ import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
@@ -90,6 +91,13 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiResponse<Void>> handleMultipart(MultipartException ex) {
         return error(HttpStatus.BAD_REQUEST, "VALIDATION_FAILED", VALIDATION_MESSAGE,
                 List.of(new ApiErrorDetail("file", "Cần gửi file dạng multipart/form-data")));
+    }
+
+    // Thiếu query param bắt buộc (ví dụ GET /api/cash-book không có ?account=) — trước đây rơi vào lỗi 500
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    public ResponseEntity<ApiResponse<Void>> handleMissingParameter(MissingServletRequestParameterException ex) {
+        return error(HttpStatus.BAD_REQUEST, "VALIDATION_FAILED", VALIDATION_MESSAGE,
+                List.of(new ApiErrorDetail(ex.getParameterName(), "Thiếu tham số bắt buộc")));
     }
 
     // Path/query param sai kiểu (ví dụ /api/products/abc)
