@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 import { Link, Navigate, createBrowserRouter } from 'react-router-dom'
 import { AppLayout } from './components/layout/AppLayout'
 import { AttendancePage } from './features/attendance/AttendancePage'
+import { CashBookPage } from './features/cash-book/CashBookPage'
 import { LoginPage } from './features/auth/LoginPage'
 import { RequireAuth, RequirePermission } from './features/auth/RequireAuth'
 import type { Permission } from './features/auth/permissions'
@@ -49,6 +50,7 @@ export const router = createBrowserRouter([
       { path: 'attendance', element: guarded('attendance', <AttendancePage />) },
       { path: 'payroll', element: guarded('payroll', <PayrollPage />) },
       { path: 'employee-debts', element: guarded('payroll', <EmployeeDebtPage />) },
+      { path: 'cash-book', element: guarded('cashbook', <CashBookPage />) },
       { path: 'users', element: guarded('users', <UserListPage />) },
       {
         path: '*',
