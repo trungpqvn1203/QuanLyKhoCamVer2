@@ -16,6 +16,7 @@ export type Permission =
   | 'employees'
   | 'payroll'
   | 'cashbook' // sổ quỹ, phiếu thu/chi khác (BR-CASH-07)
+  | 'opening' // số dư đầu kỳ: tồn kho (BR-OPN-09)
   | 'users'
 
 const GRANTS: Record<Permission, Role[]> = {
@@ -29,6 +30,7 @@ const GRANTS: Record<Permission, Role[]> = {
   employees: ['SYSTEM_ADMIN'],
   payroll: ['SYSTEM_ADMIN'],
   cashbook: ['SYSTEM_ADMIN'],
+  opening: ['SYSTEM_ADMIN'],
   users: ['SYSTEM_ADMIN'],
 }
 

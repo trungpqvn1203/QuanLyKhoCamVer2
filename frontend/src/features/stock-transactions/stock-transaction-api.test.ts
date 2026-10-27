@@ -65,6 +65,8 @@ describe('movementKind', () => {
     expect(movementKind({ documentType: 'INBOUND', reversalOfId: 1 })).toBe('INBOUND_REVERSAL')
     expect(movementKind({ documentType: 'OUTBOUND' })).toBe('SALE')
     expect(movementKind({ documentType: 'OUTBOUND', reversalOfId: 1 })).toBe('SALE_REVERSAL')
+    expect(movementKind({ documentType: 'OPENING_STOCK' })).toBe('OPENING')
+    expect(movementKind({ documentType: 'OPENING_STOCK', reversalOfId: 1 })).toBe('OPENING_REVERSAL')
   })
 })
 

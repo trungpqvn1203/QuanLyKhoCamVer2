@@ -1,4 +1,4 @@
-import { AccountBookOutlined, AppstoreOutlined, BankOutlined, CalendarOutlined, DollarOutlined, DownOutlined, ExportOutlined, HistoryOutlined, HomeOutlined, IdcardOutlined, ImportOutlined, KeyOutlined, LogoutOutlined, SafetyOutlined, ShopOutlined, TeamOutlined, UserOutlined, UsergroupAddOutlined, WalletOutlined } from '@ant-design/icons'
+import { AccountBookOutlined, AppstoreOutlined, BankOutlined, CalendarOutlined, DollarOutlined, DownOutlined, ExportOutlined, FlagOutlined, HistoryOutlined, HomeOutlined, IdcardOutlined, ImportOutlined, KeyOutlined, LogoutOutlined, SafetyOutlined, ShopOutlined, TeamOutlined, UserOutlined, UsergroupAddOutlined, WalletOutlined } from '@ant-design/icons'
 import { App, Breadcrumb, Button, Dropdown, Flex, Layout, Menu, Typography, theme } from 'antd'
 import type { MenuProps } from 'antd'
 import type { ReactNode } from 'react'
@@ -15,10 +15,12 @@ const { Sider, Header, Content } = Layout
 
 interface MenuEntry {
   key: string
-  icon: ReactNode
+  icon?: ReactNode
   label: string
   /** Không có = mọi vai trò đều xem được */
   permission?: Permission
+  /** Có = nhóm xổ xuống; key của nhóm không phải đường dẫn */
+  children?: MenuEntry[]
 }
 
 const MENU_ITEMS: MenuEntry[] = [
@@ -38,8 +40,43 @@ const MENU_ITEMS: MenuEntry[] = [
   // Cùng quyền với bảng lương: chỉ quản lý hệ thống (BR-EPAY-06)
   { key: '/employee-debts', icon: <UsergroupAddOutlined />, label: 'Công nợ NV', permission: 'payroll' },
   { key: '/cash-book', icon: <BankOutlined />, label: 'Sổ quỹ', permission: 'cashbook' },
+  {
+    key: 'opening',
+    icon: <FlagOutlined />,
+    label: 'Số dư đầu kỳ',
+    children: [{ key: '/opening/stocks', label: 'Tồn kho đầu kỳ', permission: 'opening' }],
+  },
   { key: '/users', icon: <SafetyOutlined />, label: 'Người dùng', permission: 'users' },
 ]
+
+/** Mục người dùng được phép; nhóm không còn mục con nào thì ẩn luôn nhóm. */
+function visibleEntries(entries: MenuEntry[], allowed: (permission: Permission) => boolean): MenuEntry[] {
+  return entries.flatMap((entry) => {
+    if (entry.permission && !allowed(entry.permission)) return []
+    if (!entry.children) return [entry]
+    const children = visibleEntries(entry.children, allowed)
+    return children.length > 0 ? [{ ...entry, children }] : []
+  })
+}
+
+function toMenuItems(entries: MenuEntry[]): NonNullable<MenuProps['items']> {
+  return entries.map(({ key, icon, label, children }) =>
+    children ? { key, icon, label, children: toMenuItems(children) } : { key, icon, label },
+  )
+}
+
+/** Mục trang đang mở (khớp cả URL có thêm đoạn con) kèm nhóm chứa nó, để sáng menu và dựng breadcrumb. */
+function findCurrent(entries: MenuEntry[], pathname: string, group?: MenuEntry): { entry: MenuEntry; group?: MenuEntry } | null {
+  for (const entry of entries) {
+    if (entry.children) {
+      const found = findCurrent(entry.children, pathname, entry)
+      if (found) return found
+    } else if (pathname.startsWith(entry.key)) {
+      return { entry, group }
+    }
+  }
+  return null
+}
 
 /** Cao bằng Header mặc định của Ant Design để logo thẳng hàng với breadcrumb. */
 const HEADER_HEIGHT = 64
@@ -57,11 +94,10 @@ export function AppLayout() {
   const { user, logout } = useAuth()
   const [changingPassword, setChangingPassword] = useState(false)
   // Chỉ hiện mục người dùng được phép — ẩn cho gọn; quyền thật do backend kiểm
-  const menuItems = MENU_ITEMS.filter((item) => !item.permission || can(user, item.permission)).map(
-    ({ key, icon, label }) => ({ key, icon, label }),
-  )
+  const entries = visibleEntries(MENU_ITEMS, (permission) => can(user, permission))
+  const menuItems = toMenuItems(entries)
   // Menu sáng đúng mục kể cả khi URL có thêm đoạn con (ví dụ /products/1 sau này)
-  const current = MENU_ITEMS.find((item) => pathname.startsWith(item.key))
+  const current = findCurrent(entries, pathname)
 
   const userMenu: MenuProps = {
     items: [
@@ -123,7 +159,9 @@ export function AppLayout() {
           theme="dark"
           mode="inline"
           items={menuItems}
-          selectedKeys={current ? [current.key] : []}
+          selectedKeys={current ? [current.entry.key] : []}
+          // Mở sẵn nhóm chứa trang đang xem (vào thẳng bằng URL vẫn thấy mục sáng)
+          defaultOpenKeys={current?.group ? [current.group.key] : []}
           onClick={({ key }) => navigate(key)}
         />
       </Sider>
@@ -137,7 +175,13 @@ export function AppLayout() {
             borderBottom: `1px solid ${token.colorBorderSecondary}`,
           }}
         >
-          <Breadcrumb items={[{ title: 'Kho Cám' }, ...(current ? [{ title: current.label }] : [])]} />
+          <Breadcrumb
+            items={[
+              { title: 'Kho Cám' },
+              ...(current?.group ? [{ title: current.group.label }] : []),
+              ...(current ? [{ title: current.entry.label }] : []),
+            ]}
+          />
           <Dropdown menu={userMenu} trigger={['click']} placement="bottomRight">
             <Button type="text" icon={<UserOutlined />} style={{ marginInlineStart: 'auto' }}>
               {user?.fullName} <DownOutlined />

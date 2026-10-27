@@ -12,6 +12,7 @@ import { CustomerListPage } from './features/customers/CustomerListPage'
 import { EmployeeDebtPage } from './features/employee-debts/EmployeeDebtPage'
 import { EmployeeListPage } from './features/employees/EmployeeListPage'
 import { InboundReceiptListPage } from './features/inbound-receipts/InboundReceiptListPage'
+import { OpeningStockListPage } from './features/opening-stocks/OpeningStockListPage'
 import { PayrollPage } from './features/payroll/PayrollPage'
 import { ProductListPage } from './features/products/ProductListPage'
 import { SalesOrderListPage } from './features/sales-orders/SalesOrderListPage'
@@ -51,6 +52,7 @@ export const router = createBrowserRouter([
       { path: 'payroll', element: guarded('payroll', <PayrollPage />) },
       { path: 'employee-debts', element: guarded('payroll', <EmployeeDebtPage />) },
       { path: 'cash-book', element: guarded('cashbook', <CashBookPage />) },
+      { path: 'opening/stocks', element: guarded('opening', <OpeningStockListPage />) },
       { path: 'users', element: guarded('users', <UserListPage />) },
       {
         path: '*',

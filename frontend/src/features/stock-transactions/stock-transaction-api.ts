@@ -7,11 +7,12 @@ import type { ProductUnit } from '../products/product-api'
 export type StockTransactionType = 'IN' | 'OUT'
 
 /** Loại chứng từ gây ra biến động. Điều chuyển kho thêm sau. */
-export type StockDocumentType = 'INBOUND' | 'OUTBOUND'
+export type StockDocumentType = 'INBOUND' | 'OUTBOUND' | 'OPENING_STOCK'
 
 export const DOCUMENT_TYPE_LABELS: Record<StockDocumentType, string> = {
   INBOUND: 'Phiếu nhập',
   OUTBOUND: 'Phiếu bán',
+  OPENING_STOCK: 'Tồn đầu kỳ',
 }
 
 export const TRANSACTION_TYPE_LABELS: Record<StockTransactionType, string> = {
@@ -59,20 +60,34 @@ export type StockTransactionFilters = {
   createdTo?: string
 }
 
-export type MovementKind = 'INBOUND' | 'INBOUND_REVERSAL' | 'SALE' | 'SALE_REVERSAL'
+export type MovementKind =
+  | 'INBOUND'
+  | 'INBOUND_REVERSAL'
+  | 'SALE'
+  | 'SALE_REVERSAL'
+  | 'OPENING'
+  | 'OPENING_REVERSAL'
 
 export const MOVEMENT_LABELS: Record<MovementKind, string> = {
   INBOUND: 'Nhập kho',
   INBOUND_REVERSAL: 'Đảo phiếu nhập',
   SALE: 'Bán hàng',
   SALE_REVERSAL: 'Đảo phiếu bán',
+  OPENING: 'Tồn đầu kỳ',
+  OPENING_REVERSAL: 'Đảo tồn đầu kỳ',
 }
 
 /** Nghiệp vụ đọc được cho người dùng, ghép từ loại chứng từ + có phải giao dịch đảo hay không. */
 export function movementKind(transaction: Pick<StockTransaction, 'documentType' | 'reversalOfId'>): MovementKind {
   const reversal = transaction.reversalOfId !== undefined
-  if (transaction.documentType === 'INBOUND') return reversal ? 'INBOUND_REVERSAL' : 'INBOUND'
-  return reversal ? 'SALE_REVERSAL' : 'SALE'
+  switch (transaction.documentType) {
+    case 'INBOUND':
+      return reversal ? 'INBOUND_REVERSAL' : 'INBOUND'
+    case 'OPENING_STOCK':
+      return reversal ? 'OPENING_REVERSAL' : 'OPENING'
+    default:
+      return reversal ? 'SALE_REVERSAL' : 'SALE'
+  }
 }
 
 /** Số lượng có dấu theo chiều: IN 20 → 20, OUT 5 → -5. */

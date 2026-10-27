@@ -13,6 +13,7 @@ import { EMPTY_TEXT, formatDate, formatDateTime, formatQuantity } from '../../ut
 import { useCan } from '../auth/auth-context'
 import { InboundReceiptDrawer } from '../inbound-receipts/InboundReceiptDrawer'
 import { useReceiptReferences } from '../inbound-receipts/use-receipt-references'
+import { OpeningStockDrawer } from '../opening-stocks/OpeningStockDrawer'
 import { PRODUCT_UNIT_LABELS, productApi } from '../products/product-api'
 import type { Product } from '../products/product-api'
 import { SalesOrderDrawer } from '../sales-orders/SalesOrderDrawer'
@@ -38,6 +39,8 @@ const MOVEMENT_COLORS: Record<MovementKind, string> = {
   SALE: 'processing',
   INBOUND_REVERSAL: 'warning',
   SALE_REVERSAL: 'warning',
+  OPENING: 'purple',
+  OPENING_REVERSAL: 'warning',
 }
 
 const DOCUMENT_TYPE_OPTIONS = (Object.keys(DOCUMENT_TYPE_LABELS) as StockDocumentType[]).map((type) => ({
@@ -69,6 +72,7 @@ type OpenedDocument = { type: StockDocumentType; id: number }
 export function StockTransactionPage() {
   const { token } = theme.useToken()
   const canSeeInbound = useCan('inbound')
+  const canSeeOpening = useCan('opening')
   const [searchParams] = useSearchParams()
   const receiptReferences = useReceiptReferences()
   const salesReferences = useSalesReferences()
@@ -168,8 +172,9 @@ export function StockTransactionPage() {
       width: 140,
       render: (_, transaction) => (
         <Flex vertical align="flex-start">
-          {/* Nhân viên bán hàng không xem được phiếu nhập (ADR-0003) → hiện mã, không mở khung */}
-          {transaction.documentType === 'INBOUND' && !canSeeInbound ? (
+          {/* Không có quyền xem loại phiếu này (ADR-0003, BR-OPN-09) → hiện mã, không mở khung */}
+          {(transaction.documentType === 'INBOUND' && !canSeeInbound) ||
+          (transaction.documentType === 'OPENING_STOCK' && !canSeeOpening) ? (
             <CodeText code={transaction.documentCode} />
           ) : (
             <CodeLink code={transaction.documentCode} onClick={() => openDocument(transaction)} />
@@ -218,7 +223,7 @@ export function StockTransactionPage() {
     <>
       <PageHeader
         title="Lịch sử tồn kho"
-        description="Mọi lần tăng/giảm tồn do nhập, bán hoặc đảo phiếu. Tồn trước/sau tính riêng tại từng kho — chọn một sản phẩm và một kho để dò tồn hiện tại từng bước"
+        description="Mọi lần tăng/giảm tồn do tồn đầu kỳ, nhập, bán hoặc đảo phiếu. Tồn trước/sau tính riêng tại từng kho — chọn một sản phẩm và một kho để dò tồn hiện tại từng bước"
       />
       <FilterBar<StockTransactionFilters> fields={filterFields} value={filters} onChange={applyFilters} />
       <DataTable<StockTransaction>
@@ -238,6 +243,17 @@ export function StockTransactionPage() {
           open={drawerOpen}
           receiptId={opened.id}
           references={receiptReferences}
+          onClose={() => setDrawerOpen(false)}
+          onChanged={reload}
+        />
+      )}
+      {opened?.type === 'OPENING_STOCK' && (
+        <OpeningStockDrawer
+          key={drawerKey}
+          open={drawerOpen}
+          documentId={opened.id}
+          // Lịch sử chỉ có phiếu đã xác nhận (chỉ xem) — dùng lại kho/SP đã tải cho ô lọc, không gọi thêm API
+          references={{ warehouses: receiptReferences.warehouses, products }}
           onClose={() => setDrawerOpen(false)}
           onChanged={reload}
         />
