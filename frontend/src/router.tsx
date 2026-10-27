@@ -13,6 +13,7 @@ import { CustomerListPage } from './features/customers/CustomerListPage'
 import { EmployeeDebtPage } from './features/employee-debts/EmployeeDebtPage'
 import { EmployeeListPage } from './features/employees/EmployeeListPage'
 import { InboundReceiptListPage } from './features/inbound-receipts/InboundReceiptListPage'
+import { OpeningDebtPage } from './features/opening-debts/OpeningDebtPage'
 import { OpeningStockListPage } from './features/opening-stocks/OpeningStockListPage'
 import { PayrollPage } from './features/payroll/PayrollPage'
 import { ProductListPage } from './features/products/ProductListPage'
@@ -55,6 +56,15 @@ export const router = createBrowserRouter([
       { path: 'cash-book', element: guarded('cashbook', <CashBookPage />) },
       { path: 'opening/cash', element: guarded('cashbook', <CashOpeningPage />) },
       { path: 'opening/stocks', element: guarded('opening', <OpeningStockListPage />) },
+      // key: hai route dùng chung component → đổi trang thì tạo lại, không giữ bộ lọc / state của trang kia
+      {
+        path: 'opening/customer-debts',
+        element: guarded('opening', <OpeningDebtPage key="CUSTOMER" party="CUSTOMER" />),
+      },
+      {
+        path: 'opening/supplier-debts',
+        element: guarded('opening', <OpeningDebtPage key="SUPPLIER" party="SUPPLIER" />),
+      },
       { path: 'users', element: guarded('users', <UserListPage />) },
       {
         path: '*',

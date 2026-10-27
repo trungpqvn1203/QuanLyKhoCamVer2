@@ -48,6 +48,8 @@ const MENU_ITEMS: MenuEntry[] = [
       // Cùng quyền với sổ quỹ (BR-CASH-07)
       { key: '/opening/cash', label: 'Quỹ đầu kỳ', permission: 'cashbook' },
       { key: '/opening/stocks', label: 'Tồn kho đầu kỳ', permission: 'opening' },
+      { key: '/opening/customer-debts', label: 'Công nợ khách đầu kỳ', permission: 'opening' },
+      { key: '/opening/supplier-debts', label: 'Công nợ NCC đầu kỳ', permission: 'opening' },
     ],
   },
   { key: '/users', icon: <SafetyOutlined />, label: 'Người dùng', permission: 'users' },

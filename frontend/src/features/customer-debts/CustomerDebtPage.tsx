@@ -8,6 +8,7 @@ import { CodeLink, CodeText } from '../../components/ui/CodeLink'
 import { formatDate } from '../../utils/format'
 import { formatVnd } from '../../utils/money'
 import { CustomerTypeTag } from '../customers/CustomerTypeTag'
+import { UnpaidOpeningDebts } from '../opening-debts/UnpaidOpeningDebts'
 import type { CustomerType } from '../customers/customer-api'
 import { customerDebtApi, salesOrderApi } from '../sales-orders/sales-order-api'
 import type { CustomerDebt, SalesOrderSummary } from '../sales-orders/sales-order-api'
@@ -144,7 +145,7 @@ export function CustomerDebtPage() {
     <>
       <PageHeader
         title="Công nợ khách hàng"
-        description="Tổng còn nợ trên các phiếu bán đã hoàn tất. Mở rộng một khách để xem từng phiếu và thu tiền"
+        description="Tổng còn nợ trên các phiếu bán đã hoàn tất và nợ đầu kỳ. Mở rộng một khách để xem từng khoản và thu tiền"
         actions={
           <Button icon={<ReloadOutlined />} onClick={reload}>
             Tải lại
@@ -180,7 +181,11 @@ export function CustomerDebtPage() {
             locale={{ emptyText: 'Không có khách nào còn nợ' }}
             expandable={{
               expandedRowRender: (debt) => (
-                <UnpaidOrders customerId={debt.customerId} version={version} onOpen={openOrder} />
+                <>
+                  {/* Nợ đầu kỳ (BR-ODB-05) — không có thì không hiện */}
+                  <UnpaidOpeningDebts party="CUSTOMER" partyId={debt.customerId} version={version} onChanged={reload} />
+                  <UnpaidOrders customerId={debt.customerId} version={version} onOpen={openOrder} />
+                </>
               ),
             }}
           />

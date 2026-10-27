@@ -8,6 +8,7 @@ import { CodeLink, CodeText } from '../../components/ui/CodeLink'
 import { formatDate, orEmpty } from '../../utils/format'
 import { formatVnd } from '../../utils/money'
 import { inboundReceiptApi, supplierDebtApi } from '../inbound-receipts/inbound-receipt-api'
+import { UnpaidOpeningDebts } from '../opening-debts/UnpaidOpeningDebts'
 import type { InboundReceiptSummary, SupplierDebt } from '../inbound-receipts/inbound-receipt-api'
 import { InboundReceiptDrawer } from '../inbound-receipts/InboundReceiptDrawer'
 import { useReceiptReferences } from '../inbound-receipts/use-receipt-references'
@@ -144,7 +145,7 @@ export function SupplierDebtPage() {
     <>
       <PageHeader
         title="Công nợ nhà cung cấp"
-        description="Số tiền mình còn nợ trên các phiếu nhập đã hoàn tất. Mở rộng một NCC để xem từng phiếu và trả tiền"
+        description="Số tiền mình còn nợ trên các phiếu nhập đã hoàn tất và nợ đầu kỳ. Mở rộng một NCC để xem từng khoản và trả tiền"
         actions={
           <Button icon={<ReloadOutlined />} onClick={reload}>
             Tải lại
@@ -180,7 +181,11 @@ export function SupplierDebtPage() {
             locale={{ emptyText: 'Không còn nợ nhà cung cấp nào' }}
             expandable={{
               expandedRowRender: (debt) => (
-                <UnpaidReceipts supplierId={debt.supplierId} version={version} onOpen={openReceipt} />
+                <>
+                  {/* Nợ đầu kỳ (BR-ODB-05) — không có thì không hiện */}
+                  <UnpaidOpeningDebts party="SUPPLIER" partyId={debt.supplierId} version={version} onChanged={reload} />
+                  <UnpaidReceipts supplierId={debt.supplierId} version={version} onOpen={openReceipt} />
+                </>
               ),
             }}
           />

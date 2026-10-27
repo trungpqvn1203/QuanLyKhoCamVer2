@@ -16,7 +16,7 @@ export type Permission =
   | 'employees'
   | 'payroll'
   | 'cashbook' // sổ quỹ, phiếu thu/chi khác (BR-CASH-07)
-  | 'opening' // số dư đầu kỳ: tồn kho (BR-OPN-09)
+  | 'opening' // số dư đầu kỳ: tồn kho (BR-OPN-09), ghi nhận / đảo công nợ đầu kỳ (BR-ODB-08)
   | 'users'
 
 const GRANTS: Record<Permission, Role[]> = {

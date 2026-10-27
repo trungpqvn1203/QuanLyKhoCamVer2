@@ -15,6 +15,8 @@ interface FormModalProps<V> {
   /** Gọi API; ném ApiError nếu thất bại */
   onSubmit: (values: V) => Promise<void>
   onClose: () => void
+  /** Rộng hơn mặc định cho form có bảng nhiều dòng (ví dụ ghi nhận nợ đầu kỳ theo lô) */
+  width?: number
   children: ReactNode
 }
 
@@ -34,6 +36,7 @@ export function FormModal<V extends object>({
   submitText = 'Lưu',
   onSubmit,
   onClose,
+  width,
   children,
 }: FormModalProps<V>) {
   const { modal } = App.useApp()
@@ -84,6 +87,7 @@ export function FormModal<V extends object>({
     <Modal
       open={open}
       title={title}
+      width={width}
       okText={submitText}
       cancelText="Hủy"
       confirmLoading={submitting}
