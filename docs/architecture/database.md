@@ -319,6 +319,15 @@ erDiagram
   2. Sau khi cộng: `quantity_before` của giao dịch vừa ghi phải bằng 0, nếu không → rollback. Lớp 1 đọc lúc chưa khóa nên hai phiếu chứa cùng SP xác nhận cùng lúc đều lọt qua; câu upsert tồn khóa dòng `inventory`, người đến sau chờ rồi thấy tồn khác 0. Thử bỏ lớp 2: 5/5 phiếu đồng thời đều thành công, tồn bị cộng dồn (test `OpeningStockConcurrencyTest` bắt được).
 - Không có UNIQUE ở DB cho cặp (SP, kho) vì điều kiện phụ thuộc lịch sử giao dịch và trạng thái phiếu, không biểu diễn được bằng index trên một bảng.
 
+### Công nợ đầu kỳ: stock_document không kho, không dòng hàng (✅ đã duyệt 2026-10-27 — migration V21)
+
+- `type` thêm `OPENING_CUSTOMER_DEBT` (mã `DKH`, `opening_customer_debt_code_seq`) và `OPENING_SUPPLIER_DEBT` (mã `DNC`, `opening_supplier_debt_code_seq`). Cột `type` nới từ `VARCHAR(20)` lên `VARCHAR(30)` (`OPENING_CUSTOMER_DEBT` dài 21 ký tự).
+- **Vì sao dùng `stock_document`:** `sale_payment` và `supplier_payment` đều có FK `document_id → stock_document`. Đặt khoản nợ cũ ở đây thì dùng lại được hết: thu/trả kết hợp TM + CK, hoàn khoản ghi nhầm, `ck_stock_document_paid` (không thu vượt), trang công nợ, VIEW sổ quỹ (VIEW join `stock_document` lấy mã chứng từ — khoản thu nợ cũ tự hiện mã `DKH…`). Bảng `opening_debt` riêng thì phải làm lại toàn bộ phần tiền và sửa VIEW — hai cơ chế tiền song song dễ lệch nhau.
+- **Đánh đổi:** `warehouse_id` thành nullable. `ck_stock_document_warehouse`: `(type là nợ đầu kỳ) = (warehouse_id IS NULL)` — chứng từ kho vẫn bắt buộc có kho, nợ đầu kỳ bắt buộc không có. Entity `StockDocument.warehouse` bỏ `optional = false`; các truy vấn phiếu nhập / bán / tồn đầu kỳ vẫn lọc theo `type` nên luôn có kho.
+- `ck_stock_document_opening_debt`: nợ khách có `customer_id`, không `supplier_id`; nợ NCC ngược lại; cả hai `tracks_debt = TRUE`. `ck_stock_document_opening_debt_amount`: `total_amount > 0`. Tổng tiền đặt trực tiếp (`StockDocument.setOpeningDebtAmount`, chỉ cho hai loại này) vì không có dòng hàng.
+- **UNIQUE một phần** `uk_stock_document_opening_customer_debt (customer_id) WHERE type = 'OPENING_CUSTOMER_DEBT' AND status = 'COMPLETED'` (và bản NCC): mỗi khách một khoản còn hiệu lực; khoản `REVERSED` không tính nên nhập lại được. Service kiểm tra trước để báo lỗi rõ tên khách; UNIQUE là chốt chặn khi hai người ghi đồng thời (`saveAllAndFlush` để lỗi nổ trong service → 409).
+- Tạo thẳng `COMPLETED` (`completed_at` = lúc ghi nhận) — không có nháp. Truy vấn công nợ `sumOutstandingByCustomer` / `BySupplier` đổi `type = OUTBOUND` / `INBOUND` thành `type IN (…, OPENING_…_DEBT)`.
+
 ### Sổ quỹ: VIEW cash_flow_entry + phiếu thu/chi (✅ đã duyệt — migration V19)
 
 - **Không chép tiền sang bảng mới.** `cash_flow_entry` là VIEW `UNION ALL` của `sale_payment` (+), `supplier_payment` (−), `payroll_payment` (−, **bỏ** `ADVANCE_DEDUCTION`), `employee_advance` (−) và `cash_voucher` (phiếu thu +, phiếu chi −). Dòng hoàn đảo dấu. `method` `CASH` → tài khoản `CASH`, `BANK_TRANSFER` → `BANK`. Cột: `source, source_id, account, entry_date, amount` (có dấu)`, reference, counterparty, category, note, is_reversal, reversed, created_at`.

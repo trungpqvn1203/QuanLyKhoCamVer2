@@ -134,6 +134,13 @@ public class SecurityConfig {
                 .requestMatchers("/api/cash-book/**", "/api/cash-vouchers/**", "/api/cash-categories/**").hasRole(ADMIN)
                 // Số dư đầu kỳ làm tồn tăng mà không qua nhập hàng (BR-OPN-09): chỉ quản lý hệ thống
                 .requestMatchers("/api/opening-stocks", "/api/opening-stocks/**").hasRole(ADMIN)
+                // Công nợ đầu kỳ (BR-ODB-08): ghi nhận và đảo chỉ quản lý hệ thống; xem và thu/trả tiền theo quyền công nợ
+                // tương ứng (khách: bán hàng, NCC: quản lý kho) — thu nợ cũ là việc hằng ngày như thu nợ phiếu bán.
+                // "/*/reverse" chỉ khớp một đoạn id → không dính "/{id}/payments/{paymentId}/reverse"
+                .requestMatchers(HttpMethod.POST, "/api/opening-customer-debts", "/api/opening-customer-debts/*/reverse",
+                        "/api/opening-supplier-debts", "/api/opening-supplier-debts/*/reverse").hasRole(ADMIN)
+                .requestMatchers("/api/opening-customer-debts", "/api/opening-customer-debts/**").hasAnyRole(SALES, ADMIN)
+                .requestMatchers("/api/opening-supplier-debts", "/api/opening-supplier-debts/**").hasAnyRole(WAREHOUSE, ADMIN)
 
                 .anyRequest().denyAll();
     }

@@ -13,6 +13,7 @@ import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -49,15 +50,40 @@ public interface StockDocumentRepository
     @Query(value = "SELECT nextval('opening_stock_code_seq')", nativeQuery = true)
     long nextOpeningStockCodeNumber();
 
+    // BR-ODB-01: mã công nợ đầu kỳ DKH (khách) / DNC (NCC)
+    @Query(value = "SELECT nextval('opening_customer_debt_code_seq')", nativeQuery = true)
+    long nextOpeningCustomerDebtCodeNumber();
+
+    @Query(value = "SELECT nextval('opening_supplier_debt_code_seq')", nativeQuery = true)
+    long nextOpeningSupplierDebtCodeNumber();
+
+    /** Khách đã có nợ đầu kỳ còn hiệu lực (BR-ODB-03) — để báo lỗi rõ trước khi đụng UNIQUE ở DB. */
+    @Query("""
+            select d.customer.id from StockDocument d
+            where d.type = com.grainwarehouse.inventory.entity.StockDocumentType.OPENING_CUSTOMER_DEBT
+              and d.status = com.grainwarehouse.inventory.entity.StockDocumentStatus.COMPLETED
+              and d.customer.id in :customerIds
+            """)
+    List<Long> findCustomersWithOpeningDebt(@Param("customerIds") Collection<Long> customerIds);
+
+    @Query("""
+            select d.supplier.id from StockDocument d
+            where d.type = com.grainwarehouse.inventory.entity.StockDocumentType.OPENING_SUPPLIER_DEBT
+              and d.status = com.grainwarehouse.inventory.entity.StockDocumentStatus.COMPLETED
+              and d.supplier.id in :supplierIds
+            """)
+    List<Long> findSuppliersWithOpeningDebt(@Param("supplierIds") Collection<Long> supplierIds);
+
     /**
-     * BR-SAL-10: công nợ theo khách = tổng (tổng phiếu − đã thu) của phiếu bán Hoàn tất còn nợ.
-     * Phiếu Đã đảo không tính (đảo chỉ được khi chưa thu đồng nào, BR-SAL-14).
+     * BR-SAL-10: công nợ theo khách = tổng (tổng phiếu − đã thu) của phiếu bán Hoàn tất còn nợ, cộng nợ đầu kỳ
+     * (BR-ODB-05). Phiếu Đã đảo không tính (đảo chỉ được khi chưa thu đồng nào, BR-SAL-14).
      */
     @Query("""
             select d.customer.id as customerId, sum(d.totalAmount - d.paidAmount) as outstandingAmount,
                    count(d) as openOrderCount, min(d.documentDate) as oldestDocumentDate
             from StockDocument d
-            where d.type = com.grainwarehouse.inventory.entity.StockDocumentType.OUTBOUND
+            where d.type in (com.grainwarehouse.inventory.entity.StockDocumentType.OUTBOUND,
+                             com.grainwarehouse.inventory.entity.StockDocumentType.OPENING_CUSTOMER_DEBT)
               and d.status = com.grainwarehouse.inventory.entity.StockDocumentStatus.COMPLETED
               and d.paidAmount < d.totalAmount
               and (:customerId is null or d.customer.id = :customerId)
@@ -66,14 +92,15 @@ public interface StockDocumentRepository
     List<CustomerDebtRow> sumOutstandingByCustomer(@Param("customerId") Long customerId);
 
     /**
-     * BR-SPAY-01: công nợ theo NCC = tổng (tổng phiếu − đã trả) của phiếu nhập Hoàn tất còn nợ.
-     * Bỏ phiếu cũ không theo dõi công nợ (BR-SPAY-05) và phiếu Đã đảo (đảo chỉ được khi chưa trả, BR-SPAY-04).
+     * BR-SPAY-01: công nợ theo NCC = tổng (tổng phiếu − đã trả) của phiếu nhập Hoàn tất còn nợ, cộng nợ đầu kỳ
+     * (BR-ODB-05). Bỏ phiếu cũ không theo dõi công nợ (BR-SPAY-05) và phiếu Đã đảo (đảo chỉ được khi chưa trả, BR-SPAY-04).
      */
     @Query("""
             select d.supplier.id as supplierId, sum(d.totalAmount - d.paidAmount) as outstandingAmount,
                    count(d) as openReceiptCount, min(d.documentDate) as oldestDocumentDate
             from StockDocument d
-            where d.type = com.grainwarehouse.inventory.entity.StockDocumentType.INBOUND
+            where d.type in (com.grainwarehouse.inventory.entity.StockDocumentType.INBOUND,
+                             com.grainwarehouse.inventory.entity.StockDocumentType.OPENING_SUPPLIER_DEBT)
               and d.status = com.grainwarehouse.inventory.entity.StockDocumentStatus.COMPLETED
               and d.tracksDebt = true
               and d.paidAmount < d.totalAmount

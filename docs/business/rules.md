@@ -318,7 +318,25 @@ _(Trả lời BR-SAL-Q01: có công nợ, chỉ ở mức phiếu bán + lịch 
 
 - **BR-OPN-Q01:** Nhập dòng tồn đầu kỳ từ Excel (BR-XLS-Q01) — để sau, khi màn hình nhập tay đã dùng ổn. Thiết kế dự kiến: dùng lại ADR-0004, import thay toàn bộ dòng của một phiếu **nháp**.
 - **BR-OPN-Q02:** **Kiểm kê / điều chỉnh tồn** cho kho đã vận hành (lệch số sau khi đã nhập/bán) — để sau.
-- **BR-OPN-Q03:** **Công nợ đầu kỳ** khách và NCC (BR-XLS-Q02) — đã chốt làm (một tổng số mỗi khách/NCC, chưa chi tiết từng hóa đơn; không có khoản mình nợ ngược khách). Module tiếp theo, migration V21.
+- ~~BR-OPN-Q03: Công nợ đầu kỳ khách và NCC~~ — đã làm, xem mục **Số dư đầu kỳ — Công nợ khách / NCC** (BR-ODB).
+
+---
+
+## Số dư đầu kỳ — Công nợ khách / NCC
+
+> Thiết kế: migration V21. Mỗi khoản nợ cũ là một **chứng từ không có kho, không có dòng hàng** trong `stock_document` (`OPENING_CUSTOMER_DEBT` / `OPENING_SUPPLIER_DEBT`), để thu / trả, hoàn khoản thu nhầm, trang công nợ và sổ quỹ dùng lại nguyên cơ chế của phiếu bán / phiếu nhập.
+
+### ✅ Đã xác nhận (2026-10-27)
+
+- **BR-ODB-01:** Nợ đầu kỳ của **khách** (khách nợ mình, mã `DKH` + 6 số) và của **NCC** (mình nợ NCC, mã `DNC` + 6 số). Mỗi khoản: một khách / NCC, số nợ, ngày chốt nợ, ghi chú, người ghi nhận. **Không có** khoản mình nợ ngược khách (khách trả trước) — xem BR-SAL-Q05.
+- **BR-ODB-02:** Mỗi khách / NCC nhập **một tổng số** (chưa chi tiết từng hóa đơn cũ — để sau nếu cần). Số nợ **> 0**, đồng nguyên. Ngày chốt nợ mặc định hôm nay, lùi được, không ở tương lai; **không ràng buộc** với ngày đầu kỳ sổ quỹ.
+- **BR-ODB-03:** Mỗi khách / NCC chỉ **một khoản nợ đầu kỳ còn hiệu lực**. Khoản đã đảo không tính → nhập lại được. Khách đã có phiếu bán trong hệ thống vẫn nhập được nợ cũ (hai khoản độc lập). UNIQUE ở DB chặn cả khi hai người ghi cùng lúc.
+- **BR-ODB-04:** Ghi nhận **theo lô** trên một bảng nhiều dòng, chung một ngày chốt nợ; mỗi dòng thành một khoản, **tất cả hoặc không gì** (một dòng lỗi → không ghi dòng nào). Không có nháp — mỗi khoản chỉ là một con số. Khách / NCC phải đang hoạt động; trùng khách trong lô → báo lỗi.
+- **BR-ODB-05:** Trang **Công nợ khách / Công nợ NCC** cộng cả nợ đầu kỳ: tổng còn nợ, số khoản, "nợ từ ngày"; mở rộng một khách thấy dòng nợ đầu kỳ phía trên các phiếu.
+- **BR-ODB-06:** Ghi sai → **đảo** khoản đó (lý do bắt buộc), chỉ khi **chưa thu / trả đồng nào** (như BR-SAL-14, BR-SPAY-04); đảo xong nhập lại số đúng. Không sửa.
+- **BR-ODB-07:** Thu (khách) / trả (NCC) nợ cũ **y như phiếu bán / phiếu nhập**: tiền mặt và/hoặc chuyển khoản, không vượt số còn nợ, ngày chọn tự do, lịch sử bất biến, hoàn khoản ghi nhầm (BR-SAL-11..13, BR-SPAY-02..03). Tiền thu / trả nợ cũ **vào sổ quỹ**; bản thân việc ghi nhận nợ đầu kỳ **không** làm sổ quỹ thay đổi.
+- **BR-ODB-08:** Ghi nhận và đảo nợ đầu kỳ: **chỉ Quản lý hệ thống**. Xem và thu / trả: theo quyền công nợ tương ứng — nợ khách: Nhân viên bán hàng + Quản lý hệ thống; nợ NCC: Quản lý kho + Quản lý hệ thống (thu nợ cũ là việc hằng ngày như thu nợ phiếu bán).
+- **BR-ODB-09:** Menu **Số dư đầu kỳ** gom: Quỹ đầu kỳ, Tồn kho đầu kỳ, Công nợ khách đầu kỳ, Công nợ NCC đầu kỳ.
 
 ## Tài khoản, đăng nhập, phân quyền
 
@@ -359,5 +377,5 @@ _(Trả lời BR-SAL-Q01: có công nợ, chỉ ở mức phiếu bán + lịch 
 ### ❓ Câu hỏi mở
 
 - **BR-XLS-Q01:** Có cần nhập **tồn đầu kỳ** từ Excel không? Nếu có, phải tạo chứng từ điều chỉnh "tồn đầu kỳ" và ghi `StockTransaction` (BR-INV-04), không được ghi thẳng vào bảng tồn. _(2026-10-27: chứng từ tồn đầu kỳ đã có — BR-OPN; phần Excel để sau, xem BR-OPN-Q01)_
-- **BR-XLS-Q02:** Có cần nhập **công nợ đầu kỳ** của khách không?
+- **BR-XLS-Q02:** Có cần nhập **công nợ đầu kỳ** của khách không? _(2026-10-27: công nợ đầu kỳ khách / NCC đã có — BR-ODB, nhập theo lô trên web; nhập từ Excel chưa làm)_
 - **BR-XLS-Q03:** Có cần nhập liên kết NCC–SP từ Excel không? Hiện liên kết được gán trên màn hình NCC.

@@ -45,16 +45,17 @@ public class StockDocument extends AuditableEntity {
     private String code;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 20, updatable = false)
+    @Column(nullable = false, length = 30, updatable = false)
     private StockDocumentType type;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private StockDocumentStatus status = StockDocumentStatus.DRAFT;
 
+    // NULL chỉ với công nợ đầu kỳ (V21); CHECK ck_stock_document_warehouse bắt buộc mọi chứng từ kho có kho
     @Setter
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "warehouse_id", nullable = false)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "warehouse_id")
     private Warehouse warehouse;
 
     @Setter
@@ -139,6 +140,14 @@ public class StockDocument extends AuditableEntity {
 
     public void removeItemsIf(Predicate<StockDocumentItem> condition) {
         items.removeIf(condition);
+    }
+
+    /** Công nợ đầu kỳ không có dòng hàng: tổng phiếu = số nợ khai (BR-ODB-02). */
+    public void setOpeningDebtAmount(BigDecimal amount) {
+        if (type != StockDocumentType.OPENING_CUSTOMER_DEBT && type != StockDocumentType.OPENING_SUPPLIER_DEBT) {
+            throw new IllegalStateException("Chỉ chứng từ công nợ đầu kỳ mới đặt tổng tiền trực tiếp");
+        }
+        totalAmount = amount;
     }
 
     /** BR-MON-05: tổng phiếu = tổng thành tiền các dòng (mỗi dòng đã làm tròn), không làm tròn thêm. */

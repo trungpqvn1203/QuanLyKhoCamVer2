@@ -170,6 +170,7 @@ DELETE /api/products/:id          # Xóa (soft delete)
 | Giá riêng của khách | `GET /api/customers/{id}/prices`, `PUT/DELETE /api/customers/{id}/prices/{productId}` | Xem mục **Phiếu bán, thanh toán, công nợ** |
 | Công nợ khách | `GET /api/customer-debts?customerId=` | Xem mục **Phiếu bán, thanh toán, công nợ** |
 | Sổ quỹ, phiếu thu/chi | `GET /api/cash-book?account=`, `GET /api/cash-book/summary`, `GET/PUT /api/cash-book/opening`; `GET/POST /api/cash-vouchers`, `POST …/{id}/reverse`; `GET/POST /api/cash-categories`, `PUT …/{id}` | Chỉ `SYSTEM_ADMIN`. Xem mục **Sổ quỹ** bên dưới |
+| Công nợ đầu kỳ | `GET/POST /api/opening-customer-debts`, `GET …/{id}`, `POST …/{id}/reverse`, `POST …/{id}/payments`, `POST …/{id}/payments/{paymentId}/reverse`; cùng bộ cho `/api/opening-supplier-debts` | Ghi nhận, đảo: `SYSTEM_ADMIN`. Xem, thu/trả: như công nợ khách / NCC. Xem mục **Công nợ đầu kỳ** bên dưới |
 | Tồn kho đầu kỳ | `GET/POST /api/opening-stocks`, `GET/PUT /api/opening-stocks/{id}`, `POST …/{id}/complete`, `POST …/{id}/cancel`, `POST …/{id}/reverse`, `GET /api/opening-stocks/products-with-movement?warehouseId=` | Chỉ `SYSTEM_ADMIN`. Xem mục **Tồn kho đầu kỳ** bên dưới |
 | Tạm ứng, trả lương, công nợ nhân viên | `GET/POST /api/employees/{id}/advances`, `POST …/advances/{advanceId}/reverse`; `GET /api/payrolls/{YYYY-MM}/items/{employeeId}`, `POST …/payments`, `POST …/payments/{paymentId}/reverse`; `GET /api/employee-debts?employeeId=` | Chỉ `SYSTEM_ADMIN`. Xem mục **Công nợ nhân viên** bên dưới |
 | Trả tiền NCC, công nợ NCC | `POST /api/inbound-receipts/{id}/payments`, `POST …/{id}/payments/{paymentId}/reverse`, `GET /api/supplier-debts?supplierId=` | Xem mục **Trả tiền và công nợ nhà cung cấp** bên dưới |
@@ -211,6 +212,19 @@ Lọc `GET /api/inbound-receipts` (tất cả tùy chọn):
 | `POST /api/opening-stocks/{id}/cancel` | `{ reason? }` (body tùy chọn) | 200, Đã hủy. Không còn Nháp → 409 |
 | `POST /api/opening-stocks/{id}/reverse` | `{ reason }` (bắt buộc) | 200, Đã đảo, tồn trừ lại. Không đủ tồn → 409; đã đảo → 409; thiếu lý do → 400 field `reason` |
 | `GET /api/opening-stocks/products-with-movement` | `warehouseId` (bắt buộc) | `[productId, …]` — SP đã có biến động tại kho (không tính phiếu đầu kỳ đã đảo). Kho không có → 404 |
+
+**Công nợ đầu kỳ** (thêm 2026-10-27, BR-ODB-01..09) — `/api/opening-customer-debts` (khách, mã `DKH…`) và `/api/opening-supplier-debts` (NCC, mã `DNC…`), cùng dạng:
+
+| Endpoint | Body / tham số | Kết quả |
+|---|---|---|
+| `GET …` | `keyword` (mã hoặc tên khách/NCC), `status` (`COMPLETED`\|`REVERSED`), `partyId`, `unpaidOnly=true`, phân trang (mặc định id giảm dần) | Trang `{ id, code, party (CUSTOMER\|SUPPLIER), status, documentDate, partyId, partyCode, partyName, partyActive, note?, totalAmount, paidAmount, outstandingAmount, reason?, createdBy?, completedAt, reversedAt?, createdAt, updatedAt }` (không kèm `payments`) |
+| `GET …/{id}` | — | Như trên + `payments: [...]` cùng dạng lịch sử thu tiền phiếu bán. Id của loại kia → 404 |
+| `POST …` | `{ documentDate?, lines: [{ partyId, amount, note? }] }` | 201, **mảng** các khoản vừa tạo (Hoàn tất). Số nợ ≤ 0 / lẻ đồng → 400 field `lines[i].amount`; trùng khách trong lô → 400 field `lines[i].partyId`; lô rỗng → 400 field `lines`; ngày tương lai → 400 field `documentDate`; không có → 404; ngừng hoạt động / đã có nợ đầu kỳ còn hiệu lực → 409 (liệt kê tên). Một dòng lỗi → không ghi dòng nào. Ghi đồng thời trùng khách → 409 `DUPLICATE_RESOURCE` |
+| `POST …/{id}/reverse` | `{ reason }` | 200, `REVERSED`. Đã thu/trả > 0 → 409; đã đảo → 409 |
+| `POST …/{id}/payments` | `{ paymentDate?, cashAmount?, transferAmount?, note? }` | 201, như thu tiền phiếu bán. Vượt số còn nợ → 409; đã đảo → 409 |
+| `POST …/{id}/payments/{paymentId}/reverse` | `{ reason }` | 200. Đã hoàn / là dòng hoàn → 409 |
+
+`GET /api/customer-debts`, `GET /api/supplier-debts`: `outstandingAmount`, `openOrderCount` / `openReceiptCount`, `oldestDocumentDate` tính cả nợ đầu kỳ.
 
 `GET /api/inventory/transactions?documentType=OPENING_STOCK` lọc giao dịch đầu kỳ; `documentType` trong kết quả có thêm giá trị `OPENING_STOCK`.
 
