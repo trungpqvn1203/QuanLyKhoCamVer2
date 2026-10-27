@@ -1,7 +1,8 @@
-import { MinusOutlined, PlusOutlined, ReloadOutlined, RollbackOutlined, SettingOutlined, TagsOutlined } from '@ant-design/icons'
+import { MinusOutlined, PlusOutlined, ReloadOutlined, RollbackOutlined, TagsOutlined } from '@ant-design/icons'
 import { Alert, App, Button, Card, Descriptions, Flex, Input, Segmented, Select, Statistic, Table, Tag, Typography } from 'antd'
 import type { TableProps } from 'antd'
 import { useEffect, useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import { ApiError } from '../../api/client'
 import { PageHeader } from '../../components/layout/PageHeader'
 import { CodeText } from '../../components/ui/CodeLink'
@@ -28,8 +29,10 @@ import type {
   CashLedger,
 } from './cash-book-api'
 import { CategoryModal } from './CategoryModal'
-import { OpeningModal } from './OpeningModal'
 import { VoucherModal } from './VoucherModal'
+
+/** Trang đặt / sửa đầu kỳ (nhóm menu Số dư đầu kỳ) */
+const OPENING_CASH_PATH = '/opening/cash'
 
 const SOURCE_OPTIONS = (Object.keys(CASH_SOURCE_LABELS) as CashEntrySource[]).map((source) => ({
   value: source,
@@ -73,9 +76,11 @@ function BalanceCard({ summary }: { summary?: AccountSummary }) {
  * Sổ quỹ (BR-CASH-01..07): số dư tiền mặt và tài khoản, sổ theo khoảng ngày (gộp thu tiền khách, trả NCC, trả lương,
  * tạm ứng, phiếu thu/chi khác) với số dư lũy kế từng dòng; lập phiếu thu/chi khác, hoàn phiếu ghi nhầm.
  * Khoản của các module khác chỉ xem ở đây — sửa/hoàn ở đúng màn của nó (phiếu bán, phiếu nhập, bảng lương...).
+ * Đặt / sửa đầu kỳ nằm ở trang Quỹ đầu kỳ (CashOpeningPage) — việc một lần, tách khỏi thao tác hằng ngày.
  */
 export function CashBookPage() {
   const { message, notification } = App.useApp()
+  const navigate = useNavigate()
   const [summary, setSummary] = useState<CashBookSummary | null>(null)
   const [opening, setOpening] = useState<CashBookOpening | null>(null)
   const [categories, setCategories] = useState<CashCategory[]>([])
@@ -87,7 +92,6 @@ export function CashBookPage() {
   const [source, setSource] = useState<CashEntrySource | undefined>(undefined)
   const [version, setVersion] = useState(0)
   const [voucherDirection, setVoucherDirection] = useState<CashDirection | null>(null)
-  const [openingOpen, setOpeningOpen] = useState(false)
   const [categoryOpen, setCategoryOpen] = useState(false)
   const [reversing, setReversing] = useState<CashEntry | null>(null)
 
@@ -226,9 +230,6 @@ export function CashBookPage() {
             <Button icon={<TagsOutlined />} onClick={() => setCategoryOpen(true)}>
               Danh mục thu/chi
             </Button>
-            <Button icon={<SettingOutlined />} onClick={() => setOpeningOpen(true)} disabled={!opening}>
-              Đầu kỳ
-            </Button>
             <Button icon={<MinusOutlined />} disabled={!configured} onClick={() => setVoucherDirection('OUT')}>
               Lập phiếu chi
             </Button>
@@ -246,9 +247,9 @@ export function CashBookPage() {
           type="info"
           showIcon
           title="Sổ quỹ chưa có đầu kỳ"
-          description="Nhập ngày bắt đầu cùng số tiền mặt và số dư tài khoản thực tế tại ngày đó. Sau đó sổ quỹ tự gộp mọi khoản thu/chi từ ngày đó trở đi."
+          description="Vào Số dư đầu kỳ → Quỹ đầu kỳ, nhập ngày bắt đầu cùng số tiền mặt và số dư tài khoản thực tế tại ngày đó. Sau đó sổ quỹ tự gộp mọi khoản thu/chi từ ngày đó trở đi."
           action={
-            <Button type="primary" size="small" onClick={() => setOpeningOpen(true)}>
+            <Button type="primary" size="small" onClick={() => navigate(OPENING_CASH_PATH)}>
               Đặt đầu kỳ
             </Button>
           }
@@ -257,6 +258,13 @@ export function CashBookPage() {
       )}
       {configured && (
         <>
+          {opening?.startDate && (
+            // Chỉ đọc: đặt / sửa đầu kỳ ở nhóm Số dư đầu kỳ, tách khỏi thao tác hằng ngày
+            <Typography.Paragraph type="secondary" style={{ marginBottom: 12 }}>
+              Đầu kỳ {formatDate(opening.startDate)} · Tiền mặt {formatVnd(opening.openingCash ?? 0)} · Tài khoản{' '}
+              {formatVnd(opening.openingBank ?? 0)} · <Link to={OPENING_CASH_PATH}>Xem / sửa ở Quỹ đầu kỳ</Link>
+            </Typography.Paragraph>
+          )}
           <Flex gap={16} wrap style={{ marginBottom: 16 }}>
             <BalanceCard summary={summary?.cash} />
             <BalanceCard summary={summary?.bank} />
@@ -324,17 +332,6 @@ export function CashBookPage() {
             reload()
           }}
           onClose={() => setVoucherDirection(null)}
-        />
-      )}
-      {openingOpen && opening && (
-        <OpeningModal
-          open
-          opening={opening}
-          onSaved={() => {
-            notification.success({ title: 'Đã lưu đầu kỳ sổ quỹ' })
-            reload()
-          }}
-          onClose={() => setOpeningOpen(false)}
         />
       )}
       {categoryOpen && (

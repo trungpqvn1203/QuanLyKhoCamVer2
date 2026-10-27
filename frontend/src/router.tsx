@@ -4,6 +4,7 @@ import { Link, Navigate, createBrowserRouter } from 'react-router-dom'
 import { AppLayout } from './components/layout/AppLayout'
 import { AttendancePage } from './features/attendance/AttendancePage'
 import { CashBookPage } from './features/cash-book/CashBookPage'
+import { CashOpeningPage } from './features/cash-book/CashOpeningPage'
 import { LoginPage } from './features/auth/LoginPage'
 import { RequireAuth, RequirePermission } from './features/auth/RequireAuth'
 import type { Permission } from './features/auth/permissions'
@@ -52,6 +53,7 @@ export const router = createBrowserRouter([
       { path: 'payroll', element: guarded('payroll', <PayrollPage />) },
       { path: 'employee-debts', element: guarded('payroll', <EmployeeDebtPage />) },
       { path: 'cash-book', element: guarded('cashbook', <CashBookPage />) },
+      { path: 'opening/cash', element: guarded('cashbook', <CashOpeningPage />) },
       { path: 'opening/stocks', element: guarded('opening', <OpeningStockListPage />) },
       { path: 'users', element: guarded('users', <UserListPage />) },
       {

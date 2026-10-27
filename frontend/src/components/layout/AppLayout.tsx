@@ -44,7 +44,11 @@ const MENU_ITEMS: MenuEntry[] = [
     key: 'opening',
     icon: <FlagOutlined />,
     label: 'Số dư đầu kỳ',
-    children: [{ key: '/opening/stocks', label: 'Tồn kho đầu kỳ', permission: 'opening' }],
+    children: [
+      // Cùng quyền với sổ quỹ (BR-CASH-07)
+      { key: '/opening/cash', label: 'Quỹ đầu kỳ', permission: 'cashbook' },
+      { key: '/opening/stocks', label: 'Tồn kho đầu kỳ', permission: 'opening' },
+    ],
   },
   { key: '/users', icon: <SafetyOutlined />, label: 'Người dùng', permission: 'users' },
 ]

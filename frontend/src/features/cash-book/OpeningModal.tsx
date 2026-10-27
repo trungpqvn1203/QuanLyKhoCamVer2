@@ -1,8 +1,8 @@
-import { Col, Form, Input, InputNumber, List, Row, Typography } from 'antd'
+import { Col, Form, Input, InputNumber, Row, Typography } from 'antd'
 import type { FormRule } from 'antd'
 import { FormModal } from '../../components/ui/FormModal'
-import { formatDate, formatDateTime, todayIso } from '../../utils/format'
-import { formatPriceInput, formatVnd, parsePriceInput } from '../../utils/money'
+import { todayIso } from '../../utils/format'
+import { formatPriceInput, parsePriceInput } from '../../utils/money'
 import { cashBookApi } from './cash-book-api'
 import type { CashBookOpening, OpeningInput } from './cash-book-api'
 
@@ -27,7 +27,7 @@ const wholeDongRule: FormRule = {
 
 /**
  * Đặt / sửa đầu kỳ sổ quỹ (BR-CASH-03): ngày bắt đầu + tiền mặt và số dư tài khoản thực tế tại ngày đó.
- * Khoản thu/chi trước ngày này không vào sổ. Mỗi lần lưu ghi lại lịch sử (hiện ở cuối hộp thoại).
+ * Khoản thu/chi trước ngày này không vào sổ. Mỗi lần lưu ghi lại lịch sử (hiện ở trang Quỹ đầu kỳ).
  */
 export function OpeningModal({ open, opening, onSaved, onClose }: OpeningModalProps) {
   const [form] = Form.useForm<OpeningFormValues>()
@@ -96,26 +96,6 @@ export function OpeningModal({ open, opening, onSaved, onClose }: OpeningModalPr
           </Form.Item>
         </Col>
       </Row>
-      {opening.changes.length > 0 && (
-        <>
-          <Typography.Text strong>Lịch sử đặt / sửa đầu kỳ</Typography.Text>
-          <List
-            size="small"
-            dataSource={opening.changes}
-            renderItem={(change) => (
-              <List.Item>
-                <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-                  {formatDateTime(change.changedAt)} · {change.changedBy}:{' '}
-                  {change.oldStartDate
-                    ? `${formatDate(change.oldStartDate)} (TM ${formatVnd(change.oldOpeningCash ?? 0)}, TK ${formatVnd(change.oldOpeningBank ?? 0)}) → `
-                    : 'đặt lần đầu: '}
-                  {formatDate(change.newStartDate)} (TM {formatVnd(change.newOpeningCash)}, TK {formatVnd(change.newOpeningBank)})
-                </Typography.Text>
-              </List.Item>
-            )}
-          />
-        </>
-      )}
     </FormModal>
   )
 }
