@@ -27,6 +27,10 @@ export const appTheme: ThemeConfig = {
       darkItemBg: SIDER_BG,
       darkItemColor: 'rgba(255, 255, 255, 0.72)',
       darkItemHoverBg: 'rgba(255, 255, 255, 0.08)',
+      // Nền vùng xổ xuống của nhóm menu: mặc định antd là xanh đen #000c17, lệch hẳn nền xanh rêu → tối hơn sidebar một chút
+      darkSubMenuItemBg: '#0d1d13',
+      // Đường kẻ tách nhóm "Số dư đầu kỳ" — cùng màu đường kẻ dưới logo (chỉ dùng trong menu sidebar)
+      colorSplit: SIDER_DIVIDER,
       itemBorderRadius: 6,
       itemMarginInline: 12,
       itemHeight: 40,

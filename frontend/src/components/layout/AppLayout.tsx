@@ -1,4 +1,4 @@
-import { AccountBookOutlined, AppstoreOutlined, BankOutlined, CalendarOutlined, DollarOutlined, DownOutlined, ExportOutlined, FlagOutlined, HistoryOutlined, HomeOutlined, IdcardOutlined, ImportOutlined, KeyOutlined, LogoutOutlined, SafetyOutlined, ShopOutlined, TeamOutlined, UserOutlined, UsergroupAddOutlined, WalletOutlined } from '@ant-design/icons'
+import { AccountBookOutlined, AppstoreOutlined, BankOutlined, CalendarOutlined, DollarOutlined, DownOutlined, ExportOutlined, FlagOutlined, HistoryOutlined, HomeOutlined, IdcardOutlined, ImportOutlined, InboxOutlined, KeyOutlined, LogoutOutlined, SafetyOutlined, ShopOutlined, TeamOutlined, UserOutlined, UsergroupAddOutlined, WalletOutlined } from '@ant-design/icons'
 import { App, Breadcrumb, Button, Dropdown, Flex, Layout, Menu, Typography, theme } from 'antd'
 import type { MenuProps } from 'antd'
 import type { ReactNode } from 'react'
@@ -21,6 +21,8 @@ interface MenuEntry {
   permission?: Permission
   /** Có = nhóm xổ xuống; key của nhóm không phải đường dẫn */
   children?: MenuEntry[]
+  /** Kẻ một đường phía trên — tách phần thiết lập (làm một lần) khỏi các mục dùng hằng ngày */
+  dividerBefore?: boolean
 }
 
 const MENU_ITEMS: MenuEntry[] = [
@@ -44,12 +46,14 @@ const MENU_ITEMS: MenuEntry[] = [
     key: 'opening',
     icon: <FlagOutlined />,
     label: 'Số dư đầu kỳ',
+    dividerBefore: true,
+    // Tên ngắn (nhóm đã nói "đầu kỳ"), icon trùng mục dùng hằng ngày tương ứng để dễ nhận ra; tiêu đề trang vẫn đầy đủ
     children: [
       // Cùng quyền với sổ quỹ (BR-CASH-07)
-      { key: '/opening/cash', label: 'Quỹ đầu kỳ', permission: 'cashbook' },
-      { key: '/opening/stocks', label: 'Tồn kho đầu kỳ', permission: 'opening' },
-      { key: '/opening/customer-debts', label: 'Công nợ khách đầu kỳ', permission: 'opening' },
-      { key: '/opening/supplier-debts', label: 'Công nợ NCC đầu kỳ', permission: 'opening' },
+      { key: '/opening/cash', icon: <BankOutlined />, label: 'Quỹ tiền', permission: 'cashbook' },
+      { key: '/opening/stocks', icon: <InboxOutlined />, label: 'Tồn kho', permission: 'opening' },
+      { key: '/opening/customer-debts', icon: <AccountBookOutlined />, label: 'Công nợ khách', permission: 'opening' },
+      { key: '/opening/supplier-debts', icon: <WalletOutlined />, label: 'Công nợ NCC', permission: 'opening' },
     ],
   },
   { key: '/users', icon: <SafetyOutlined />, label: 'Người dùng', permission: 'users' },
@@ -66,9 +70,10 @@ function visibleEntries(entries: MenuEntry[], allowed: (permission: Permission) 
 }
 
 function toMenuItems(entries: MenuEntry[]): NonNullable<MenuProps['items']> {
-  return entries.map(({ key, icon, label, children }) =>
-    children ? { key, icon, label, children: toMenuItems(children) } : { key, icon, label },
-  )
+  return entries.flatMap(({ key, icon, label, children, dividerBefore }) => {
+    const item = children ? { key, icon, label, children: toMenuItems(children) } : { key, icon, label }
+    return dividerBefore ? [{ type: 'divider' as const, key: `${key}-divider` }, item] : [item]
+  })
 }
 
 /** Mục trang đang mở (khớp cả URL có thêm đoạn con) kèm nhóm chứa nó, để sáng menu và dựng breadcrumb. */
