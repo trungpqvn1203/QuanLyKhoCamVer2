@@ -84,10 +84,18 @@ public class StockDocument extends AuditableEntity {
     @Column(name = "paid_amount", nullable = false, precision = 18, scale = 0)
     private BigDecimal paidAmount = BigDecimal.ZERO;
 
-    // BR-SPAY-05: false = phiếu nhập hoàn tất trước khi có công nợ NCC, coi như đã trả đủ (V16). Chỉ migration đặt false
+    // BR-SPAY-05: false = phiếu nhập hoàn tất trước khi có công nợ NCC, coi như đã trả đủ (V16, migration đặt).
+    // Phiếu tồn đầu kỳ không bao giờ có công nợ (BR-OPN-08) → false ngay từ constructor
     @Setter(AccessLevel.NONE)
     @Column(name = "tracks_debt", nullable = false)
     private boolean tracksDebt = true;
+
+    // Tên đăng nhập người lập / người xác nhận (V20). Hiện chỉ phiếu tồn đầu kỳ ghi
+    @Column(name = "created_by", length = 50, updatable = false)
+    private String createdBy;
+
+    @Column(name = "completed_by", length = 50)
+    private String completedBy;
 
     // Lý do hủy hoặc đảo
     @Column(length = 500)
@@ -110,6 +118,13 @@ public class StockDocument extends AuditableEntity {
     public StockDocument(StockDocumentType type, String code) {
         this.type = type;
         this.code = code;
+        this.tracksDebt = type != StockDocumentType.OPENING_STOCK;
+    }
+
+    /** Phiếu có ghi người lập (tồn đầu kỳ). */
+    public StockDocument(StockDocumentType type, String code, String createdBy) {
+        this(type, code);
+        this.createdBy = createdBy;
     }
 
     /** Chỉ đọc: thêm/bớt dòng qua addItem/removeItemsIf để giữ quan hệ hai chiều đúng. */
@@ -152,6 +167,11 @@ public class StockDocument extends AuditableEntity {
     public void markCompleted(Instant at) {
         status = StockDocumentStatus.COMPLETED;
         completedAt = at;
+    }
+
+    public void markCompleted(Instant at, String by) {
+        markCompleted(at);
+        completedBy = by;
     }
 
     public void markCancelled(String reason, Instant at) {

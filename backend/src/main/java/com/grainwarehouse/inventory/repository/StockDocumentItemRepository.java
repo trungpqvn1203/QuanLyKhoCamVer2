@@ -33,6 +33,15 @@ public interface StockDocumentItemRepository extends JpaRepository<StockDocument
                                             @Param("type") StockDocumentType type,
                                             @Param("status") StockDocumentStatus status);
 
+    /** Số dòng và tổng SL của từng chứng từ — danh sách phiếu tồn đầu kỳ. */
+    @Query("""
+            select it.document.id as documentId, count(it) as lineCount, sum(it.quantity) as quantity
+            from StockDocumentItem it
+            where it.document.id in :documentIds
+            group by it.document.id
+            """)
+    List<DocumentLineTotals> sumByDocument(@Param("documentIds") Collection<Long> documentIds);
+
     /** Hàng đang về của một SP, chia theo kho nhận. */
     @Query("""
             select it.document.warehouse.id as id, sum(it.orderedQuantity) as quantity

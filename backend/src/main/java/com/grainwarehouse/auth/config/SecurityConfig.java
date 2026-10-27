@@ -132,6 +132,8 @@ public class SecurityConfig {
                 .requestMatchers("/api/employees/**", "/api/payrolls/**", "/api/employee-debts/**").hasRole(ADMIN)
                 // Sổ quỹ lộ cả doanh thu lẫn lương (BR-CASH-07): chỉ quản lý hệ thống
                 .requestMatchers("/api/cash-book/**", "/api/cash-vouchers/**", "/api/cash-categories/**").hasRole(ADMIN)
+                // Số dư đầu kỳ làm tồn tăng mà không qua nhập hàng (BR-OPN-09): chỉ quản lý hệ thống
+                .requestMatchers("/api/opening-stocks", "/api/opening-stocks/**").hasRole(ADMIN)
 
                 .anyRequest().denyAll();
     }

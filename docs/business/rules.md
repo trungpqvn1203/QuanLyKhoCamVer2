@@ -295,6 +295,31 @@ _(Trả lời BR-SAL-Q01: có công nợ, chỉ ở mức phiếu bán + lịch 
 - **BR-CASH-Q01:** Có cần **chuyển tiền nội bộ** (nộp tiền mặt vào tài khoản, rút tài khoản về quỹ) không? Hiện có thể ghi tạm bằng một phiếu chi tiền mặt + một phiếu thu tài khoản.
 - **BR-CASH-Q02:** Khi nào cần **chặn quỹ âm** hoặc **nhiều tài khoản**? Khi đó phải chuyển sổ quỹ từ VIEW sang bảng ghi kèm từng giao dịch (để khóa số dư) — xem database.md.
 
+---
+
+## Số dư đầu kỳ — Tồn kho
+
+> Thiết kế: migration V20. Phiếu tồn đầu kỳ là một **loại chứng từ** (`OPENING_STOCK`) trong `stock_document`, đi qua đúng cơ chế tồn kho chung (`inventory` + `stock_transaction`). Khác đầu kỳ sổ quỹ (BR-CASH-03, là cấu hình sửa được): tồn đầu kỳ làm tồn tăng thật nên là **chứng từ bất biến**.
+
+### ✅ Đã xác nhận (2026-10-27)
+
+- **BR-OPN-01:** Phiếu tồn đầu kỳ ghi **một kho**, ngày tồn đầu kỳ (mặc định hôm nay, lùi được, **không ở tương lai**), ghi chú và nhiều dòng hàng. Mã tự sinh `DTK` + 6 chữ số. Nhiều kho thì lập nhiều phiếu. Ngày **không ràng buộc** với ngày đầu kỳ sổ quỹ.
+- **BR-OPN-02:** Mỗi dòng: SP, số lượng **nguyên > 0**; mỗi SP một dòng; tối đa 1.000 dòng.
+- **BR-OPN-03:** **Nháp → Hoàn tất (xác nhận)**, Nháp → Đã hủy, Hoàn tất → Đã đảo — như phiếu nhập (BR-IMP-11..14). Nháp sửa/hủy tự do, **không ảnh hưởng tồn**. Xác nhận: cộng tồn và ghi `StockTransaction` IN cho mọi dòng **trong một transaction**; một dòng lỗi → rollback hết, phiếu vẫn là Nháp. Phiếu đã xác nhận bị khóa. Ghi **người lập** và **người xác nhận** (tên đăng nhập).
+- **BR-OPN-04:** Kho và SP phải **đang hoạt động**, kiểm tra cả lúc lưu nháp lẫn lúc xác nhận.
+- **BR-OPN-05:** Mỗi **cặp (SP, kho)** chỉ được khai đầu kỳ khi **chưa có biến động tồn nào** (chưa từng nhập, bán, đầu kỳ — kể cả đã nhập rồi bán hết, tồn về 0). Biến động của phiếu đầu kỳ **đã đảo** không tính. Hệ quả: kho mới → lập phiếu cho kho đó; quên một SP chưa phát sinh → lập phiếu bổ sung; SP đã nhập/bán → **từ chối**, lệch số thì dùng kiểm kê. Lưu nháp vẫn được (giao diện cảnh báo, làm mờ SP), chặn lúc xác nhận và liệt kê mọi SP vi phạm.
+- **BR-OPN-06:** Khai sai → **đảo toàn phiếu** (lý do bắt buộc), mỗi phiếu đảo một lần; tồn hiện tại không đủ để trừ lại (đã bán bớt) → từ chối. Đảo xong, các SP của phiếu được khai đầu kỳ lại.
+- **BR-OPN-07:** **Không có "đầu kỳ năm mới".** Tồn kho chạy liên tục từ lần khởi tạo; sang năm không khởi tạo lại. Khởi tạo (đầu kỳ), chuyển kỳ (không cần) và kiểm kê (module sau) là ba việc khác nhau.
+- **BR-OPN-08:** Phiếu tồn đầu kỳ **không có NCC, không có khách, không phát sinh công nợ, không vào sổ quỹ**, không tính vào hàng "Đang về". CHECK ở DB chặn.
+- **BR-OPN-09:** Lập, xác nhận, hủy, đảo, xem phiếu tồn đầu kỳ: **chỉ Quản lý hệ thống** (tạm thời — sẽ chia lại vai trò sau). Trang Lịch sử kho vẫn hiện giao dịch đầu kỳ cho mọi vai trò, nhưng chỉ Quản lý hệ thống mở được phiếu.
+- **BR-OPN-10:** Đơn giá **tùy chọn** (không nhập = 0), chỉ để tham khảo giá trị tồn đầu kỳ — hệ thống chưa tính giá vốn (BR-IMP-09).
+
+### ❓ Câu hỏi mở
+
+- **BR-OPN-Q01:** Nhập dòng tồn đầu kỳ từ Excel (BR-XLS-Q01) — để sau, khi màn hình nhập tay đã dùng ổn. Thiết kế dự kiến: dùng lại ADR-0004, import thay toàn bộ dòng của một phiếu **nháp**.
+- **BR-OPN-Q02:** **Kiểm kê / điều chỉnh tồn** cho kho đã vận hành (lệch số sau khi đã nhập/bán) — để sau.
+- **BR-OPN-Q03:** **Công nợ đầu kỳ** khách và NCC (BR-XLS-Q02) — đã chốt làm (một tổng số mỗi khách/NCC, chưa chi tiết từng hóa đơn; không có khoản mình nợ ngược khách). Module tiếp theo, migration V21.
+
 ## Tài khoản, đăng nhập, phân quyền
 
 > Thiết kế kỹ thuật: [ADR-0003](../decisions/ADR-0003-authentication.md).
@@ -333,6 +358,6 @@ _(Trả lời BR-SAL-Q01: có công nợ, chỉ ở mức phiếu bán + lịch 
 
 ### ❓ Câu hỏi mở
 
-- **BR-XLS-Q01:** Có cần nhập **tồn đầu kỳ** từ Excel không? Nếu có, phải tạo chứng từ điều chỉnh "tồn đầu kỳ" và ghi `StockTransaction` (BR-INV-04), không được ghi thẳng vào bảng tồn.
+- **BR-XLS-Q01:** Có cần nhập **tồn đầu kỳ** từ Excel không? Nếu có, phải tạo chứng từ điều chỉnh "tồn đầu kỳ" và ghi `StockTransaction` (BR-INV-04), không được ghi thẳng vào bảng tồn. _(2026-10-27: chứng từ tồn đầu kỳ đã có — BR-OPN; phần Excel để sau, xem BR-OPN-Q01)_
 - **BR-XLS-Q02:** Có cần nhập **công nợ đầu kỳ** của khách không?
 - **BR-XLS-Q03:** Có cần nhập liên kết NCC–SP từ Excel không? Hiện liên kết được gán trên màn hình NCC.

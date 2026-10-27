@@ -45,6 +45,10 @@ public interface StockDocumentRepository
     @Query(value = "SELECT nextval('outbound_code_seq')", nativeQuery = true)
     long nextOutboundCodeNumber();
 
+    // BR-OPN-01: mã phiếu tồn đầu kỳ DTK
+    @Query(value = "SELECT nextval('opening_stock_code_seq')", nativeQuery = true)
+    long nextOpeningStockCodeNumber();
+
     /**
      * BR-SAL-10: công nợ theo khách = tổng (tổng phiếu − đã thu) của phiếu bán Hoàn tất còn nợ.
      * Phiếu Đã đảo không tính (đảo chỉ được khi chưa thu đồng nào, BR-SAL-14).

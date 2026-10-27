@@ -10,6 +10,7 @@ import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.Collection;
 import java.util.List;
 
 /** Chỉ thêm và đọc — không có hàm sửa/xóa nào được dùng (BR-INV-05, trigger ở DB chặn nếu lỡ gọi). */
@@ -38,4 +39,28 @@ public interface StockTransactionRepository
 
     @Query("select t from StockTransaction t where t.documentItem.document.id = :documentId order by t.id")
     List<StockTransaction> findByDocumentId(@Param("documentId") Long documentId);
+
+    /**
+     * BR-OPN-05: trong các SP cho trước, SP nào đã có biến động tồn tại kho này. Bỏ qua giao dịch của phiếu tồn
+     * đầu kỳ đã đảo (cả IN gốc lẫn OUT đảo đều gắn dòng của phiếu đó) — đảo xong thì được nhập đầu kỳ lại.
+     */
+    @Query("""
+            select distinct t.product.id from StockTransaction t
+            join t.documentItem i join i.document d
+            where t.warehouse.id = :warehouseId and t.product.id in :productIds
+              and not (d.type = com.grainwarehouse.inventory.entity.StockDocumentType.OPENING_STOCK
+                       and d.status = com.grainwarehouse.inventory.entity.StockDocumentStatus.REVERSED)
+            """)
+    List<Long> findProductIdsWithMovement(@Param("warehouseId") Long warehouseId,
+                                          @Param("productIds") Collection<Long> productIds);
+
+    /** Như trên, cho mọi SP của kho — giao diện làm mờ SP không còn nhập đầu kỳ được. */
+    @Query("""
+            select distinct t.product.id from StockTransaction t
+            join t.documentItem i join i.document d
+            where t.warehouse.id = :warehouseId
+              and not (d.type = com.grainwarehouse.inventory.entity.StockDocumentType.OPENING_STOCK
+                       and d.status = com.grainwarehouse.inventory.entity.StockDocumentStatus.REVERSED)
+            """)
+    List<Long> findProductIdsWithMovement(@Param("warehouseId") Long warehouseId);
 }

@@ -266,7 +266,7 @@ erDiagram
 
 ### stock_document (Chứng từ) (✅ đã duyệt — migration V6)
 
-- Dùng chung cho phiếu nhập / xuất / điều chuyển, phân biệt bằng `type`. V6 mở `INBOUND`; **V13 mở `OUTBOUND`** và thêm `customer_id`, `paid_amount`. Điều chuyển sẽ nới CHECK và thêm `target_warehouse_id` sau.
+- Dùng chung cho phiếu nhập / xuất / điều chuyển, phân biệt bằng `type`. V6 mở `INBOUND`; **V13 mở `OUTBOUND`** và thêm `customer_id`, `paid_amount`; **V20 mở `OPENING_STOCK`** (tồn đầu kỳ) và thêm `created_by`, `completed_by`. Điều chuyển sẽ nới CHECK và thêm `target_warehouse_id` sau (tiền tố mã nên khác `PC` — `PC` đã là phiếu chi của sổ quỹ).
 - `ck_stock_document_customer` (V13): phiếu nhập không có khách; phiếu bán bắt buộc có khách, không có NCC (BR-SAL-01).
 - `tracks_debt` (V16, `BOOLEAN NOT NULL DEFAULT TRUE`): phiếu có phát sinh công nợ hay không. Migration V16 đặt `FALSE` cho phiếu nhập đã `COMPLETED`/`REVERSED` trước module công nợ NCC (BR-SPAY-05). Chỉ migration đổi cột này; còn nợ của phiếu `tracks_debt = FALSE` luôn là 0.
 - `paid_amount` (V13, dùng chung từ V16): phiếu bán = tổng đã thu — **snapshot** của `sale_payment`; phiếu nhập = tổng đã trả NCC — snapshot của `supplier_payment`, giống `inventory` ↔ `stock_transaction`. `ck_stock_document_paid`: `0 <= paid_amount <= total_amount` (BR-SAL-11). Chỉ đổi khi thu/hoàn tiền, sau khi khóa phiếu `FOR UPDATE`. Còn nợ = `total_amount − paid_amount` (không lưu).
@@ -306,6 +306,18 @@ erDiagram
 - `reversal_of_id` UNIQUE + `ck_sale_payment_reversal` (REVERSAL ⇔ có `reversal_of_id`): mỗi khoản hoàn đúng một lần.
 - Trigger `trg_sale_payment_immutable` / `trg_sale_payment_no_truncate` chặn UPDATE/DELETE/TRUNCATE như `stock_transaction`.
 - Công nợ khách = `SUM(total_amount − paid_amount)` của phiếu `OUTBOUND` + `COMPLETED` còn nợ, `GROUP BY customer_id` — không có bảng số dư.
+
+### Tồn kho đầu kỳ: stock_document type OPENING_STOCK (✅ đã duyệt 2026-10-27 — migration V20)
+
+- **Không thêm bảng.** Phiếu tồn đầu kỳ là `stock_document` với `type = 'OPENING_STOCK'`, dòng ở `stock_document_item` (`ordered_quantity` NULL), xác nhận đi qua `InventoryService.stockIn` như phiếu nhập → `inventory` + `stock_transaction` IN; đảo dùng lại `InventoryService.reverse`. Mọi truy vấn phiếu nhập / bán / hàng đang về / công nợ đều lọc cứng theo `type` nên không bị lẫn.
+- **Vì sao không bảng riêng:** `stock_transaction.document_item_id` là `NOT NULL` — mọi biến động phải trỏ về một dòng chứng từ. Bảng riêng thì hoặc nới cột đó thành nullable, hoặc nhân bản cơ chế tồn (bất biến, đảo, khóa, lịch sử). Cả hai đều yếu hơn thêm một giá trị `type`.
+- `ck_stock_document_opening_stock`: phiếu đầu kỳ không có `supplier_id`, `customer_id` và `tracks_debt = FALSE` (BR-OPN-08). Entity đặt `tracksDebt = false` ngay trong constructor cho loại này.
+- `created_by`, `completed_by` (`VARCHAR(50)`, nullable): tên đăng nhập người lập / người xác nhận. Thêm cho phiếu đầu kỳ; phiếu nhập/bán cũ để NULL (chưa ghi).
+- Mã `DTK` + 6 số từ `opening_stock_code_seq`.
+- **Chặn khai trùng (BR-OPN-05), hai lớp:**
+  1. Trước khi cộng: `StockTransactionRepository.findProductIdsWithMovement(warehouseId, productIds)` — SP nào đã có giao dịch tại kho, **bỏ** giao dịch thuộc phiếu `OPENING_STOCK` đã `REVERSED` (cả IN gốc lẫn OUT đảo đều gắn dòng của phiếu đó, nên lọc theo trạng thái phiếu là đủ).
+  2. Sau khi cộng: `quantity_before` của giao dịch vừa ghi phải bằng 0, nếu không → rollback. Lớp 1 đọc lúc chưa khóa nên hai phiếu chứa cùng SP xác nhận cùng lúc đều lọt qua; câu upsert tồn khóa dòng `inventory`, người đến sau chờ rồi thấy tồn khác 0. Thử bỏ lớp 2: 5/5 phiếu đồng thời đều thành công, tồn bị cộng dồn (test `OpeningStockConcurrencyTest` bắt được).
+- Không có UNIQUE ở DB cho cặp (SP, kho) vì điều kiện phụ thuộc lịch sử giao dịch và trạng thái phiếu, không biểu diễn được bằng index trên một bảng.
 
 ### Sổ quỹ: VIEW cash_flow_entry + phiếu thu/chi (✅ đã duyệt — migration V19)
 
