@@ -170,6 +170,7 @@ DELETE /api/products/:id          # Xóa (soft delete)
 | Giá riêng của khách | `GET /api/customers/{id}/prices`, `PUT/DELETE /api/customers/{id}/prices/{productId}` | Xem mục **Phiếu bán, thanh toán, công nợ** |
 | Công nợ khách | `GET /api/customer-debts?customerId=` | Xem mục **Phiếu bán, thanh toán, công nợ** |
 | Sổ quỹ, phiếu thu/chi | `GET /api/cash-book?account=`, `GET /api/cash-book/summary`, `GET/PUT /api/cash-book/opening`; `GET/POST /api/cash-vouchers`, `POST …/{id}/reverse`; `GET/POST /api/cash-categories`, `PUT …/{id}` | Chỉ `SYSTEM_ADMIN`. Xem mục **Sổ quỹ** bên dưới |
+| Kiểm kê kho | `GET/POST /api/stock-counts`, `GET/PUT …/{id}`, `POST …/{id}/refresh-book`, `…/complete`, `…/cancel`, `…/reverse`; `GET/POST /api/stock-count-reasons`, `PUT …/{id}` | Chỉ `SYSTEM_ADMIN`. Xem mục **Kiểm kê kho** bên dưới |
 | Công nợ đầu kỳ | `GET/POST /api/opening-customer-debts`, `GET …/{id}`, `POST …/{id}/reverse`, `POST …/{id}/payments`, `POST …/{id}/payments/{paymentId}/reverse`; cùng bộ cho `/api/opening-supplier-debts` | Ghi nhận, đảo: `SYSTEM_ADMIN`. Xem, thu/trả: như công nợ khách / NCC. Xem mục **Công nợ đầu kỳ** bên dưới |
 | Tồn kho đầu kỳ | `GET/POST /api/opening-stocks`, `GET/PUT /api/opening-stocks/{id}`, `POST …/{id}/complete`, `POST …/{id}/cancel`, `POST …/{id}/reverse`, `GET /api/opening-stocks/products-with-movement?warehouseId=` | Chỉ `SYSTEM_ADMIN`. Xem mục **Tồn kho đầu kỳ** bên dưới |
 | Tạm ứng, trả lương, công nợ nhân viên | `GET/POST /api/employees/{id}/advances`, `POST …/advances/{advanceId}/reverse`; `GET /api/payrolls/{YYYY-MM}/items/{employeeId}`, `POST …/payments`, `POST …/payments/{paymentId}/reverse`; `GET /api/employee-debts?employeeId=` | Chỉ `SYSTEM_ADMIN`. Xem mục **Công nợ nhân viên** bên dưới |
@@ -212,6 +213,23 @@ Lọc `GET /api/inbound-receipts` (tất cả tùy chọn):
 | `POST /api/opening-stocks/{id}/cancel` | `{ reason? }` (body tùy chọn) | 200, Đã hủy. Không còn Nháp → 409 |
 | `POST /api/opening-stocks/{id}/reverse` | `{ reason }` (bắt buộc) | 200, Đã đảo, tồn trừ lại. Không đủ tồn → 409; đã đảo → 409; thiếu lý do → 400 field `reason` |
 | `GET /api/opening-stocks/products-with-movement` | `warehouseId` (bắt buộc) | `[productId, …]` — SP đã có biến động tại kho (không tính phiếu đầu kỳ đã đảo). Kho không có → 404 |
+
+**Kiểm kê kho** (thêm 2026-10-27, BR-CNT-01..10) — chỉ `SYSTEM_ADMIN`:
+
+| Endpoint | Body / tham số | Kết quả |
+|---|---|---|
+| `GET /api/stock-counts` | `keyword` (mã), `status`, `warehouseId`, `documentDateFrom`, `documentDateTo`, phân trang (mặc định id giảm dần) | Trang `{ id, code, status, documentDate, warehouseId, warehouseCode, warehouseName, lineCount, countedLineCount, differenceLineCount, surplusQuantity, shortageQuantity, createdBy?, completedBy?, completedAt?, createdAt }` |
+| `GET /api/stock-counts/{id}` | — | `{ …như trên, note?, bookSnapshotAt, reason?, cancelledAt?, reversedAt?, updatedAt, movedSinceSnapshot: [productId] (chỉ phiếu đang kiểm), lines: [{ id, productId, productCode, productName, unit, productActive, bookQuantity, countedQuantity?, difference?, reasonId?, reasonName?, reasonNote? }] }` |
+| `POST /api/stock-counts` | `{ warehouseId, documentDate?, note? }` | 201, phiếu đang kiểm (`DRAFT`) đã nạp mọi SP có tồn > 0. Kho đang có phiếu dở / ngừng hoạt động → 409; ngày tương lai → 400; kho không có → 404 |
+| `PUT /api/stock-counts/{id}` | `{ documentDate?, note?, lines: [{ productId, countedQuantity?, reasonId?, reasonNote? }] }` | 200. Thay toàn bộ dòng; SL sổ sách không gửi (dòng cũ giữ số đã chụp, SP mới chụp lúc thêm). SL đếm âm → 400 field `lines[i].countedQuantity`; trùng SP → 400 field `lines[i].productId`; SP / lý do không có → 404; không còn đang kiểm → 409 |
+| `POST /api/stock-counts/{id}/refresh-book` | — | 200, chụp lại SL sổ sách mọi dòng, dời `bookSnapshotAt` |
+| `POST /api/stock-counts/{id}/complete` | — | 200, ghi chênh vào tồn. Còn dòng chưa đếm / dòng lệch thiếu lý do đang dùng → 409 (liệt kê SP); thiếu mà không đủ tồn → 409, phiếu vẫn đang kiểm |
+| `POST /api/stock-counts/{id}/cancel` | `{ reason? }` (body tùy chọn) | 200, `CANCELLED` |
+| `POST /api/stock-counts/{id}/reverse` | `{ reason }` | 200, `REVERSED`. Không đủ tồn để trừ phần thừa → 409; đã đảo → 409 |
+| `GET /api/stock-count-reasons` | — | `[{ id, name, active, createdAt, updatedAt }]` theo tên |
+| `POST /api/stock-count-reasons`, `PUT …/{id}` | `{ name }` / `{ name, active }` | 201 / 200. Trùng tên (không phân biệt hoa thường) → 409 field `name` |
+
+`GET /api/inventory/transactions`: `documentType` có thêm `STOCK_COUNT` (giao dịch IN = kiểm kê thừa, OUT = thiếu).
 
 **Công nợ đầu kỳ** (thêm 2026-10-27, BR-ODB-01..09) — `/api/opening-customer-debts` (khách, mã `DKH…`) và `/api/opening-supplier-debts` (NCC, mã `DNC…`), cùng dạng:
 

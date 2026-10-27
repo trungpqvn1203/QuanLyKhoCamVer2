@@ -50,6 +50,19 @@ public interface StockDocumentRepository
     @Query(value = "SELECT nextval('opening_stock_code_seq')", nativeQuery = true)
     long nextOpeningStockCodeNumber();
 
+    // BR-CNT-01: mã phiếu kiểm kê KK
+    @Query(value = "SELECT nextval('stock_count_code_seq')", nativeQuery = true)
+    long nextStockCountCodeNumber();
+
+    /** Phiếu kiểm đang dở của kho (BR-CNT-07) — để báo lỗi rõ mã phiếu trước khi đụng UNIQUE ở DB. */
+    @Query("""
+            select d.code from StockDocument d
+            where d.type = com.grainwarehouse.inventory.entity.StockDocumentType.STOCK_COUNT
+              and d.status = com.grainwarehouse.inventory.entity.StockDocumentStatus.DRAFT
+              and d.warehouse.id = :warehouseId
+            """)
+    Optional<String> findOpenCountCode(@Param("warehouseId") Long warehouseId);
+
     // BR-ODB-01: mã công nợ đầu kỳ DKH (khách) / DNC (NCC)
     @Query(value = "SELECT nextval('opening_customer_debt_code_seq')", nativeQuery = true)
     long nextOpeningCustomerDebtCodeNumber();

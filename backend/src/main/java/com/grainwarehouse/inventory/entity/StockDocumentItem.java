@@ -2,6 +2,7 @@ package com.grainwarehouse.inventory.entity;
 
 import com.grainwarehouse.common.entity.AuditableEntity;
 import com.grainwarehouse.product.entity.Product;
+import com.grainwarehouse.stockcount.entity.StockCountReason;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -44,8 +45,41 @@ public class StockDocumentItem extends AuditableEntity {
     @Column(name = "line_amount", nullable = false, precision = 18, scale = 0)
     private BigDecimal lineAmount;
 
+    // Kiểm kê (V22): SL sổ sách lúc chụp, SL đếm (null = chưa đếm), lý do lệch. Loại phiếu khác để NULL
+    @Column(name = "book_quantity")
+    private Integer bookQuantity;
+
+    @Column(name = "counted_quantity")
+    private Integer countedQuantity;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "reason_id")
+    private StockCountReason reason;
+
+    @Column(name = "reason_note", length = 200)
+    private String reasonNote;
+
     public StockDocumentItem(Product product) {
         this.product = product;
+    }
+
+    /**
+     * Dòng kiểm kê: quantity = |đếm − sổ sách| (0 khi chưa đếm) — đúng số sẽ cộng/trừ khi xác nhận; tiền luôn 0
+     * (chưa tính giá vốn). CHECK ck_stock_document_item_count ở DB giữ quan hệ này.
+     */
+    public void setCount(int bookQuantity, Integer countedQuantity, StockCountReason reason, String reasonNote) {
+        this.bookQuantity = bookQuantity;
+        this.countedQuantity = countedQuantity;
+        this.reason = reason;
+        this.reasonNote = reasonNote;
+        this.quantity = countedQuantity == null ? 0 : Math.abs(countedQuantity - bookQuantity);
+        this.unitPrice = BigDecimal.ZERO;
+        this.lineAmount = BigDecimal.ZERO;
+    }
+
+    /** Chênh lệch kiểm kê: dương = thừa, âm = thiếu, null = chưa đếm. */
+    public Integer getDifference() {
+        return countedQuantity == null || bookQuantity == null ? null : countedQuantity - bookQuantity;
     }
 
     void attachTo(StockDocument document) {

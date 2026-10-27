@@ -139,6 +139,9 @@ public class SecurityConfig {
                 // "/*/reverse" chỉ khớp một đoạn id → không dính "/{id}/payments/{paymentId}/reverse"
                 .requestMatchers(HttpMethod.POST, "/api/opening-customer-debts", "/api/opening-customer-debts/*/reverse",
                         "/api/opening-supplier-debts", "/api/opening-supplier-debts/*/reverse").hasRole(ADMIN)
+                // Kiểm kê điều chỉnh tồn không qua nhập/bán (BR-CNT-10): chỉ quản lý hệ thống — tạm thời, sẽ chia vai trò sau
+                .requestMatchers("/api/stock-counts", "/api/stock-counts/**", "/api/stock-count-reasons",
+                        "/api/stock-count-reasons/**").hasRole(ADMIN)
                 .requestMatchers("/api/opening-customer-debts", "/api/opening-customer-debts/**").hasAnyRole(SALES, ADMIN)
                 .requestMatchers("/api/opening-supplier-debts", "/api/opening-supplier-debts/**").hasAnyRole(WAREHOUSE, ADMIN)
 

@@ -62,6 +62,22 @@ public interface InventoryRepository extends JpaRepository<Inventory, Long> {
     List<QuantityByKey> sumByProduct(@Param("productIds") Collection<Long> productIds,
                                      @Param("warehouseId") Long warehouseId);
 
+    /** Kiểm kê (BR-CNT-02): mọi SP đang có tồn > 0 tại kho, kèm SP — nạp sẵn dòng cho phiếu kiểm mới. */
+    @Query("""
+            select i from Inventory i join fetch i.product p
+            where i.warehouse.id = :warehouseId and i.quantity > 0
+            order by p.code
+            """)
+    List<Inventory> findInStockByWarehouse(@Param("warehouseId") Long warehouseId);
+
+    /** Tồn hiện tại của các SP tại một kho (SP chưa có dòng tồn thì không có trong kết quả = tồn 0). */
+    @Query("""
+            select i.product.id as id, i.quantity as quantity from Inventory i
+            where i.warehouse.id = :warehouseId and i.product.id in :productIds
+            """)
+    List<QuantityByKey> findQuantities(@Param("warehouseId") Long warehouseId,
+                                       @Param("productIds") Collection<Long> productIds);
+
     // Tồn từng kho của một SP — dùng index uk_inventory_product_warehouse (product_id đứng đầu)
     @Query("select i from Inventory i join fetch i.warehouse where i.product.id = :productId")
     List<Inventory> findByProductIdWithWarehouse(@Param("productId") Long productId);

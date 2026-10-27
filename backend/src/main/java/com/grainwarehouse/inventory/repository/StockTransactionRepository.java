@@ -10,6 +10,7 @@ import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
 
@@ -53,6 +54,15 @@ public interface StockTransactionRepository
             """)
     List<Long> findProductIdsWithMovement(@Param("warehouseId") Long warehouseId,
                                           @Param("productIds") Collection<Long> productIds);
+
+    /** Kiểm kê (BR-CNT-03): SP nào có nhập/xuất tại kho SAU lúc chụp sổ sách — số đếm có thể đã lệch thời điểm. */
+    @Query("""
+            select distinct t.product.id from StockTransaction t
+            where t.warehouse.id = :warehouseId and t.product.id in :productIds and t.createdAt > :since
+            """)
+    List<Long> findProductIdsMovedSince(@Param("warehouseId") Long warehouseId,
+                                        @Param("productIds") Collection<Long> productIds,
+                                        @Param("since") Instant since);
 
     /** Như trên, cho mọi SP của kho — giao diện làm mờ SP không còn nhập đầu kỳ được. */
     @Query("""

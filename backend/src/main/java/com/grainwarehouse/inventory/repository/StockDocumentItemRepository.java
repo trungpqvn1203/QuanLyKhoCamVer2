@@ -42,6 +42,20 @@ public interface StockDocumentItemRepository extends JpaRepository<StockDocument
             """)
     List<DocumentLineTotals> sumByDocument(@Param("documentIds") Collection<Long> documentIds);
 
+    /** Tổng hợp phiếu kiểm kê cho danh sách (BR-CNT-09). Dòng chưa đếm (counted NULL) không tính là lệch. */
+    @Query("""
+            select it.document.id as documentId, count(it) as lineCount,
+                   count(it.countedQuantity) as countedLineCount,
+                   sum(case when it.countedQuantity is not null and it.countedQuantity <> it.bookQuantity
+                            then 1 else 0 end) as differenceLineCount,
+                   sum(case when it.countedQuantity > it.bookQuantity then it.quantity else 0 end) as surplusQuantity,
+                   sum(case when it.countedQuantity < it.bookQuantity then it.quantity else 0 end) as shortageQuantity
+            from StockDocumentItem it
+            where it.document.id in :documentIds
+            group by it.document.id
+            """)
+    List<StockCountTotals> sumCountByDocument(@Param("documentIds") Collection<Long> documentIds);
+
     /** Hàng đang về của một SP, chia theo kho nhận. */
     @Query("""
             select it.document.warehouse.id as id, sum(it.orderedQuantity) as quantity

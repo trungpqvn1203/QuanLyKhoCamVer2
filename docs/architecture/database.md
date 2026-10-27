@@ -266,7 +266,7 @@ erDiagram
 
 ### stock_document (Chứng từ) (✅ đã duyệt — migration V6)
 
-- Dùng chung cho phiếu nhập / xuất / điều chuyển, phân biệt bằng `type`. V6 mở `INBOUND`; **V13 mở `OUTBOUND`** và thêm `customer_id`, `paid_amount`; **V20 mở `OPENING_STOCK`** (tồn đầu kỳ) và thêm `created_by`, `completed_by`. Điều chuyển sẽ nới CHECK và thêm `target_warehouse_id` sau (tiền tố mã nên khác `PC` — `PC` đã là phiếu chi của sổ quỹ).
+- Dùng chung cho phiếu nhập / xuất / điều chuyển, phân biệt bằng `type`. V6 mở `INBOUND`; **V13 mở `OUTBOUND`** và thêm `customer_id`, `paid_amount`; **V20 mở `OPENING_STOCK`** (tồn đầu kỳ) và thêm `created_by`, `completed_by`; **V21** công nợ đầu kỳ (không kho); **V22 `STOCK_COUNT`** (kiểm kê). Điều chuyển sẽ nới CHECK và thêm `target_warehouse_id` sau (tiền tố mã nên khác `PC` — `PC` đã là phiếu chi của sổ quỹ).
 - `ck_stock_document_customer` (V13): phiếu nhập không có khách; phiếu bán bắt buộc có khách, không có NCC (BR-SAL-01).
 - `tracks_debt` (V16, `BOOLEAN NOT NULL DEFAULT TRUE`): phiếu có phát sinh công nợ hay không. Migration V16 đặt `FALSE` cho phiếu nhập đã `COMPLETED`/`REVERSED` trước module công nợ NCC (BR-SPAY-05). Chỉ migration đổi cột này; còn nợ của phiếu `tracks_debt = FALSE` luôn là 0.
 - `paid_amount` (V13, dùng chung từ V16): phiếu bán = tổng đã thu — **snapshot** của `sale_payment`; phiếu nhập = tổng đã trả NCC — snapshot của `supplier_payment`, giống `inventory` ↔ `stock_transaction`. `ck_stock_document_paid`: `0 <= paid_amount <= total_amount` (BR-SAL-11). Chỉ đổi khi thu/hoàn tiền, sau khi khóa phiếu `FOR UPDATE`. Còn nợ = `total_amount − paid_amount` (không lưu).
@@ -318,6 +318,15 @@ erDiagram
   1. Trước khi cộng: `StockTransactionRepository.findProductIdsWithMovement(warehouseId, productIds)` — SP nào đã có giao dịch tại kho, **bỏ** giao dịch thuộc phiếu `OPENING_STOCK` đã `REVERSED` (cả IN gốc lẫn OUT đảo đều gắn dòng của phiếu đó, nên lọc theo trạng thái phiếu là đủ).
   2. Sau khi cộng: `quantity_before` của giao dịch vừa ghi phải bằng 0, nếu không → rollback. Lớp 1 đọc lúc chưa khóa nên hai phiếu chứa cùng SP xác nhận cùng lúc đều lọt qua; câu upsert tồn khóa dòng `inventory`, người đến sau chờ rồi thấy tồn khác 0. Thử bỏ lớp 2: 5/5 phiếu đồng thời đều thành công, tồn bị cộng dồn (test `OpeningStockConcurrencyTest` bắt được).
 - Không có UNIQUE ở DB cho cặp (SP, kho) vì điều kiện phụ thuộc lịch sử giao dịch và trạng thái phiếu, không biểu diễn được bằng index trên một bảng.
+
+### Kiểm kê: stock_document type STOCK_COUNT + stock_count_reason (✅ đã duyệt 2026-10-27 — migration V22)
+
+- Phiếu kiểm kê là `stock_document` `type = 'STOCK_COUNT'` (mã `KK`, `stock_count_code_seq`). `ck_stock_document_stock_count`: không NCC, không khách, `tracks_debt = FALSE`. Kho bắt buộc nhờ `ck_stock_document_warehouse` (V21).
+- `stock_document.book_snapshot_at`: lúc chụp SL sổ sách; `ck_stock_document_snapshot`: có khi và chỉ khi là phiếu kiểm kê. Cảnh báo "phát sinh sau lúc chụp" = `stock_transaction.created_at > book_snapshot_at` cho các SP trên phiếu.
+- `stock_document_item` thêm `book_quantity`, `counted_quantity` (NULL = chưa đếm), `reason_id` (FK `stock_count_reason`), `reason_note`. Cột `quantity` cũ = `|đếm − sổ sách|` — đúng số được cộng/trừ khi xác nhận; `ck_stock_document_item_count` giữ quan hệ này ở DB. Chiều IN/OUT suy từ dấu chênh. Đơn giá / thành tiền = 0.
+- `uk_stock_document_open_count (warehouse_id) WHERE type = 'STOCK_COUNT' AND status = 'DRAFT'`: mỗi kho một phiếu đang kiểm — hai phiếu cùng điều chỉnh một SP sẽ trừ/cộng chênh hai lần.
+- **Vì sao ghi chênh (delta) chứ không đặt tồn = số đếm:** kho không bị khóa trong lúc kiểm. Đặt tồn tuyệt đối sẽ xóa mất các giao dịch xảy ra giữa lúc đếm và lúc xác nhận. Delta đi qua `InventoryService.stockIn/stockOut` nên vẫn có kiểm tra không âm, có `quantity_before/after`, có đảo. Phương án khóa kho (chặn nhập/bán) đúng tuyệt đối nhưng bắt kho ngừng bán — chỉ đáng làm nếu kiểm toàn kho định kỳ lớn.
+- `stock_count_reason`: `UNIQUE (lower(name))`, `active`, 4 dòng mặc định trong migration.
 
 ### Công nợ đầu kỳ: stock_document không kho, không dòng hàng (✅ đã duyệt 2026-10-27 — migration V21)
 

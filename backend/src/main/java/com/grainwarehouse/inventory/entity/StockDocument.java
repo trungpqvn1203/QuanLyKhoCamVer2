@@ -98,6 +98,11 @@ public class StockDocument extends AuditableEntity {
     @Column(name = "completed_by", length = 50)
     private String completedBy;
 
+    // Kiểm kê (V22): lúc chụp SL sổ sách — giao dịch sau mốc này được cảnh báo khi xác nhận (BR-CNT-03)
+    @Setter
+    @Column(name = "book_snapshot_at")
+    private Instant bookSnapshotAt;
+
     // Lý do hủy hoặc đảo
     @Column(length = 500)
     private String reason;
@@ -119,7 +124,7 @@ public class StockDocument extends AuditableEntity {
     public StockDocument(StockDocumentType type, String code) {
         this.type = type;
         this.code = code;
-        this.tracksDebt = type != StockDocumentType.OPENING_STOCK;
+        this.tracksDebt = type != StockDocumentType.OPENING_STOCK && type != StockDocumentType.STOCK_COUNT;
     }
 
     /** Phiếu có ghi người lập (tồn đầu kỳ). */

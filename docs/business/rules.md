@@ -317,7 +317,7 @@ _(Trả lời BR-SAL-Q01: có công nợ, chỉ ở mức phiếu bán + lịch 
 ### ❓ Câu hỏi mở
 
 - **BR-OPN-Q01:** Nhập dòng tồn đầu kỳ từ Excel (BR-XLS-Q01) — để sau, khi màn hình nhập tay đã dùng ổn. Thiết kế dự kiến: dùng lại ADR-0004, import thay toàn bộ dòng của một phiếu **nháp**.
-- **BR-OPN-Q02:** **Kiểm kê / điều chỉnh tồn** cho kho đã vận hành (lệch số sau khi đã nhập/bán) — để sau.
+- ~~BR-OPN-Q02: Kiểm kê / điều chỉnh tồn cho kho đã vận hành~~ — đã làm, xem mục **Kiểm kê kho** (BR-CNT).
 - ~~BR-OPN-Q03: Công nợ đầu kỳ khách và NCC~~ — đã làm, xem mục **Số dư đầu kỳ — Công nợ khách / NCC** (BR-ODB).
 
 ---
@@ -337,6 +337,29 @@ _(Trả lời BR-SAL-Q01: có công nợ, chỉ ở mức phiếu bán + lịch 
 - **BR-ODB-07:** Thu (khách) / trả (NCC) nợ cũ **y như phiếu bán / phiếu nhập**: tiền mặt và/hoặc chuyển khoản, không vượt số còn nợ, ngày chọn tự do, lịch sử bất biến, hoàn khoản ghi nhầm (BR-SAL-11..13, BR-SPAY-02..03). Tiền thu / trả nợ cũ **vào sổ quỹ**; bản thân việc ghi nhận nợ đầu kỳ **không** làm sổ quỹ thay đổi.
 - **BR-ODB-08:** Ghi nhận và đảo nợ đầu kỳ: **chỉ Quản lý hệ thống**. Xem và thu / trả: theo quyền công nợ tương ứng — nợ khách: Nhân viên bán hàng + Quản lý hệ thống; nợ NCC: Quản lý kho + Quản lý hệ thống (thu nợ cũ là việc hằng ngày như thu nợ phiếu bán).
 - **BR-ODB-09:** Menu **Số dư đầu kỳ** gom: Quỹ đầu kỳ, Tồn kho đầu kỳ, Công nợ khách đầu kỳ, Công nợ NCC đầu kỳ.
+
+---
+
+## Kiểm kê kho
+
+> Thiết kế: migration V22. Phiếu kiểm kê là loại chứng từ `STOCK_COUNT` trong `stock_document`; mỗi dòng giữ SL sổ sách đã chụp và SL đếm. Xác nhận ghi **phần chênh** qua cơ chế tồn kho chung — không "đặt tồn = số đếm".
+
+### ✅ Đã xác nhận (2026-10-27)
+
+- **BR-CNT-01:** Phiếu kiểm kê ghi **một kho đang hoạt động**, ngày kiểm (mặc định hôm nay, lùi được, không ở tương lai), ghi chú. Mã `KK` + 6 số. Ghi người lập, người xác nhận.
+- **BR-CNT-02:** Lập phiếu thì hệ thống **nạp sẵn mọi SP đang có tồn > 0** tại kho. Được bỏ dòng (không kiểm SP đó) và thêm SP chưa có trong danh sách (kể cả SP sổ sách đang 0) — tức kiểm toàn kho hoặc từng phần. Mỗi SP một dòng.
+- **BR-CNT-03:** SL sổ sách được **chụp lúc lập phiếu** (SP thêm sau: chụp lúc thêm) và giữ nguyên khi lưu. **Không khóa kho** trong lúc kiểm — nhập/bán vẫn chạy. SP có nhập/xuất **sau lúc chụp** được cảnh báo; nút **Lấy lại số sổ sách** chụp lại mọi dòng theo tồn hiện tại (giữ SL đếm đã nhập).
+- **BR-CNT-04:** SL đếm là số nguyên ≥ 0; để trống = chưa đếm (lưu nháp được). Xác nhận đòi **mọi dòng đã đếm**.
+- **BR-CNT-05:** Dòng lệch (đếm ≠ sổ sách) bắt buộc chọn **lý do đang dùng** lúc xác nhận, kèm ghi chú tùy chọn. Danh mục lý do **do người dùng tự quản lý** (thêm, đổi tên, ngừng dùng; tên không trùng; không xóa). Có sẵn 4 lý do mặc định.
+- **BR-CNT-06:** Xác nhận ghi **phần chênh** trong **một transaction**: thừa → tăng tồn (IN), thiếu → giảm tồn (OUT), khớp → không ghi gì. Ví dụ sổ sách 120, đếm 115, sau lúc chụp bán 10 → xác nhận ghi −5, tồn 110 → 105 (không phải 115). Dòng thiếu mà tồn hiện tại không đủ trừ → từ chối, rollback hết, phiếu vẫn đang kiểm.
+- **BR-CNT-07:** Mỗi kho chỉ **một phiếu đang kiểm** — xác nhận hoặc hủy phiếu đó trước khi lập phiếu mới. UNIQUE ở DB chặn cả khi hai người lập cùng lúc.
+- **BR-CNT-08:** Sai thì **đảo toàn phiếu** (lý do bắt buộc), mỗi phiếu một lần; mọi điều chỉnh ghi ngược lại; không đủ tồn để trừ phần thừa → từ chối. Phiếu đang kiểm thì hủy được (chưa tác động tồn).
+- **BR-CNT-09:** Danh sách phiếu hiện: số dòng đã đếm / tổng, số dòng lệch, tổng thừa, tổng thiếu. Lịch sử kho hiện "Kiểm kê thừa / thiếu / Đảo kiểm kê". **Không tính tiền chênh lệch** (chưa có giá vốn).
+- **BR-CNT-10:** Kiểm kê và danh mục lý do: **chỉ Quản lý hệ thống** (tạm thời — sẽ chia lại vai trò sau).
+
+### ❓ Câu hỏi mở
+
+- **BR-CNT-Q01:** In biên bản kiểm kê / xuất Excel phiếu đếm để đếm trên giấy rồi nhập lại — để sau.
 
 ## Tài khoản, đăng nhập, phân quyền
 
