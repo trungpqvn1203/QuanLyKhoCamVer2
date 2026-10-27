@@ -14,6 +14,7 @@ import { useCan } from '../auth/auth-context'
 import { InboundReceiptDrawer } from '../inbound-receipts/InboundReceiptDrawer'
 import { useReceiptReferences } from '../inbound-receipts/use-receipt-references'
 import { OpeningStockDrawer } from '../opening-stocks/OpeningStockDrawer'
+import { StockCountDrawer } from '../stock-counts/StockCountDrawer'
 import { PRODUCT_UNIT_LABELS, productApi } from '../products/product-api'
 import type { Product } from '../products/product-api'
 import { SalesOrderDrawer } from '../sales-orders/SalesOrderDrawer'
@@ -41,6 +42,9 @@ const MOVEMENT_COLORS: Record<MovementKind, string> = {
   SALE_REVERSAL: 'warning',
   OPENING: 'purple',
   OPENING_REVERSAL: 'warning',
+  COUNT_SURPLUS: 'cyan',
+  COUNT_SHORTAGE: 'magenta',
+  COUNT_REVERSAL: 'warning',
 }
 
 const DOCUMENT_TYPE_OPTIONS = (Object.keys(DOCUMENT_TYPE_LABELS) as StockDocumentType[]).map((type) => ({
@@ -73,6 +77,7 @@ export function StockTransactionPage() {
   const { token } = theme.useToken()
   const canSeeInbound = useCan('inbound')
   const canSeeOpening = useCan('opening')
+  const canSeeCount = useCan('stockcount')
   const [searchParams] = useSearchParams()
   const receiptReferences = useReceiptReferences()
   const salesReferences = useSalesReferences()
@@ -174,7 +179,8 @@ export function StockTransactionPage() {
         <Flex vertical align="flex-start">
           {/* Không có quyền xem loại phiếu này (ADR-0003, BR-OPN-09) → hiện mã, không mở khung */}
           {(transaction.documentType === 'INBOUND' && !canSeeInbound) ||
-          (transaction.documentType === 'OPENING_STOCK' && !canSeeOpening) ? (
+          (transaction.documentType === 'OPENING_STOCK' && !canSeeOpening) ||
+          (transaction.documentType === 'STOCK_COUNT' && !canSeeCount) ? (
             <CodeText code={transaction.documentCode} />
           ) : (
             <CodeLink code={transaction.documentCode} onClick={() => openDocument(transaction)} />
@@ -243,6 +249,18 @@ export function StockTransactionPage() {
           open={drawerOpen}
           receiptId={opened.id}
           references={receiptReferences}
+          onClose={() => setDrawerOpen(false)}
+          onChanged={reload}
+        />
+      )}
+      {/* Khung kiểm kê luôn mở khi được render → điều kiện đóng/mở nằm ở đây */}
+      {opened?.type === 'STOCK_COUNT' && drawerOpen && (
+        // Lịch sử chỉ có phiếu đã xác nhận (chỉ xem) → không cần danh mục lý do
+        <StockCountDrawer
+          key={drawerKey}
+          countId={opened.id}
+          products={products}
+          reasons={[]}
           onClose={() => setDrawerOpen(false)}
           onChanged={reload}
         />

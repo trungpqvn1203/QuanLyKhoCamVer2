@@ -17,6 +17,7 @@ export type Permission =
   | 'payroll'
   | 'cashbook' // sổ quỹ, phiếu thu/chi khác (BR-CASH-07)
   | 'opening' // số dư đầu kỳ: tồn kho (BR-OPN-09), ghi nhận / đảo công nợ đầu kỳ (BR-ODB-08)
+  | 'stockcount' // kiểm kê kho, lý do lệch (BR-CNT-10)
   | 'users'
 
 const GRANTS: Record<Permission, Role[]> = {
@@ -31,6 +32,7 @@ const GRANTS: Record<Permission, Role[]> = {
   payroll: ['SYSTEM_ADMIN'],
   cashbook: ['SYSTEM_ADMIN'],
   opening: ['SYSTEM_ADMIN'],
+  stockcount: ['SYSTEM_ADMIN'],
   users: ['SYSTEM_ADMIN'],
 }
 

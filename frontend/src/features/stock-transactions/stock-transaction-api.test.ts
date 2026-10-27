@@ -67,6 +67,9 @@ describe('movementKind', () => {
     expect(movementKind({ documentType: 'OUTBOUND', reversalOfId: 1 })).toBe('SALE_REVERSAL')
     expect(movementKind({ documentType: 'OPENING_STOCK' })).toBe('OPENING')
     expect(movementKind({ documentType: 'OPENING_STOCK', reversalOfId: 1 })).toBe('OPENING_REVERSAL')
+    expect(movementKind({ documentType: 'STOCK_COUNT', type: 'IN' })).toBe('COUNT_SURPLUS')
+    expect(movementKind({ documentType: 'STOCK_COUNT', type: 'OUT' })).toBe('COUNT_SHORTAGE')
+    expect(movementKind({ documentType: 'STOCK_COUNT', type: 'IN', reversalOfId: 1 })).toBe('COUNT_REVERSAL')
   })
 })
 

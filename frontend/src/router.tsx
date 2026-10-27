@@ -18,6 +18,7 @@ import { OpeningStockListPage } from './features/opening-stocks/OpeningStockList
 import { PayrollPage } from './features/payroll/PayrollPage'
 import { ProductListPage } from './features/products/ProductListPage'
 import { SalesOrderListPage } from './features/sales-orders/SalesOrderListPage'
+import { StockCountListPage } from './features/stock-counts/StockCountListPage'
 import { StockTransactionPage } from './features/stock-transactions/StockTransactionPage'
 import { SupplierDebtPage } from './features/supplier-debts/SupplierDebtPage'
 import { SupplierListPage } from './features/suppliers/SupplierListPage'
@@ -49,6 +50,7 @@ export const router = createBrowserRouter([
       { path: 'customer-debts', element: guarded('debts', <CustomerDebtPage />) },
       { path: 'supplier-debts', element: guarded('inbound', <SupplierDebtPage />) },
       { path: 'stock-transactions', element: <StockTransactionPage /> },
+      { path: 'stock-counts', element: guarded('stockcount', <StockCountListPage />) },
       { path: 'employees', element: guarded('employees', <EmployeeListPage />) },
       { path: 'attendance', element: guarded('attendance', <AttendancePage />) },
       { path: 'payroll', element: guarded('payroll', <PayrollPage />) },

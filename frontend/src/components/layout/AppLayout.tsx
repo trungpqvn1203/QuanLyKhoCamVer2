@@ -1,4 +1,4 @@
-import { AccountBookOutlined, AppstoreOutlined, BankOutlined, CalendarOutlined, DollarOutlined, DownOutlined, ExportOutlined, FlagOutlined, HistoryOutlined, HomeOutlined, IdcardOutlined, ImportOutlined, InboxOutlined, KeyOutlined, LogoutOutlined, SafetyOutlined, ShopOutlined, TeamOutlined, UserOutlined, UsergroupAddOutlined, WalletOutlined } from '@ant-design/icons'
+import { AccountBookOutlined, AppstoreOutlined, AuditOutlined, BankOutlined, CalendarOutlined, DollarOutlined, DownOutlined, ExportOutlined, FlagOutlined, HistoryOutlined, HomeOutlined, IdcardOutlined, ImportOutlined, InboxOutlined, KeyOutlined, LogoutOutlined, SafetyOutlined, ShopOutlined, TeamOutlined, UserOutlined, UsergroupAddOutlined, WalletOutlined } from '@ant-design/icons'
 import { App, Breadcrumb, Button, Dropdown, Flex, Layout, Menu, Typography, theme } from 'antd'
 import type { MenuProps } from 'antd'
 import type { ReactNode } from 'react'
@@ -36,6 +36,7 @@ const MENU_ITEMS: MenuEntry[] = [
   // Cùng quyền với phiếu nhập: quản lý kho trả tiền NCC (BR-SPAY-06)
   { key: '/supplier-debts', icon: <WalletOutlined />, label: 'Công nợ NCC', permission: 'inbound' },
   { key: '/stock-transactions', icon: <HistoryOutlined />, label: 'Lịch sử kho' },
+  { key: '/stock-counts', icon: <AuditOutlined />, label: 'Kiểm kê', permission: 'stockcount' },
   { key: '/employees', icon: <IdcardOutlined />, label: 'Nhân viên', permission: 'employees' },
   { key: '/attendance', icon: <CalendarOutlined />, label: 'Chấm công', permission: 'attendance' },
   { key: '/payroll', icon: <DollarOutlined />, label: 'Bảng lương', permission: 'payroll' },
