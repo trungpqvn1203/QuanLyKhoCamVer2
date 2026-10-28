@@ -33,7 +33,7 @@ lỗi đã gặp và câu hỏi ôn tập. Do AI ghi sau mỗi module (CLAUDE.md
 | [Sổ quỹ — tiền mặt và tài khoản](2-tien-va-cong-no/03-so-quy.md) | VIEW thay vì chép dữ liệu, số dư lũy kế |
 | [Công nợ đầu kỳ khách / NCC](2-tien-va-cong-no/04-cong-no-dau-ky.md) | Dùng lại cơ chế thanh toán, partial unique index |
 
-### Danh mục: nhà cung cấp, khách hàng, nhân viên
+### Danh mục: nhà cung cấp, khách hàng, nhân viên, cấu hình sản phẩm
 
 | Bài | Nội dung chính |
 |---|---|
@@ -41,6 +41,7 @@ lỗi đã gặp và câu hỏi ôn tập. Do AI ghi sau mỗi module (CLAUDE.md
 | [Khách hàng](3-danh-muc/02-khach-hang.md) | SĐT duy nhất, loại khách |
 | [Nhân viên, chấm công, bảng lương](3-danh-muc/03-nhan-vien-cham-cong-luong.md) | Chốt lương, khóa tháng |
 | [Nhập hàng loạt từ Excel](3-danh-muc/04-nhap-excel.md) | Hai bước kiểm tra / xác nhận, tất cả hoặc không gì |
+| [Cấu hình sản phẩm: danh mục và đơn vị tính](3-danh-muc/05-cau-hinh-san-pham.md) | Enum/CHECK → bảng danh mục, migration chuyển dữ liệu, EAGER vs LAZY |
 
 ### Nền tảng hệ thống
 
@@ -160,6 +161,14 @@ lỗi đã gặp và câu hỏi ôn tập. Do AI ghi sau mỗi module (CLAUDE.md
 2. `preview()` mà có `@Transactional` thì người dùng thấy gì khi file có một tên trùng? Vì sao?
 3. Vì sao bước "Nhập" phải kiểm tra lại từ đầu dù vừa preview không có lỗi?
 4. Dropdown trong Excel đã giới hạn giá trị, tại sao backend vẫn phải kiểm?
+
+**[Cấu hình sản phẩm: danh mục và đơn vị tính](3-danh-muc/05-cau-hinh-san-pham.md)**
+
+1. Khi nào nên dùng `enum` + `CHECK`, khi nào nên dùng bảng danh mục + FK? Cho một ví dụ trong dự án cho mỗi cách.
+2. Vì sao không viết thẳng `ADD COLUMN unit_id BIGINT NOT NULL REFERENCES product_unit`? Migration sẽ lỗi ra sao trên DB đang có sản phẩm?
+3. `Product.unit` để EAGER, `Product.category` để LAZY. Nếu `category` cũng để EAGER thì có hại gì không? Còn `StockDocumentItem.product` thì sao?
+4. Vì sao API đơn vị không nhận `fixedNetWeightKg`, dù gửi lên cũng chẳng gây lỗi gì?
+5. Đổi tên đơn vị "Bao" thành "Bao 25kg" thì phiếu nhập tháng trước hiển thị gì? Muốn giữ tên cũ thì phải đổi schema thế nào?
 
 **[Đăng nhập & phân quyền](4-nen-tang-he-thong/01-dang-nhap-phan-quyen.md)**
 

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { categoryApi, productApi } from './product-api'
+import { categoryApi, productApi, productUnitApi } from './product-api'
 
 function stubFetchAndCaptureUrl() {
   const fetchMock = vi.fn().mockResolvedValue(
@@ -63,5 +63,23 @@ describe('categoryApi.update', () => {
     expect(url).toContain('/api/categories/4')
     expect(init.method).toBe('PUT')
     expect(JSON.parse(init.body as string)).toEqual({ name: 'Cám cá tra', description: 'Cho cá tra', active: true })
+  })
+})
+
+describe('productUnitApi.update', () => {
+  it('PUT chỉ gửi tên và trạng thái - không gửi khối lượng cố định (BR-UNIT-03)', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ success: true, data: {}, timestamp: '' }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    await productUnitApi.update({ id: 2, name: 'Kg', fixedNetWeightKg: 1, active: true }, 'Ký', false)
+
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit]
+    expect(url).toContain('/api/product-units/2')
+    expect(JSON.parse(init.body as string)).toEqual({ name: 'Ký', active: false })
   })
 })

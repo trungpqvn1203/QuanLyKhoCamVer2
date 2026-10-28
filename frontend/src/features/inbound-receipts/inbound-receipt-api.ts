@@ -1,7 +1,6 @@
 import { apiRequest, withQuery } from '../../api/client'
 import type { PageQuery, PageResponse } from '../../api/types'
 import { toFilterParams } from '../../utils/filters'
-import type { ProductUnit } from '../products/product-api'
 import type { PaymentInput, SalePayment } from '../sales-orders/sales-order-api'
 
 /** BR-IMP-11, 12: Nháp → Hoàn tất / Đã hủy; Hoàn tất → Đã đảo. */
@@ -19,7 +18,7 @@ export interface InboundReceiptLine {
   productId: number
   productCode: string
   productName: string
-  unit: ProductUnit
+  unitName: string
   orderedQuantity: number
   receivedQuantity: number
   // JSON number: đơn giá tối đa 2 chữ số lẻ, thành tiền là số nguyên đồng → đủ chính xác để hiển thị

@@ -7,7 +7,8 @@
 | Thực thể | Vai trò | Trạng thái |
 |---|---|---|
 | `category` | Danh mục sản phẩm (cám gà, cám heo...) | ✅ Đã duyệt 2026-10-14 (V2) |
-| `product` | Sản phẩm cám | ✅ Đã duyệt 2026-10-14 (V2) |
+| `product` | Sản phẩm cám | ✅ Đã duyệt 2026-10-14 (V2); V23 (2026-10-28) `unit` → `unit_id` FK |
+| `product_unit` | Đơn vị tính do người dùng quản lý (Bao, Kg, Túi…) | ✅ Đã duyệt 2026-10-28 (V23) |
 | `warehouse` | Kho hàng | ✅ Đã duyệt 2026-10-16 (V3) |
 | `supplier` | Nhà cung cấp | ✅ Đã duyệt 2026-10-16 (V4) |
 | `product_supplier` | NCC được phép cung cấp SP nào (nhiều–nhiều) | ✅ Đã duyệt 2026-10-16 (V4) |
@@ -57,7 +58,7 @@ erDiagram
         varchar code UK "Tự sinh SP000001, không sửa"
         varchar name UK "unique, không phân biệt hoa thường"
         bigint category_id FK "NOT NULL"
-        varchar unit "BAG | KG"
+        bigint unit_id FK "NOT NULL (V23)"
         numeric net_weight_kg "NUMERIC(10,3), > 0"
         text description
         boolean active "Còn kinh doanh?"
@@ -199,6 +200,7 @@ erDiagram
     }
 
     category ||--o{ product : "phân nhóm"
+    product_unit ||--o{ product : "đơn vị tính"
     product ||--o{ inventory : "tồn tại các kho"
     warehouse ||--o{ inventory : "chứa sản phẩm"
     product ||--o{ stock_document_item : "xuất hiện trong"
@@ -224,10 +226,19 @@ erDiagram
 - `id`: `BIGINT GENERATED ALWAYS AS IDENTITY` (chuẩn SQL, cấm chèn ID thủ công).
 - `product.code`: `DEFAULT 'SP' || lpad(nextval('product_code_seq')::text, 6, '0')`. Sequence an toàn khi nhiều request đồng thời (khác `MAX(code)+1` bị trùng khi đồng thời). Rollback có thể làm nhảy số — chấp nhận.
 - Vì mã tự sinh không chặn được trùng lặp, dùng `UNIQUE INDEX (lower(name))` để chặn tạo trùng sản phẩm.
-- `unit`: `CHECK (unit IN ('BAG','KG'))` — danh sách ít đổi, không cần bảng riêng.
+- ~~`unit`: `CHECK (unit IN ('BAG','KG'))`~~ — thay bằng `unit_id` FK tới `product_unit` từ V23 (xem mục dưới).
 - `net_weight_kg NUMERIC(10,3) CHECK > 0` — phục vụ báo cáo quy đổi tấn.
 - `category_id NOT NULL` + FK; index `idx_product_category` cho lọc theo danh mục.
 - Thời gian dùng `TIMESTAMPTZ` để không lệch khi server chạy UTC.
+
+### product_unit (✅ đã duyệt 2026-10-28 — migration V23)
+
+- Người dùng cần thêm túi, thùng… nên đơn vị chuyển từ chuỗi có CHECK sang bảng danh mục, cùng kiểu với `category`: `name VARCHAR(50)`, `active`, `UNIQUE INDEX (lower(name))`. Mỗi SP vẫn **một** đơn vị, không quy đổi (BR-PRD-05).
+- `fixed_net_weight_kg NUMERIC(10,3)` nullable, `CHECK > 0`: thay luật cứng "KG thì = 1" bằng luật chung — có giá trị thì `product.net_weight_kg` phải bằng nó (kiểm trong service). Chỉ dòng **Kg = 1** có giá trị; API không nhận field này.
+- Migration chuyển dữ liệu: seed `Bao` (NULL) và `Kg` (1), `UPDATE product SET unit_id` theo `BAG → Bao`, `KG → Kg`, rồi `SET NOT NULL`, thêm FK `fk_product_unit`, bỏ `ck_product_unit` và cột `unit`.
+- Không index `unit_id`: chưa có màn lọc SP theo đơn vị.
+- JPA: `Product.unit` là `@ManyToOne(fetch = EAGER)` (khác `category` LAZY) vì tên đơn vị có trong gần như mọi response chứng từ / tồn kho; ít dòng nên mỗi request chỉ thêm vài SELECT nhỏ, được cache trong persistence context.
+- **Phương án chưa làm:** một SP nhiều đơn vị kèm hệ số quy đổi (nhập thùng, bán túi) — phải đổi logic tồn và chứng từ; chỉ làm khi có nhu cầu thật.
 
 ### warehouse (✅ đã duyệt — migration V3)
 
@@ -370,7 +381,7 @@ Ví dụ (khi có module điều chuyển): phiếu điều chuyển 100 bao cá
 | Trường | PostgreSQL | Java | Quy tắc |
 |---|---|---|---|
 | Đơn giá | `NUMERIC(15,2)` | `BigDecimal` | VND, tối đa 2 chữ số lẻ (BR-MON-03, 04) |
-| Số lượng | `INTEGER` | `int` / `Integer` | Luôn nguyên, cả BAG lẫn KG (BR-INV-07); JSON `2.5` → 400 (`accept-float-as-int: false`) |
+| Số lượng | `INTEGER` | `int` / `Integer` | Luôn nguyên, với mọi đơn vị (BR-INV-07); JSON `2.5` → 400 (`accept-float-as-int: false`) |
 | Thành tiền dòng, tổng phiếu | `NUMERIC(18,0)` | `BigDecimal` | `HALF_UP` về đồng; tổng = cộng các dòng, không làm tròn thêm (BR-MON-05) |
 
 ## Chiến lược cập nhật tồn
@@ -468,4 +479,4 @@ Cả hai transaction đều lock theo thứ tự ID tăng dần → không deadl
 - ✅ ~~Chứng từ có cần trạng thái?~~ → Có: DRAFT / COMPLETED / CANCELLED / REVERSED (BR-IMP-02, 11, 12)
 - ✅ ~~Mã chứng từ tự sinh hay người dùng nhập?~~ → Tự sinh `PN000001` (BR-IMP-07)
 - ✅ ~~Cần bảng `category` riêng?~~ → Có (BR-CAT-01)
-- ✅ ~~Cần bảng `unit_of_measure` riêng?~~ → Không; `unit` là chuỗi có CHECK, kèm `net_weight_kg` (BR-PRD-05, 06)
+- ✅ ~~Cần bảng `unit_of_measure` riêng?~~ → Ban đầu không (chuỗi có CHECK); **từ V23 (2026-10-28) có** bảng `product_unit` để người dùng tự thêm đơn vị (BR-UNIT-01..04)

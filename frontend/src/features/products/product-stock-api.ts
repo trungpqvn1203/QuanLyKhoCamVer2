@@ -1,7 +1,7 @@
 import { apiRequest, withQuery } from '../../api/client'
 import type { PageQuery, PageResponse } from '../../api/types'
 import { toFilterParams } from '../../utils/filters'
-import type { Product, ProductFilters, ProductUnit } from './product-api'
+import type { Product, ProductFilters } from './product-api'
 
 /** BR-STK-04 — tính trên tổng mọi kho. */
 export type StockStatus = 'IN_STOCK' | 'LOW' | 'OUT'
@@ -46,7 +46,7 @@ export interface ProductStockDetail {
   productId: number
   productCode: string
   productName: string
-  unit: ProductUnit
+  unitName: string
   netWeightKg: number
   minStockQuantity?: number
   stockQuantity: number

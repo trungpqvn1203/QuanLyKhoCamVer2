@@ -1,6 +1,5 @@
 package com.grainwarehouse.product.dto;
 
-import com.grainwarehouse.product.entity.ProductUnit;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.NotBlank;
@@ -20,7 +19,7 @@ public record CreateProductRequest(
         Long categoryId,
 
         @NotNull(message = "Đơn vị tính không được để trống")
-        ProductUnit unit,
+        Long unitId,
 
         @NotNull(message = "Khối lượng tịnh không được để trống")
         @DecimalMin(value = "0", inclusive = false, message = "Khối lượng tịnh phải lớn hơn 0")

@@ -15,7 +15,7 @@ import { InboundReceiptDrawer } from '../inbound-receipts/InboundReceiptDrawer'
 import { useReceiptReferences } from '../inbound-receipts/use-receipt-references'
 import { OpeningStockDrawer } from '../opening-stocks/OpeningStockDrawer'
 import { StockCountDrawer } from '../stock-counts/StockCountDrawer'
-import { PRODUCT_UNIT_LABELS, productApi } from '../products/product-api'
+import { productApi } from '../products/product-api'
 import type { Product } from '../products/product-api'
 import { SalesOrderDrawer } from '../sales-orders/SalesOrderDrawer'
 import { useSalesReferences } from '../sales-orders/use-sales-references'
@@ -204,7 +204,7 @@ export function StockTransactionPage() {
         return (
           <Typography.Text strong style={{ color: change > 0 ? token.colorSuccess : token.colorError }}>
             {change > 0 ? '+' : '−'}
-            {formatQuantity(Math.abs(change))} {PRODUCT_UNIT_LABELS[transaction.unit].toLowerCase()}
+            {formatQuantity(Math.abs(change))} {transaction.unitName.toLowerCase()}
           </Typography.Text>
         )
       },

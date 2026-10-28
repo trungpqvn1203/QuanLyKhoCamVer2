@@ -1,7 +1,6 @@
 import { apiRequest, withQuery } from '../../api/client'
 import type { PageQuery, PageResponse } from '../../api/types'
 import { toFilterParams } from '../../utils/filters'
-import type { ProductUnit } from '../products/product-api'
 import { createImportApi } from '../imports/import-api'
 
 export interface Supplier {
@@ -36,7 +35,7 @@ export interface SupplierProduct {
   productId: number
   productCode: string
   productName: string
-  unit: ProductUnit
+  unitName: string
   productActive: boolean
 }
 

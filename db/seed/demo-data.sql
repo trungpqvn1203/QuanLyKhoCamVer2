@@ -1,7 +1,7 @@
 -- =============================================
 -- Dữ liệu demo — CHỈ dùng cho DB dev, không chạy trên test/production
 -- =============================================
--- Yêu cầu: DB đã migrate tới V3 (chạy backend một lần để Flyway tạo bảng).
+-- Yêu cầu: DB đã migrate tới V23 (chạy backend một lần để Flyway tạo bảng; V23 tạo sẵn đơn vị Bao, Kg).
 -- Cách chạy (từ thư mục gốc dự án):
 --   psql -h localhost -U postgres -d grain_warehouse -f db/seed/demo-data.sql
 --
@@ -22,21 +22,22 @@ INSERT INTO category (name, description) VALUES
 ON CONFLICT ((lower(name))) DO NOTHING;
 
 -- ---------- Sản phẩm ----------
--- Lấy category_id theo tên để không phụ thuộc id tự sinh
-INSERT INTO product (name, category_id, unit, net_weight_kg, description, active)
-SELECT p.name, c.id, p.unit, p.net_weight_kg, p.description, p.active
+-- Lấy category_id, unit_id theo tên để không phụ thuộc id tự sinh
+INSERT INTO product (name, category_id, unit_id, net_weight_kg, description, active)
+SELECT p.name, c.id, u.id, p.net_weight_kg, p.description, p.active
 FROM (VALUES
-    ('Cám heo con tập ăn 25kg',  'Cám heo', 'BAG', 25.000, 'Heo con 7–15 kg',            TRUE),
-    ('Cám heo thịt 40kg',        'Cám heo', 'BAG', 40.000, 'Heo thịt 30–100 kg',         TRUE),
-    ('Cám heo nái nuôi con 25kg','Cám heo', 'BAG', 25.000, NULL,                         TRUE),
-    ('Cám gà thịt 25kg',         'Cám gà',  'BAG', 25.000, 'Gà thịt 1–21 ngày tuổi',     TRUE),
-    ('Cám gà đẻ 40kg',           'Cám gà',  'BAG', 40.000, NULL,                         TRUE),
-    ('Cám vịt đẻ 25kg',          'Cám vịt', 'BAG', 25.000, NULL,                         TRUE),
-    ('Cám cá viên nổi xá',       'Cám cá',  'KG',   1.000, 'Bán lẻ theo kg',             TRUE),
+    ('Cám heo con tập ăn 25kg',  'Cám heo', 'Bao', 25.000, 'Heo con 7–15 kg',            TRUE),
+    ('Cám heo thịt 40kg',        'Cám heo', 'Bao', 40.000, 'Heo thịt 30–100 kg',         TRUE),
+    ('Cám heo nái nuôi con 25kg','Cám heo', 'Bao', 25.000, NULL,                         TRUE),
+    ('Cám gà thịt 25kg',         'Cám gà',  'Bao', 25.000, 'Gà thịt 1–21 ngày tuổi',     TRUE),
+    ('Cám gà đẻ 40kg',           'Cám gà',  'Bao', 40.000, NULL,                         TRUE),
+    ('Cám vịt đẻ 25kg',          'Cám vịt', 'Bao', 25.000, NULL,                         TRUE),
+    ('Cám cá viên nổi xá',       'Cám cá',  'Kg',   1.000, 'Bán lẻ theo kg',             TRUE),
     -- Sản phẩm đã ngừng kinh doanh: để demo trạng thái active=false trên giao diện
-    ('Cám vịt con 20kg',         'Cám vịt', 'BAG', 20.000, 'Ngừng sản xuất từ 2026',     FALSE)
-) AS p(name, category_name, unit, net_weight_kg, description, active)
+    ('Cám vịt con 20kg',         'Cám vịt', 'Bao', 20.000, 'Ngừng sản xuất từ 2026',     FALSE)
+) AS p(name, category_name, unit_name, net_weight_kg, description, active)
 JOIN category c ON lower(c.name) = lower(p.category_name)
+JOIN product_unit u ON lower(u.name) = lower(p.unit_name)
 ON CONFLICT ((lower(name))) DO NOTHING;
 
 -- ---------- Kho ----------

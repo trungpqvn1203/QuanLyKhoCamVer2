@@ -7,8 +7,8 @@ import type { PageQuery } from '../../api/types'
 import { CodeText } from '../../components/ui/CodeLink'
 import { STATUS_COLUMN_WIDTH, StatusTag } from '../../components/ui/StatusTag'
 import { usePagedList } from '../../hooks/use-paged-list'
-import { PRODUCT_UNIT_LABELS, productApi } from '../products/product-api'
-import type { Product, ProductUnit } from '../products/product-api'
+import { productApi } from '../products/product-api'
+import type { Product } from '../products/product-api'
 import { supplierApi } from './supplier-api'
 import type { Supplier, SupplierProduct } from './supplier-api'
 
@@ -110,7 +110,7 @@ export function SupplierProductsPanel({ supplier }: SupplierProductsPanelProps) 
       render: (code: string) => <CodeText code={code} />,
     },
     { title: 'Tên sản phẩm', dataIndex: 'productName' },
-    { title: 'ĐVT', dataIndex: 'unit', width: 64, render: (unit: ProductUnit) => PRODUCT_UNIT_LABELS[unit] },
+    { title: 'ĐVT', dataIndex: 'unitName', width: 64 },
     {
       title: 'Trạng thái',
       dataIndex: 'productActive',

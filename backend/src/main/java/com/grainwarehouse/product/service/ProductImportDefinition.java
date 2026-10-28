@@ -9,31 +9,23 @@ import com.grainwarehouse.product.entity.Product;
 import com.grainwarehouse.product.entity.ProductUnit;
 import com.grainwarehouse.product.repository.CategoryRepository;
 import com.grainwarehouse.product.repository.ProductRepository;
+import com.grainwarehouse.product.repository.ProductUnitRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-/** Mẫu nhập sản phẩm (BR-XLS). Danh mục ghi bằng TÊN — người dùng không biết id. */
+/** Mẫu nhập sản phẩm (BR-XLS). Danh mục và đơn vị ghi bằng TÊN — người dùng không biết id. */
 @Component
 @RequiredArgsConstructor
 public class ProductImportDefinition implements ImportDefinition<CreateProductRequest, Product> {
 
-    // Nhãn giống giao diện (PRODUCT_UNIT_LABELS ở frontend)
-    // LinkedHashMap: giữ thứ tự trong dropdown
-    private static final Map<String, ProductUnit> UNITS = new LinkedHashMap<>();
-
-    static {
-        UNITS.put("Bao", ProductUnit.BAG);
-        UNITS.put("Kg", ProductUnit.KG);
-    }
-
     private final ProductService productService;
     private final ProductRepository productRepository;
     private final CategoryRepository categoryRepository;
+    private final ProductUnitRepository unitRepository;
 
     @Override
     public String templateId() {
@@ -55,11 +47,15 @@ public class ProductImportDefinition implements ImportDefinition<CreateProductRe
         List<String> categories = categoryRepository.findByActiveTrueOrderByNameAsc().stream()
                 .map(Category::getName)
                 .toList();
+        List<String> units = unitRepository.findByActiveTrueOrderByNameAsc().stream()
+                .map(ProductUnit::getName)
+                .toList();
         return List.of(
                 ImportColumn.required("name", "Tên sản phẩm", "Tối đa 200 ký tự, không trùng sản phẩm đã có"),
                 ImportColumn.required("categoryId", "Danh mục", "Chọn trong danh sách danh mục đang dùng")
                         .withOptions(categories),
-                ImportColumn.required("unit", "Đơn vị", "Bao hoặc Kg").withOptions(List.copyOf(UNITS.keySet())),
+                ImportColumn.required("unitId", "Đơn vị", "Chọn trong danh sách đơn vị đang dùng")
+                        .withOptions(units),
                 ImportColumn.required("netWeightKg", "Khối lượng tịnh (kg)",
                         "Khối lượng một đơn vị: bao 25kg ghi 25. Đơn vị Kg ghi 1 hoặc để trống"),
                 ImportColumn.optional("minStockQuantity", "Tồn tối thiểu",
@@ -74,14 +70,33 @@ public class ProductImportDefinition implements ImportDefinition<CreateProductRe
 
     @Override
     public CreateProductRequest parse(ImportRow row) {
-        ProductUnit unit = row.option("unit", UNITS);
+        ProductUnit unit = unit(row);
         BigDecimal netWeightKg = row.decimal("netWeightKg");
-        // BR-PRD-06: đơn vị Kg thì khối lượng luôn là 1 — form nhập tay cũng tự điền 1
-        if (unit == ProductUnit.KG && netWeightKg == null && !row.hasError("netWeightKg")) {
-            netWeightKg = BigDecimal.ONE;
+        // BR-XLS-A02: đơn vị có khối lượng cố định (Kg = 1) mà để trống → lấy giá trị đó, giống form nhập tay
+        if (unit != null && unit.getFixedNetWeightKg() != null && netWeightKg == null
+                && !row.hasError("netWeightKg")) {
+            netWeightKg = unit.getFixedNetWeightKg();
         }
-        return new CreateProductRequest(row.text("name"), categoryId(row), unit, netWeightKg,
-                row.text("description"), row.integer("minStockQuantity"));
+        return new CreateProductRequest(row.text("name"), categoryId(row), unit == null ? null : unit.getId(),
+                netWeightKg, row.text("description"), row.integer("minStockQuantity"));
+    }
+
+    /** Tên đơn vị → bản ghi. Không tìm thấy / đã ngừng dùng → lỗi ngay tại cột Đơn vị. */
+    private ProductUnit unit(ImportRow row) {
+        String name = row.text("unitId");
+        if (name == null) {
+            return null;
+        }
+        ProductUnit unit = unitRepository.findByNameIgnoreCase(name).orElse(null);
+        if (unit == null) {
+            row.error("unitId", "Đơn vị '" + name + "' không tồn tại");
+            return null;
+        }
+        if (!unit.isActive()) {
+            row.error("unitId", "Đơn vị '" + unit.getName() + "' đã ngừng dùng");
+            return null;
+        }
+        return unit;
     }
 
     /** Tên danh mục → id. Không tìm thấy / đã ngừng dùng → lỗi ngay tại cột Danh mục. */

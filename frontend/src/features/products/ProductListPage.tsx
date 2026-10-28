@@ -28,7 +28,7 @@ import { ProductSuppliersPanel } from '../suppliers/ProductSuppliersPanel'
 import { warehouseApi } from '../warehouses/warehouse-api'
 import type { Warehouse } from '../warehouses/warehouse-api'
 import { ImportExcelModal } from '../imports/ImportExcelModal'
-import { PRODUCT_UNIT_LABELS, categoryApi, productApi, productImportApi } from './product-api'
+import { categoryApi, productApi, productImportApi } from './product-api'
 import type { Category, Product } from './product-api'
 import { STOCK_STATUS_LABELS, isByWarehouse, productStockApi } from './product-stock-api'
 import type { ProductStock, ProductStockFilters, StockStatus } from './product-stock-api'
@@ -50,7 +50,7 @@ const STOCK_STATUS_OPTIONS = (Object.keys(STOCK_STATUS_LABELS) as StockStatus[])
 }))
 
 /** "Bao" → "bao" để ghép sau số: "120 bao". */
-const unitText = (product: Pick<Product, 'unit'>) => PRODUCT_UNIT_LABELS[product.unit].toLowerCase()
+const unitText = (product: Pick<Product, 'unitName'>) => product.unitName.toLowerCase()
 /**
  * Sản phẩm kèm tồn kho (BR-STK-01..06). Bảng lấy từ GET /api/inventory/products (đủ trường SP + số tồn);
  * thêm/sửa/ngừng vẫn qua /api/products. Tồn chỉ để xem — chỉ đổi được qua chứng từ kho.
@@ -169,7 +169,7 @@ export function ProductListPage() {
         productApi.update(product.id, {
           name: product.name,
           categoryId: product.categoryId,
-          unit: product.unit,
+          unitId: product.unitId,
           netWeightKg: product.netWeightKg,
           description: product.description,
           // PUT = cập nhật toàn bộ: thiếu trường này thì mức tồn tối thiểu bị xóa
@@ -314,7 +314,7 @@ export function ProductListPage() {
             { key: 'code', label: 'Mã SP', children: <CodeText code={viewing.code} /> },
             { key: 'name', label: 'Tên sản phẩm', children: viewing.name },
             { key: 'category', label: 'Danh mục', children: viewing.categoryName },
-            { key: 'unit', label: 'Đơn vị', children: PRODUCT_UNIT_LABELS[viewing.unit] },
+            { key: 'unit', label: 'Đơn vị', children: viewing.unitName },
             { key: 'weight', label: 'KL tịnh (kg)', children: weightFormat.format(viewing.netWeightKg) },
             {
               key: 'minStock',
@@ -444,7 +444,7 @@ export function ProductListPage() {
         open={configOpen}
         onClose={(changed) => {
           setConfigOpen(false)
-          // Đổi tên danh mục thì cột Danh mục trong bảng cũng đổi → tải lại cả bảng
+          // Đổi tên danh mục / đơn vị thì bảng cũng đổi theo → tải lại cả bảng
           if (changed) {
             loadCategories()
             reload()

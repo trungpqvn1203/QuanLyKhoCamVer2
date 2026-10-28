@@ -5,9 +5,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.grainwarehouse.common.search.CommonSpecifications;
 import com.grainwarehouse.product.entity.Category;
 import com.grainwarehouse.product.entity.Product;
-import com.grainwarehouse.product.entity.ProductUnit;
 import com.grainwarehouse.product.repository.CategoryRepository;
 import com.grainwarehouse.product.repository.ProductRepository;
+import com.grainwarehouse.product.repository.ProductUnitRepository;
 import com.grainwarehouse.supplier.entity.ProductSupplier;
 import com.grainwarehouse.supplier.entity.ProductSupplierId;
 import com.grainwarehouse.supplier.entity.Supplier;
@@ -65,6 +65,9 @@ class InboundReceiptApiTest {
 
     @Autowired
     private CategoryRepository categoryRepository;
+
+    @Autowired
+    private ProductUnitRepository unitRepository;
 
     @Autowired
     private ProductRepository productRepository;
@@ -638,7 +641,7 @@ class InboundReceiptApiTest {
         Product product = new Product();
         product.setName(name);
         product.setCategory(category);
-        product.setUnit(ProductUnit.BAG);
+        product.setUnit(unitRepository.findByNameIgnoreCase("Bao").orElseThrow());
         product.setNetWeightKg(new BigDecimal("25"));
         return productRepository.save(product);
     }

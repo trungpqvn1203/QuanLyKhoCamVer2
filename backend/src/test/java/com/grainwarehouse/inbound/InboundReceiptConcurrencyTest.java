@@ -6,9 +6,9 @@ import com.grainwarehouse.inbound.dto.InboundReceiptRequest;
 import com.grainwarehouse.inbound.service.InboundReceiptService;
 import com.grainwarehouse.product.entity.Category;
 import com.grainwarehouse.product.entity.Product;
-import com.grainwarehouse.product.entity.ProductUnit;
 import com.grainwarehouse.product.repository.CategoryRepository;
 import com.grainwarehouse.product.repository.ProductRepository;
+import com.grainwarehouse.product.repository.ProductUnitRepository;
 import com.grainwarehouse.supplier.entity.Supplier;
 import com.grainwarehouse.supplier.repository.SupplierRepository;
 import com.grainwarehouse.warehouse.entity.Warehouse;
@@ -57,6 +57,9 @@ class InboundReceiptConcurrencyTest {
 
     @Autowired
     private CategoryRepository categoryRepository;
+
+    @Autowired
+    private ProductUnitRepository unitRepository;
 
     @Autowired
     private ProductRepository productRepository;
@@ -277,7 +280,7 @@ class InboundReceiptConcurrencyTest {
         Product product = new Product();
         product.setName(name);
         product.setCategory(category);
-        product.setUnit(ProductUnit.BAG);
+        product.setUnit(unitRepository.findByNameIgnoreCase("Bao").orElseThrow());
         product.setNetWeightKg(new BigDecimal("25"));
         productRepository.save(product);
         // Ghi thẳng SQL: ngoài transaction, supplier/product đã detached — save() liên kết sẽ thành merge()

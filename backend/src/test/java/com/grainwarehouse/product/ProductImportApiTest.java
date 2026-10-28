@@ -2,9 +2,9 @@ package com.grainwarehouse.product;
 
 import com.grainwarehouse.product.entity.Category;
 import com.grainwarehouse.product.entity.Product;
-import com.grainwarehouse.product.entity.ProductUnit;
 import com.grainwarehouse.product.repository.CategoryRepository;
 import com.grainwarehouse.product.repository.ProductRepository;
+import com.grainwarehouse.product.repository.ProductUnitRepository;
 import com.grainwarehouse.support.ExcelTestFiles;
 import org.apache.poi.ss.usermodel.DataValidation;
 import org.apache.poi.ss.usermodel.Row;
@@ -54,6 +54,9 @@ class ProductImportApiTest {
 
     @Autowired
     private CategoryRepository categoryRepository;
+
+    @Autowired
+    private ProductUnitRepository unitRepository;
 
     @Autowired
     private ProductRepository productRepository;
@@ -121,9 +124,9 @@ class ProductImportApiTest {
                 row(null, "Cám heo", "Bao", 25),                 // dòng 2: thiếu tên
                 row("Cám A", "Cám bò", "Bao", 25),               // dòng 3: danh mục không tồn tại
                 row("Cám B", "Cám vịt", "Bao", 25),              // dòng 4: danh mục ngừng dùng
-                row("Cám C", "Cám heo", "Tấn", "25kg"),           // dòng 5: sai đơn vị + khối lượng không phải số
+                row("Cám C", "Cám heo", "Tấn", "25kg"),           // dòng 5: đơn vị không tồn tại + khối lượng không phải số
                 row("cám heo NÁI", "Cám heo", "Bao", 25),        // dòng 6: trùng SP đã có trong DB
-                row("Cám D", "Cám heo", "Kg", 25),               // dòng 7: đơn vị Kg phải 1 kg (BR-PRD-06)
+                row("Cám D", "Cám heo", "Kg", 25),               // dòng 7: đơn vị Kg phải 1 kg (BR-UNIT-03)
                 row("Cám E", "Cám heo", "Bao", 25, 10.5),        // dòng 8: tồn tối thiểu không nguyên
                 row("Cám F", "Cám heo", "Bao", 25),              // dòng 9: hợp lệ
                 row("cám f ", "Cám heo", "Bao", 25)))            // dòng 10: trùng dòng 9 trong file
@@ -135,11 +138,11 @@ class ProductImportApiTest {
                 .andExpect(jsonPath("$.data.errors[0].column").value("Tên sản phẩm"))
                 .andExpect(jsonPath("$.data.errors[1].message").value("Danh mục 'Cám bò' không tồn tại"))
                 .andExpect(jsonPath("$.data.errors[2].message").value("Danh mục 'Cám vịt' đã ngừng dùng"))
-                .andExpect(jsonPath("$.data.errors[?(@.row == 5)].field").value(hasItems("unit", "netWeightKg")))
+                .andExpect(jsonPath("$.data.errors[?(@.row == 5)].field").value(hasItems("unitId", "netWeightKg")))
                 .andExpect(jsonPath("$.data.errors[?(@.row == 6)].message")
                         .value(hasItems(containsString("đã tồn tại"))))
                 .andExpect(jsonPath("$.data.errors[?(@.row == 7)].message")
-                        .value(hasItems("Sản phẩm đơn vị KG phải có khối lượng tịnh bằng 1 kg")))
+                        .value(hasItems("Sản phẩm đơn vị Kg phải có khối lượng tịnh bằng 1 kg")))
                 .andExpect(jsonPath("$.data.errors[?(@.row == 8)].field").value(hasItems("minStockQuantity")))
                 .andExpect(jsonPath("$.data.errors[?(@.row == 10)].message")
                         .value(hasItems("Trùng với dòng 9 trong file")));
@@ -160,7 +163,7 @@ class ProductImportApiTest {
         assertThat(productRepository.count()).isEqualTo(before + 2);
         Product bulk = productRepository.findByNameIgnoreCase("Cám xá").orElseThrow();
         assertThat(bulk.getCode()).matches("SP\\d{6}");
-        assertThat(bulk.getUnit()).isEqualTo(ProductUnit.KG);
+        assertThat(bulk.getUnit().getName()).isEqualTo("Kg");
         assertThat(bulk.getNetWeightKg()).isEqualByComparingTo("1");
     }
 
@@ -265,7 +268,7 @@ class ProductImportApiTest {
         Product product = new Product();
         product.setName(name);
         product.setCategory(categoryRepository.findByNameIgnoreCase("Cám heo").orElseThrow());
-        product.setUnit(ProductUnit.BAG);
+        product.setUnit(unitRepository.findByNameIgnoreCase("Bao").orElseThrow());
         product.setNetWeightKg(BigDecimal.valueOf(25));
         productRepository.save(product);
     }

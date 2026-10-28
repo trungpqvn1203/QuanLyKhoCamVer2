@@ -110,9 +110,11 @@ public class SecurityConfig {
 
                 // NCC của một SP thuộc quyền nhà cung cấp — đứng trước quy tắc chung của /api/products/**
                 .requestMatchers(HttpMethod.GET, "/api/products/*/suppliers").hasAnyRole(WAREHOUSE, ADMIN)
-                .requestMatchers(HttpMethod.GET, "/api/categories/**", "/api/products/**", "/api/warehouses/**")
+                .requestMatchers(HttpMethod.GET, "/api/categories/**", "/api/product-units/**", "/api/products/**",
+                        "/api/warehouses/**")
                 .authenticated()
-                .requestMatchers("/api/categories/**", "/api/products/**", "/api/warehouses/**").hasRole(ADMIN)
+                .requestMatchers("/api/categories/**", "/api/product-units/**", "/api/products/**", "/api/warehouses/**")
+                .hasRole(ADMIN)
 
                 // Gồm cả trả tiền NCC (/api/inbound-receipts/{id}/payments) và công nợ NCC (BR-SPAY-06)
                 .requestMatchers("/api/suppliers/**", "/api/inbound-receipts/**", "/api/supplier-debts/**")

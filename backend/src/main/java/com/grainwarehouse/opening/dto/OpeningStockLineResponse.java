@@ -2,7 +2,6 @@ package com.grainwarehouse.opening.dto;
 
 import com.grainwarehouse.inventory.entity.StockDocumentItem;
 import com.grainwarehouse.product.entity.Product;
-import com.grainwarehouse.product.entity.ProductUnit;
 
 import java.math.BigDecimal;
 
@@ -11,7 +10,7 @@ public record OpeningStockLineResponse(
         Long productId,
         String productCode,
         String productName,
-        ProductUnit unit,
+        String unitName,
         int quantity,
         BigDecimal unitPrice,
         BigDecimal lineAmount) {
@@ -23,7 +22,7 @@ public record OpeningStockLineResponse(
                 product.getId(),
                 product.getCode(),
                 product.getName(),
-                product.getUnit(),
+                product.getUnit().getName(),
                 item.getQuantity(),
                 item.getUnitPrice(),
                 item.getLineAmount());

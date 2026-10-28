@@ -3,7 +3,6 @@ import type { PageQuery, PageResponse } from '../../api/types'
 import { toFilterParams } from '../../utils/filters'
 import type { CustomerType } from '../customers/customer-api'
 import type { ReceiptStatus } from '../inbound-receipts/inbound-receipt-api'
-import type { ProductUnit } from '../products/product-api'
 
 /** Cùng vòng đời với phiếu nhập (BR-SAL-04): Nháp → Hoàn tất / Đã hủy; Hoàn tất → Đã đảo. */
 export type SalesOrderStatus = ReceiptStatus
@@ -26,7 +25,7 @@ export interface SalesOrderLine {
   productId: number
   productCode: string
   productName: string
-  unit: ProductUnit
+  unitName: string
   quantity: number
   unitPrice: number
   lineAmount: number
@@ -120,7 +119,7 @@ export interface CustomerPrice {
   productId: number
   productCode: string
   productName: string
-  unit: ProductUnit
+  unitName: string
   productActive: boolean
   unitPrice: number
   updatedAt: string

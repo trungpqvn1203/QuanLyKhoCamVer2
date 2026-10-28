@@ -4,8 +4,6 @@ import type { FormInstance, FormListFieldData, FormRule as Rule, TableProps } fr
 import { useEffect, useState } from 'react'
 import { EMPTY_TEXT, todayIso } from '../../utils/format'
 import { formatPriceInput, formatVnd, parsePriceInput } from '../../utils/money'
-import { PRODUCT_UNIT_LABELS } from '../products/product-api'
-import type { ProductUnit } from '../products/product-api'
 import { supplierApi } from '../suppliers/supplier-api'
 import type { SupplierProduct } from '../suppliers/supplier-api'
 import type { InboundReceipt } from './inbound-receipt-api'
@@ -90,12 +88,12 @@ export function InboundReceiptForm({ form, initialValues, references, receipt, d
     }))
 
   // SP: những SP đang gán cho NCC + SP có sẵn trên phiếu nháp (có thể đã bị gỡ liên kết — backend sẽ chặn khi lưu)
-  const productInfo = new Map<number, { label: string; unit: ProductUnit }>()
+  const productInfo = new Map<number, { label: string; unit: string }>()
   for (const line of receipt?.supplierId === supplierId ? (receipt?.lines ?? []) : []) {
-    productInfo.set(line.productId, { label: `${line.productCode} · ${line.productName}`, unit: line.unit })
+    productInfo.set(line.productId, { label: `${line.productCode} · ${line.productName}`, unit: line.unitName })
   }
   for (const item of linkedProducts) {
-    productInfo.set(item.productId, { label: `${item.productCode} · ${item.productName}`, unit: item.unit })
+    productInfo.set(item.productId, { label: `${item.productCode} · ${item.productName}`, unit: item.unitName })
   }
 
   const chosenProductIds = (lines ?? []).map((line) => line?.productId)
@@ -145,7 +143,7 @@ export function InboundReceiptForm({ form, initialValues, references, receipt, d
       render: (_, field) => {
         const productId = lines?.[field.name]?.productId
         const unit = productId === undefined ? undefined : productInfo.get(productId)?.unit
-        return unit ? PRODUCT_UNIT_LABELS[unit] : EMPTY_TEXT
+        return unit ?? EMPTY_TEXT
       },
     },
     {

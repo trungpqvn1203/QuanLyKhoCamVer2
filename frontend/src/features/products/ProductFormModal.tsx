@@ -2,7 +2,7 @@ import { App, Form, Input, InputNumber, Select, Switch } from 'antd'
 import { useEffect, useState } from 'react'
 import { ApiError } from '../../api/client'
 import { FormModal } from '../../components/ui/FormModal'
-import { PRODUCT_UNIT_LABELS, categoryApi, productApi } from './product-api'
+import { categoryApi, productApi, productUnitApi } from './product-api'
 import type { Category, Product, ProductUnit, UpdateProductInput } from './product-api'
 
 interface ProductFormModalProps {
@@ -14,25 +14,25 @@ interface ProductFormModalProps {
   onSaved: (saved: Product) => void
 }
 
-const UNIT_OPTIONS = (Object.keys(PRODUCT_UNIT_LABELS) as ProductUnit[]).map((value) => ({
-  value,
-  label: PRODUCT_UNIT_LABELS[value],
-}))
-
 export function ProductFormModal({ open, editing, onClose, onSaved }: ProductFormModalProps) {
   const { message } = App.useApp()
   const [form] = Form.useForm<UpdateProductInput>()
   const [categories, setCategories] = useState<Category[]>([])
+  const [units, setUnits] = useState<ProductUnit[]>([])
 
-  // Tải danh mục mỗi lần mở form để có danh mục mới nhất
+  // Tải danh mục + đơn vị mỗi lần mở form để có bản mới nhất (vừa thêm ở khung Cấu hình)
   useEffect(() => {
     if (!open) return
+    const failed = (fallback: string) => (error: unknown) =>
+      message.error(error instanceof ApiError ? error.message : fallback)
     categoryApi
       .listForSelect()
       .then((page) => setCategories(page.items))
-      .catch((error: unknown) =>
-        message.error(error instanceof ApiError ? error.message : 'Không tải được danh mục'),
-      )
+      .catch(failed('Không tải được danh mục'))
+    productUnitApi
+      .listForSelect()
+      .then((page) => setUnits(page.items))
+      .catch(failed('Không tải được đơn vị tính'))
   }, [open, message])
 
   // Danh mục ngừng dùng không được chọn mới; nhưng vẫn hiện nếu là danh mục hiện tại của sản phẩm
@@ -42,6 +42,11 @@ export function ProductFormModal({ open, editing, onClose, onSaved }: ProductFor
       value: category.id,
       label: category.active ? category.name : `${category.name} (ngừng dùng)`,
     }))
+
+  // Cùng quy tắc với danh mục
+  const unitOptions = units
+    .filter((unit) => unit.active || unit.id === editing?.unitId)
+    .map((unit) => ({ value: unit.id, label: unit.active ? unit.name : `${unit.name} (ngừng dùng)` }))
 
   const handleSubmit = async (values: UpdateProductInput) => {
     let saved: Product
@@ -59,7 +64,7 @@ export function ProductFormModal({ open, editing, onClose, onSaved }: ProductFor
       open={open}
       title={editing ? `Sửa sản phẩm ${editing.code}` : 'Thêm sản phẩm'}
       form={form}
-      initialValues={editing ?? { unit: 'BAG' }}
+      initialValues={editing ?? undefined}
       submitText={editing ? 'Lưu thay đổi' : 'Thêm'}
       onSubmit={handleSubmit}
       onClose={onClose}
@@ -70,12 +75,20 @@ export function ProductFormModal({ open, editing, onClose, onSaved }: ProductFor
       <Form.Item name="categoryId" label="Danh mục" rules={[{ required: true }]}>
         <Select options={categoryOptions} placeholder="Chọn danh mục" showSearch={{ optionFilterProp: 'label' }} />
       </Form.Item>
-      <Form.Item name="unit" label="Đơn vị tính" rules={[{ required: true }]}>
+      <Form.Item
+        name="unitId"
+        label="Đơn vị tính"
+        rules={[{ required: true }]}
+        extra="Thiếu đơn vị (túi, thùng…)? Thêm ở nút Cấu hình trên trang Sản phẩm."
+      >
         <Select
-          options={UNIT_OPTIONS}
-          onChange={(unit: ProductUnit) => {
-            // BR-PRD-06: đơn vị KG thì khối lượng một đơn vị luôn là 1 kg
-            if (unit === 'KG') form.setFieldValue('netWeightKg', 1)
+          options={unitOptions}
+          placeholder="Chọn đơn vị"
+          showSearch={{ optionFilterProp: 'label' }}
+          onChange={(unitId: number) => {
+            // BR-UNIT-03: đơn vị có khối lượng cố định (Kg = 1) thì điền sẵn đúng số đó
+            const fixed = units.find((unit) => unit.id === unitId)?.fixedNetWeightKg
+            if (fixed != null) form.setFieldValue('netWeightKg', fixed)
           }}
         />
       </Form.Item>
@@ -83,7 +96,7 @@ export function ProductFormModal({ open, editing, onClose, onSaved }: ProductFor
         name="netWeightKg"
         label="Khối lượng tịnh mỗi đơn vị (kg)"
         rules={[{ required: true }]}
-        extra="Bao 25kg nhập 25; đơn vị KG luôn là 1."
+        extra="Bao 25kg nhập 25, túi 5kg nhập 5; đơn vị Kg luôn là 1."
       >
         <InputNumber min={0.001} max={9_999_999.999} precision={3} style={{ width: '100%' }} />
       </Form.Item>

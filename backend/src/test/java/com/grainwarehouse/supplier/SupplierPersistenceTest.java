@@ -78,7 +78,7 @@ class SupplierPersistenceTest {
         Long categoryId = jdbcTemplate.queryForObject(
                 "INSERT INTO category (name) VALUES ('Cám test') RETURNING id", Long.class);
         Long productId = jdbcTemplate.queryForObject(
-                "INSERT INTO product (name, category_id, unit, net_weight_kg) VALUES ('Cám heo', ?, 'BAG', 25)"
+                "INSERT INTO product (name, category_id, unit_id, net_weight_kg) VALUES ('Cám heo', ?, (SELECT id FROM product_unit WHERE name = 'Bao'), 25)"
                         + " RETURNING id", Long.class, categoryId);
         insertLink(supplierId, productId);
 

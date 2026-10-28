@@ -4,8 +4,6 @@ import type { FormInstance, FormListFieldData, FormRule as Rule, TableProps } fr
 import { useEffect, useState } from 'react'
 import { EMPTY_TEXT, todayIso } from '../../utils/format'
 import { formatPriceInput, formatVnd, hasAtMostTwoDecimals, parsePriceInput } from '../../utils/money'
-import { PRODUCT_UNIT_LABELS } from '../products/product-api'
-import type { ProductUnit } from '../products/product-api'
 import { productStockApi } from '../products/product-stock-api'
 import type { ProductStock } from '../products/product-stock-api'
 import { customerPriceApi } from './sales-order-api'
@@ -43,7 +41,7 @@ const priceRule: Rule = {
 
 interface ProductInfo {
   label: string
-  unit: ProductUnit
+  unitName: string
   /** Tồn tại kho đã chọn; không có = chưa chọn kho / chưa tải xong */
   stock?: number
 }
@@ -121,12 +119,12 @@ export function SalesOrderForm({ form, initialValues, references, order, disable
   // SP đang kinh doanh + SP có sẵn trên phiếu nháp (có thể đã ngừng — backend sẽ chặn khi lưu)
   const productInfo = new Map<number, ProductInfo>()
   for (const line of order?.lines ?? []) {
-    productInfo.set(line.productId, { label: `${line.productCode} · ${line.productName}`, unit: line.unit })
+    productInfo.set(line.productId, { label: `${line.productCode} · ${line.productName}`, unit: line.unitName })
   }
   for (const item of loadingProducts ? [] : (products?.items ?? [])) {
     productInfo.set(item.id, {
       label: `${item.code} · ${item.name}`,
-      unit: item.unit,
+      unit: item.unitName,
       stock: warehouseId ? (item.warehouseStockQuantity ?? 0) : undefined,
     })
   }
@@ -172,7 +170,7 @@ export function SalesOrderForm({ form, initialValues, references, order, disable
       render: (_, field) => {
         const productId = lines?.[field.name]?.productId
         const unit = productId === undefined ? undefined : productInfo.get(productId)?.unit
-        return unit ? PRODUCT_UNIT_LABELS[unit] : EMPTY_TEXT
+        return unit ?? EMPTY_TEXT
       },
     },
     {

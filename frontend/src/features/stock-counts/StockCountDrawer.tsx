@@ -7,7 +7,6 @@ import { toFormFieldErrors } from '../../api/form-errors'
 import { CodeText } from '../../components/ui/CodeLink'
 import { ReasonModal } from '../../components/ui/ReasonModal'
 import { EMPTY_TEXT, formatDate, formatDateTime, formatQuantity, orEmpty, todayIso } from '../../utils/format'
-import { PRODUCT_UNIT_LABELS } from '../products/product-api'
 import type { Product } from '../products/product-api'
 import { DifferenceText } from './DifferenceText'
 import { draftDifference, stockCountApi } from './stock-count-api'
@@ -258,7 +257,7 @@ export function StockCountDrawer({ countId, products, reasons, onClose, onChange
             <Flex vertical>
               <Typography.Text strong>{saved.productName}</Typography.Text>
               <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-                <CodeText code={saved.productCode} /> · {PRODUCT_UNIT_LABELS[saved.unit]}
+                <CodeText code={saved.productCode} /> · {saved.unitName}
                 {moved.has(saved.productId) && <Typography.Text type="warning"> · có phát sinh sau lúc chụp</Typography.Text>}
               </Typography.Text>
             </Flex>

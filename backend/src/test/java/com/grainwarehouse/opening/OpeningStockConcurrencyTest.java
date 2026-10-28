@@ -6,9 +6,9 @@ import com.grainwarehouse.opening.dto.OpeningStockRequest;
 import com.grainwarehouse.opening.service.OpeningStockService;
 import com.grainwarehouse.product.entity.Category;
 import com.grainwarehouse.product.entity.Product;
-import com.grainwarehouse.product.entity.ProductUnit;
 import com.grainwarehouse.product.repository.CategoryRepository;
 import com.grainwarehouse.product.repository.ProductRepository;
+import com.grainwarehouse.product.repository.ProductUnitRepository;
 import com.grainwarehouse.warehouse.entity.Warehouse;
 import com.grainwarehouse.warehouse.entity.WarehouseType;
 import com.grainwarehouse.warehouse.repository.WarehouseRepository;
@@ -53,6 +53,9 @@ class OpeningStockConcurrencyTest {
 
     @Autowired
     private CategoryRepository categoryRepository;
+
+    @Autowired
+    private ProductUnitRepository unitRepository;
 
     @Autowired
     private ProductRepository productRepository;
@@ -214,7 +217,7 @@ class OpeningStockConcurrencyTest {
         Product product = new Product();
         product.setName(name);
         product.setCategory(category);
-        product.setUnit(ProductUnit.BAG);
+        product.setUnit(unitRepository.findByNameIgnoreCase("Bao").orElseThrow());
         product.setNetWeightKg(new BigDecimal("25"));
         return productRepository.save(product);
     }

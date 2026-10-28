@@ -39,7 +39,7 @@ class JsonNullOmissionTest {
         // Bản ghi có đủ loại trường tùy chọn để trống: mô tả SP, mức tồn tối thiểu, email/địa chỉ NCC
         Long categoryId = jdbcTemplate.queryForObject(
                 "INSERT INTO category (name) VALUES ('Cám test') RETURNING id", Long.class);
-        jdbcTemplate.update("INSERT INTO product (name, category_id, unit, net_weight_kg) VALUES ('Cám heo', ?, 'BAG', 25)",
+        jdbcTemplate.update("INSERT INTO product (name, category_id, unit_id, net_weight_kg) VALUES ('Cám heo', ?, (SELECT id FROM product_unit WHERE name = 'Bao'), 25)",
                 categoryId);
         jdbcTemplate.update("INSERT INTO supplier (name) VALUES ('NCC test')");
         jdbcTemplate.update("INSERT INTO warehouse (name, type, address) VALUES ('Kho test', 'CENTRAL', 'Hà Nội')");

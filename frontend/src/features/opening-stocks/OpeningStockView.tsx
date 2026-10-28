@@ -3,8 +3,6 @@ import type { TableProps } from 'antd'
 import { CodeText } from '../../components/ui/CodeLink'
 import { EMPTY_TEXT, formatDate, formatDateTime, formatQuantity, orEmpty } from '../../utils/format'
 import { formatVnd } from '../../utils/money'
-import { PRODUCT_UNIT_LABELS } from '../products/product-api'
-import type { ProductUnit } from '../products/product-api'
 import type { OpeningStock, OpeningStockLine } from './opening-stock-api'
 
 /** Dòng giải thích trạng thái: phiếu đã cộng tồn hay chưa. */
@@ -48,7 +46,7 @@ export function OpeningStockView({ document }: { document: OpeningStock }) {
     { title: '#', key: 'index', width: 40, align: 'center', render: (_, __, index) => index + 1 },
     { title: 'Mã SP', dataIndex: 'productCode', width: 100, render: (code: string) => <CodeText code={code} /> },
     { title: 'Tên sản phẩm', dataIndex: 'productName' },
-    { title: 'ĐVT', dataIndex: 'unit', width: 64, render: (unit: ProductUnit) => PRODUCT_UNIT_LABELS[unit] },
+    { title: 'ĐVT', dataIndex: 'unitName', width: 64 },
     { title: 'Số lượng', dataIndex: 'quantity', width: 110, align: 'right', render: (quantity: number) => formatQuantity(quantity) },
     {
       title: 'Đơn giá',

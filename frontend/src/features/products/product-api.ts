@@ -3,20 +3,15 @@ import type { PageQuery, PageResponse } from '../../api/types'
 import { toFilterParams } from '../../utils/filters'
 import { createImportApi } from '../imports/import-api'
 
-export type ProductUnit = 'BAG' | 'KG'
-
-export const PRODUCT_UNIT_LABELS: Record<ProductUnit, string> = {
-  BAG: 'Bao',
-  KG: 'Kg',
-}
-
 export interface Product {
   id: number
   code: string
   name: string
   categoryId: number
   categoryName: string
-  unit: ProductUnit
+  unitId: number
+  /** "Bao", "Kg", "Túi"… — người dùng tự đặt (BR-UNIT-01) */
+  unitName: string
   // JSON number: đủ chính xác cho khối lượng NUMERIC(10,3); tiền tệ sau này cần cân nhắc riêng
   netWeightKg: number
   description?: string // field null bị bỏ khỏi JSON (NON_NULL)
@@ -34,10 +29,19 @@ export interface Category {
   active: boolean
 }
 
+/** Đơn vị tính (BR-UNIT-01..04): mỗi SP một đơn vị, không quy đổi. */
+export interface ProductUnit {
+  id: number
+  name: string
+  /** Chỉ đơn vị hệ thống (Kg = 1): SP dùng đơn vị này phải có khối lượng tịnh đúng bằng số này */
+  fixedNetWeightKg?: number
+  active: boolean
+}
+
 export interface CreateProductInput {
   name: string
   categoryId: number
-  unit: ProductUnit
+  unitId: number
   netWeightKg: number
   description?: string
   // null: người dùng xóa ô → gửi null → backend bỏ mức tối thiểu
@@ -93,4 +97,18 @@ export const categoryApi = {
       method: 'PUT',
       body: JSON.stringify({ name, description: category.description, active }),
     }),
+}
+
+const UNIT_BASE = '/api/product-units'
+
+export const productUnitApi = {
+  /** Ít bản ghi: 1 trang tối đa 100 như danh mục. */
+  listForSelect: () =>
+    apiRequest<PageResponse<ProductUnit>>(withQuery(UNIT_BASE, { page: 0, size: 100, sort: 'name,asc' })),
+
+  create: (name: string) => apiRequest<ProductUnit>(UNIT_BASE, { method: 'POST', body: JSON.stringify({ name }) }),
+
+  /** active=true để mở lại đơn vị đã ngừng dùng (BR-UNIT-02). */
+  update: (unit: ProductUnit, name: string, active: boolean) =>
+    apiRequest<ProductUnit>(`${UNIT_BASE}/${unit.id}`, { method: 'PUT', body: JSON.stringify({ name, active }) }),
 }

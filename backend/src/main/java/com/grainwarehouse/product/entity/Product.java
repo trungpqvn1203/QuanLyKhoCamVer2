@@ -3,8 +3,6 @@ package com.grainwarehouse.product.entity;
 import com.grainwarehouse.common.entity.AuditableEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
@@ -42,8 +40,11 @@ public class Product extends AuditableEntity {
     @JoinColumn(name = "category_id", nullable = false)
     private Category category;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 20)
+    // EAGER (khác category): tên đơn vị có trong hầu hết response chứng từ/tồn kho; open-in-view tắt nên LAZY
+    // dễ LazyInitializationException ở chỗ quên JOIN FETCH. Chỉ vài đơn vị → mỗi request tối đa vài SELECT nhỏ,
+    // Hibernate cache trong persistence context nên không thành N+1 theo số SP
+    @ManyToOne(fetch = FetchType.EAGER, optional = false)
+    @JoinColumn(name = "unit_id", nullable = false)
     private ProductUnit unit;
 
     @Column(name = "net_weight_kg", nullable = false, precision = 10, scale = 3)

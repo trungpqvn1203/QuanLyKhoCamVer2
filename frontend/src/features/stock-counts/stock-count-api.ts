@@ -2,14 +2,13 @@ import { apiRequest, withQuery } from '../../api/client'
 import type { PageQuery, PageResponse } from '../../api/types'
 import { toFilterParams } from '../../utils/filters'
 import type { ReceiptStatus } from '../inbound-receipts/inbound-receipt-api'
-import type { ProductUnit } from '../products/product-api'
 
 export interface StockCountLine {
   id: number
   productId: number
   productCode: string
   productName: string
-  unit: ProductUnit
+  unitName: string
   productActive: boolean
   /** SL sổ sách lúc chụp (BR-CNT-03) */
   bookQuantity: number
