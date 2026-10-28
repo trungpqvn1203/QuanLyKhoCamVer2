@@ -1,7 +1,14 @@
-import { DatabaseOutlined, FileExcelOutlined, HistoryOutlined, PlusOutlined, ShopOutlined } from '@ant-design/icons'
+import {
+  DatabaseOutlined,
+  FileExcelOutlined,
+  HistoryOutlined,
+  PlusOutlined,
+  SettingOutlined,
+  ShopOutlined,
+} from '@ant-design/icons'
 import { App, Button, Flex, Typography } from 'antd'
 import type { TableProps } from 'antd'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ApiError } from '../../api/client'
 import { PageHeader } from '../../components/layout/PageHeader'
@@ -25,6 +32,7 @@ import { PRODUCT_UNIT_LABELS, categoryApi, productApi, productImportApi } from '
 import type { Category, Product } from './product-api'
 import { STOCK_STATUS_LABELS, isByWarehouse, productStockApi } from './product-stock-api'
 import type { ProductStock, ProductStockFilters, StockStatus } from './product-stock-api'
+import { ProductConfigDrawer } from './ProductConfigDrawer'
 import { ProductFormModal } from './ProductFormModal'
 import { ProductStockPanel } from './ProductStockPanel'
 import { StockBreakdownPopover } from './StockBreakdownPopover'
@@ -60,23 +68,28 @@ export function ProductListPage() {
   const [warehouses, setWarehouses] = useState<Warehouse[]>([])
   const [modalOpen, setModalOpen] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
+  const [configOpen, setConfigOpen] = useState(false)
   const [editing, setEditing] = useState<Product | null>(null)
   // Tách cờ mở khỏi bản ghi: đóng khung thì nội dung vẫn còn trong lúc chạy hiệu ứng trượt ra
   const [detailOpen, setDetailOpen] = useState(false)
   const [viewing, setViewing] = useState<ProductStock | null>(null)
   const [detailTab, setDetailTab] = useState(DETAIL_INFO_TAB)
 
-  useEffect(() => {
+  const loadCategories = useCallback(() => {
     categoryApi
       .listForSelect()
       .then((result) => setCategories(result.items))
       .catch((err: unknown) => message.error(err instanceof ApiError ? err.message : 'Không tải được danh mục'))
+  }, [message])
+
+  useEffect(() => {
+    loadCategories()
     // Gồm cả kho đã ngừng: hàng ở đó vẫn tính vào tồn (BR-STK-01)
     warehouseApi
       .list({ page: 0, size: 100 })
       .then((result) => setWarehouses(result.items))
       .catch(() => setWarehouses([]))
-  }, [message])
+  }, [loadCategories])
 
   const selectedWarehouse =
     filters.warehouseId == null ? undefined : warehouses.find((warehouse) => warehouse.id === filters.warehouseId)
@@ -346,6 +359,9 @@ export function ProductListPage() {
         actions={
           canWrite && (
             <Flex gap={8}>
+              <Button icon={<SettingOutlined />} onClick={() => setConfigOpen(true)}>
+                Cấu hình
+              </Button>
               <Button icon={<FileExcelOutlined />} onClick={() => setImportOpen(true)}>
                 Nhập từ Excel
               </Button>
@@ -423,6 +439,17 @@ export function ProductListPage() {
               ]
             : []
         }
+      />
+      <ProductConfigDrawer
+        open={configOpen}
+        onClose={(changed) => {
+          setConfigOpen(false)
+          // Đổi tên danh mục thì cột Danh mục trong bảng cũng đổi → tải lại cả bảng
+          if (changed) {
+            loadCategories()
+            reload()
+          }
+        }}
       />
       <ImportExcelModal
         open={importOpen}

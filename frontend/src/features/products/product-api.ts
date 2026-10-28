@@ -74,11 +74,23 @@ export const productApi = {
   deactivate: (id: number) => apiRequest<void>(`${BASE}/${id}`, { method: 'DELETE' }),
 }
 
+const CATEGORY_BASE = '/api/categories'
+
 export const categoryApi = {
   /**
    * Danh mục cho ô chọn trong form sản phẩm.
    * Lấy 1 trang tối đa 100 (giới hạn backend) — đủ cho MVP, nhiều hơn thì cần API tìm kiếm.
    */
   listForSelect: () =>
-    apiRequest<PageResponse<Category>>(withQuery('/api/categories', { page: 0, size: 100, sort: 'name,asc' })),
+    apiRequest<PageResponse<Category>>(withQuery(CATEGORY_BASE, { page: 0, size: 100, sort: 'name,asc' })),
+
+  create: (name: string) =>
+    apiRequest<Category>(CATEGORY_BASE, { method: 'POST', body: JSON.stringify({ name }) }),
+
+  /** PUT = cập nhật toàn bộ: gửi lại mô tả hiện có để không bị xóa; active=true để mở lại (BR-CAT-04). */
+  update: (category: Category, name: string, active: boolean) =>
+    apiRequest<Category>(`${CATEGORY_BASE}/${category.id}`, {
+      method: 'PUT',
+      body: JSON.stringify({ name, description: category.description, active }),
+    }),
 }

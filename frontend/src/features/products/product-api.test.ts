@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { productApi } from './product-api'
+import { categoryApi, productApi } from './product-api'
 
 function stubFetchAndCaptureUrl() {
   const fetchMock = vi.fn().mockResolvedValue(
@@ -44,5 +44,24 @@ describe('productApi.list', () => {
     await productApi.list({ page: 0, size: 20 }, { keyword: '   ' })
 
     expect(capturedUrl().searchParams.has('keyword')).toBe(false)
+  })
+})
+
+describe('categoryApi.update', () => {
+  it('PUT gửi lại mô tả hiện có để không bị xóa (PUT = cập nhật toàn bộ)', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ success: true, data: {}, timestamp: '' }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    await categoryApi.update({ id: 4, name: 'Cám cá', description: 'Cho cá tra', active: false }, 'Cám cá tra', true)
+
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit]
+    expect(url).toContain('/api/categories/4')
+    expect(init.method).toBe('PUT')
+    expect(JSON.parse(init.body as string)).toEqual({ name: 'Cám cá tra', description: 'Cho cá tra', active: true })
   })
 })
