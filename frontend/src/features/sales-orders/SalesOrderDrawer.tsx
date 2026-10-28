@@ -1,13 +1,23 @@
-import { CheckOutlined, DollarOutlined, RollbackOutlined, SaveOutlined, StopOutlined } from '@ant-design/icons'
-import { Alert, App, Button, Drawer, Flex, Form, Skeleton } from 'antd'
+import {
+  CarOutlined,
+  CheckOutlined,
+  DollarOutlined,
+  PrinterOutlined,
+  RollbackOutlined,
+  SaveOutlined,
+  StopOutlined,
+  UserOutlined,
+} from '@ant-design/icons'
+import { Alert, App, Button, Drawer, Dropdown, Flex, Form, Skeleton } from 'antd'
 import { useEffect, useMemo, useState } from 'react'
 import { ApiError } from '../../api/client'
 import { toFormFieldErrors } from '../../api/form-errors'
 import { ReasonModal } from '../../components/ui/ReasonModal'
-import { formatDate } from '../../utils/format'
+import { formatDate, formatDateTime } from '../../utils/format'
 import { formatVnd } from '../../utils/money'
 import { useCan } from '../auth/auth-context'
 import { ReceiptStatusTag } from '../inbound-receipts/ReceiptStatusTag'
+import { storeInfoApi } from '../store/store-info-api'
 import { PAYMENT_METHOD_LABELS, salesOrderApi } from './sales-order-api'
 import type { PaymentInput, SalePayment, SalesOrder } from './sales-order-api'
 import { emptySalesOrderForm, toSalesFormValues, toSalesOrderInput } from './sales-order-form'
@@ -40,7 +50,7 @@ type ReasonAction = { kind: 'cancel' } | { kind: 'reverse' } | { kind: 'reverseP
  * Nút chỉ là gợi ý — backend khóa phiếu và kiểm tra lại, lỗi (thiếu tồn, thu vượt nợ…) hiện trong khung.
  */
 export function SalesOrderDrawer({ open, orderId, references, onClose, onChanged }: SalesOrderDrawerProps) {
-  const { modal, notification } = App.useApp()
+  const { message, modal, notification } = App.useApp()
   const [form] = Form.useForm<SalesOrderFormValues>()
   const [order, setOrder] = useState<SalesOrder | null>(null)
   const [loading, setLoading] = useState(orderId !== null)
@@ -80,6 +90,34 @@ export function SalesOrderDrawer({ open, orderId, references, onClose, onChanged
   useEffect(() => {
     if (showForm) form.resetFields()
   }, [formVersion, showForm, form])
+
+  /**
+   * BR-PRT-02, 03: in bản ĐÃ LƯU của phiếu. Đang sửa nháp mà chưa lưu thì chặn — in ra sẽ khác phiếu thật
+   * (ví dụ vừa giảm số lượng vì thiếu hàng nhưng chưa bấm Lưu nháp).
+   */
+  const print = async (kind: 'receipt' | 'delivery') => {
+    if (!order) return
+    if (showForm && form.isFieldsTouched()) {
+      message.warning('Phiếu có thay đổi chưa lưu — bấm Lưu nháp trước khi in')
+      return
+    }
+    try {
+      // Tải lười: react-dom/server + mẫu in chỉ tải khi bấm In, không làm nặng lần mở trang đầu
+      const [{ printK80 }, { DeliverySlip, SalesReceipt }, store] = await Promise.all([
+        import('../../utils/print'),
+        import('./print/SalesPrints'),
+        storeInfoApi.get(),
+      ])
+      const props = { order, store, printedAt: formatDateTime(new Date().toISOString()) }
+      if (kind === 'receipt') printK80(`Phiếu bán ${order.code}`, <SalesReceipt {...props} />)
+      else printK80(`Phiếu xuất kho ${order.code}`, <DeliverySlip {...props} />)
+      if (!store.configured) message.info('Chưa có thông tin cửa hàng — Quản lý hệ thống nhập ở menu tài khoản')
+    } catch (err) {
+      message.error(err instanceof ApiError ? err.message : 'Không in được phiếu')
+    }
+  }
+  // Phiếu hủy / đảo không còn giá trị giao hàng → không in
+  const printable = order?.status === 'DRAFT' || order?.status === 'COMPLETED'
 
   const retryLoad = () => {
     setLoading(true)
@@ -251,6 +289,21 @@ export function SalesOrderDrawer({ open, orderId, references, onClose, onChanged
           <Button onClick={requestClose} disabled={busy !== null}>
             Đóng
           </Button>
+          {printable && (
+            <Dropdown
+              menu={{
+                items: [
+                  { key: 'receipt', icon: <UserOutlined />, label: 'Phiếu bán (đưa khách)' },
+                  { key: 'delivery', icon: <CarOutlined />, label: 'Phiếu xuất kho (lái xe, bốc vác)' },
+                ],
+                onClick: ({ key }) => void print(key as 'receipt' | 'delivery'),
+              }}
+            >
+              <Button icon={<PrinterOutlined />} disabled={busy !== null}>
+                In phiếu
+              </Button>
+            </Dropdown>
+          )}
           {canWrite && order?.status === 'COMPLETED' && order.outstandingAmount > 0 && (
             <Button type="primary" icon={<DollarOutlined />} onClick={() => setPaying(true)}>
               Thu tiền

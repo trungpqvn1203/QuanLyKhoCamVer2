@@ -29,6 +29,8 @@ export interface SalesOrderLine {
   quantity: number
   unitPrice: number
   lineAmount: number
+  /** Khối lượng dòng (tấn, backend làm tròn 3 chữ số lẻ) — in phiếu xuất kho cho lái xe (BR-PRT-03) */
+  tons: number
 }
 
 /** Một dòng lịch sử thanh toán. REVERSAL = hoàn một khoản thu ghi nhầm (BR-SAL-13). */
@@ -64,6 +66,8 @@ export interface SalesOrder {
   /** BR-SAL-10: đã thu và còn nợ — số do backend tính */
   paidAmount: number
   outstandingAmount: number
+  /** Tổng tấn = cộng tấn các dòng */
+  totalTons: number
   reason?: string
   completedAt?: string
   cancelledAt?: string
@@ -76,7 +80,7 @@ export interface SalesOrder {
 
 export type SalesOrderSummary = Omit<
   SalesOrder,
-  'lines' | 'payments' | 'note' | 'reason' | 'customerPhone' | 'cancelledAt' | 'reversedAt' | 'updatedAt'
+  'lines' | 'payments' | 'note' | 'reason' | 'customerPhone' | 'cancelledAt' | 'reversedAt' | 'updatedAt' | 'totalTons'
 >
 
 export interface SalesOrderLineInput {

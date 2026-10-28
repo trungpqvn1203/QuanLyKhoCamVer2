@@ -29,6 +29,8 @@ public record SalesOrderResponse(
         BigDecimal totalAmount,
         BigDecimal paidAmount,
         BigDecimal outstandingAmount,
+        // Tổng tấn = cộng tấn từng dòng (đã làm tròn) → khớp với số in trên từng dòng
+        BigDecimal totalTons,
         String reason,
         Instant completedAt,
         Instant cancelledAt,
@@ -39,6 +41,7 @@ public record SalesOrderResponse(
         List<SalePaymentResponse> payments) {
 
     public static SalesOrderResponse from(StockDocument document, List<SalePayment> payments) {
+        List<SalesOrderLineResponse> lines = document.getItems().stream().map(SalesOrderLineResponse::from).toList();
         Set<Long> reversedIds = payments.stream()
                 .map(SalePayment::getReversalOf)
                 .filter(Objects::nonNull)
@@ -60,13 +63,14 @@ public record SalesOrderResponse(
                 document.getTotalAmount(),
                 document.getPaidAmount(),
                 document.getOutstandingAmount(),
+                lines.stream().map(SalesOrderLineResponse::tons).reduce(BigDecimal.ZERO, BigDecimal::add),
                 document.getReason(),
                 document.getCompletedAt(),
                 document.getCancelledAt(),
                 document.getReversedAt(),
                 document.getCreatedAt(),
                 document.getUpdatedAt(),
-                document.getItems().stream().map(SalesOrderLineResponse::from).toList(),
+                lines,
                 payments.stream().map(payment -> SalePaymentResponse.from(payment, reversedIds)).toList());
     }
 }

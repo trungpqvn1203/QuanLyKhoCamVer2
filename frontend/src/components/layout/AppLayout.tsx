@@ -1,4 +1,4 @@
-import { AccountBookOutlined, AppstoreOutlined, AuditOutlined, BankOutlined, CalendarOutlined, DollarOutlined, DownOutlined, ExportOutlined, FlagOutlined, HistoryOutlined, HomeOutlined, IdcardOutlined, ImportOutlined, InboxOutlined, KeyOutlined, LogoutOutlined, SafetyOutlined, ShopOutlined, TeamOutlined, UserOutlined, UsergroupAddOutlined, WalletOutlined } from '@ant-design/icons'
+import { AccountBookOutlined, AppstoreOutlined, AuditOutlined, BankOutlined, CalendarOutlined, DollarOutlined, DownOutlined, ExportOutlined, FlagOutlined, HistoryOutlined, HomeOutlined, IdcardOutlined, ImportOutlined, InboxOutlined, KeyOutlined, LogoutOutlined, SafetyOutlined, ShopOutlined, ShoppingOutlined, TeamOutlined, UserOutlined, UsergroupAddOutlined, WalletOutlined } from '@ant-design/icons'
 import { App, Breadcrumb, Button, Dropdown, Flex, Layout, Menu, Typography, theme } from 'antd'
 import type { MenuProps } from 'antd'
 import type { ReactNode } from 'react'
@@ -9,6 +9,7 @@ import { useAuth } from '../../features/auth/auth-context'
 import { ChangePasswordModal } from '../../features/auth/ChangePasswordModal'
 import { can } from '../../features/auth/permissions'
 import type { Permission } from '../../features/auth/permissions'
+import { StoreInfoModal } from '../../features/store/StoreInfoModal'
 import { SIDER_DIVIDER } from '../../theme/theme'
 
 const { Sider, Header, Content } = Layout
@@ -105,6 +106,7 @@ export function AppLayout() {
   const { message } = App.useApp()
   const { user, logout } = useAuth()
   const [changingPassword, setChangingPassword] = useState(false)
+  const [editingStore, setEditingStore] = useState(false)
   // Chỉ hiện mục người dùng được phép — ẩn cho gọn; quyền thật do backend kiểm
   const entries = visibleEntries(MENU_ITEMS, (permission) => can(user, permission))
   const menuItems = toMenuItems(entries)
@@ -126,10 +128,15 @@ export function AppLayout() {
         ),
       },
       { type: 'divider' },
+      // Cấu hình ít khi sửa → để trong menu tài khoản, không thêm mục navbar
+      ...(can(user, 'store.write')
+        ? [{ key: 'store', icon: <ShoppingOutlined />, label: 'Thông tin cửa hàng' }]
+        : []),
       { key: 'password', icon: <KeyOutlined />, label: 'Đổi mật khẩu' },
       { key: 'logout', icon: <LogoutOutlined />, label: 'Đăng xuất', danger: true },
     ],
     onClick: ({ key }) => {
+      if (key === 'store') setEditingStore(true)
       if (key === 'password') setChangingPassword(true)
       if (key === 'logout') void logout()
     },
@@ -218,6 +225,14 @@ export function AppLayout() {
           onChanged={() => {
             setChangingPassword(false)
             message.success('Đã đổi mật khẩu. Các thiết bị khác phải đăng nhập lại')
+          }}
+        />
+        <StoreInfoModal
+          open={editingStore}
+          onClose={() => setEditingStore(false)}
+          onSaved={() => {
+            setEditingStore(false)
+            message.success('Đã lưu thông tin cửa hàng')
           }}
         />
       </Layout>

@@ -41,7 +41,7 @@ const priceRule: Rule = {
 
 interface ProductInfo {
   label: string
-  unitName: string
+  unit: string
   /** Tồn tại kho đã chọn; không có = chưa chọn kho / chưa tải xong */
   stock?: number
 }

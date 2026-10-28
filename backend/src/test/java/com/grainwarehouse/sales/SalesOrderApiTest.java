@@ -120,6 +120,10 @@ class SalesOrderApiTest {
                 .andExpect(jsonPath("$.data.totalAmount").value(2537037))
                 .andExpect(jsonPath("$.data.paidAmount").value(0))
                 .andExpect(jsonPath("$.data.outstandingAmount").value(0))
+                // BR-PRT-03: 3 bao × 25 kg = 0,075 tấn; 10 bao × 25 kg = 0,25 tấn → tổng 0,325
+                .andExpect(jsonPath("$.data.lines[0].tons").value(0.075))
+                .andExpect(jsonPath("$.data.lines[1].tons").value(0.25))
+                .andExpect(jsonPath("$.data.totalTons").value(0.325))
                 .andExpect(jsonPath("$.data.payments.length()").value(0));
 
         assertThat(stock(pigFeed)).isEqualTo(100);

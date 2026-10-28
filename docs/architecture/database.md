@@ -34,6 +34,7 @@ Ràng buộc đổi: `ck_employee_has_rate` (ít nhất một trong ba đơn gi�
 | `sale_payment` | Lịch sử thanh toán của phiếu bán (bất biến) | ✅ Đã duyệt 2026-10-20 (V13) |
 | `supplier_payment` | Lịch sử trả tiền NCC trên phiếu nhập (bất biến) | ✅ Đã duyệt 2026-10-25 (V16) |
 | `cash_book`, `cash_book_change`, `cash_category`, `cash_voucher` + VIEW `cash_flow_entry` | Sổ quỹ: đầu kỳ (1 dòng) + lịch sử sửa, danh mục thu/chi, phiếu thu/chi khác (bất biến); VIEW gộp mọi biến động tiền | ✅ Đã duyệt 2026-10-26 (V19) |
+| `store_info` | Thông tin cửa hàng in trên phiếu — đúng một dòng (`CHECK id = 1`), là cấu hình nên ghi đè được | ✅ Đã duyệt 2026-10-28 (V24) |
 | `employee_advance`, `payroll_payment` | Nhật ký tạm ứng nhân viên và nhật ký trả lương theo dòng lương (bất biến) | ✅ Đã duyệt 2026-10-26 (V18) |
 | `app_user`, `app_user_role` | Tài khoản đăng nhập (mật khẩu băm BCrypt) + vai trò, một người nhiều vai trò | ✅ Đã duyệt 2026-10-20 (V14, ADR-0003) |
 | `refresh_token` | Refresh token đã phát — chỉ lưu SHA-256; rotation theo family, thu hồi được (KHÔNG bất biến) | ✅ Đã duyệt 2026-10-20 (V14, ADR-0003) |
