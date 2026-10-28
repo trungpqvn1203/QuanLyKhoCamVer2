@@ -2,6 +2,8 @@ import { App, Form, Input, InputNumber, Select, Switch } from 'antd'
 import { useEffect, useState } from 'react'
 import { ApiError } from '../../api/client'
 import { FormModal } from '../../components/ui/FormModal'
+import { supplierApi } from '../suppliers/supplier-api'
+import type { ProductSupplierLink, Supplier } from '../suppliers/supplier-api'
 import { categoryApi, productApi, productUnitApi } from './product-api'
 import type { Category, Product, ProductUnit, UpdateProductInput } from './product-api'
 
@@ -19,8 +21,12 @@ export function ProductFormModal({ open, editing, onClose, onSaved }: ProductFor
   const [form] = Form.useForm<UpdateProductInput>()
   const [categories, setCategories] = useState<Category[]>([])
   const [units, setUnits] = useState<ProductUnit[]>([])
+  const [suppliers, setSuppliers] = useState<Supplier[]>([])
+  // NCC đang gán của SP đang sửa; kèm productId để không dùng nhầm dữ liệu của SP mở trước đó
+  const [linked, setLinked] = useState<{ productId: number; items: ProductSupplierLink[] } | null>(null)
+  const linkedItems = editing && linked?.productId === editing.id ? linked.items : null
 
-  // Tải danh mục + đơn vị mỗi lần mở form để có bản mới nhất (vừa thêm ở khung Cấu hình)
+  // Tải danh mục, đơn vị, NCC mỗi lần mở form để có bản mới nhất (vừa thêm ở khung Cấu hình / màn NCC)
   useEffect(() => {
     if (!open) return
     const failed = (fallback: string) => (error: unknown) =>
@@ -33,7 +39,21 @@ export function ProductFormModal({ open, editing, onClose, onSaved }: ProductFor
       .listForSelect()
       .then((page) => setUnits(page.items))
       .catch(failed('Không tải được đơn vị tính'))
-  }, [open, message])
+    // Chỉ NCC đang hoạt động mới gán mới được (BR-SUP-06); 100 là giới hạn trang của backend
+    supplierApi
+      .list({ page: 0, size: 100 }, { active: true })
+      .then((page) => setSuppliers(page.items))
+      .catch(failed('Không tải được nhà cung cấp'))
+    if (editing) {
+      supplierApi
+        .listSuppliersOfProduct(editing.id, { page: 0, size: 100 })
+        .then((page) => {
+          setLinked({ productId: editing.id, items: page.items })
+          form.setFieldValue('supplierIds', page.items.map((link) => link.supplierId))
+        })
+        .catch(failed('Không tải được nhà cung cấp của sản phẩm'))
+    }
+  }, [open, editing, form, message])
 
   // Danh mục ngừng dùng không được chọn mới; nhưng vẫn hiện nếu là danh mục hiện tại của sản phẩm
   const categoryOptions = categories
@@ -47,6 +67,18 @@ export function ProductFormModal({ open, editing, onClose, onSaved }: ProductFor
   const unitOptions = units
     .filter((unit) => unit.active || unit.id === editing?.unitId)
     .map((unit) => ({ value: unit.id, label: unit.active ? unit.name : `${unit.name} (ngừng dùng)` }))
+
+  // NCC đã gán mà nay ngừng hoạt động vẫn hiện để giữ hoặc gỡ (BR-SUP-07); NCC ngừng chưa gán thì không có trong
+  // danh sách nên không gán mới được (BR-SUP-06). Không đặt disabled: tag của option disabled không có nút xóa
+  const supplierOptions = [
+    ...suppliers.map((supplier) => ({ value: supplier.id, label: `${supplier.code} · ${supplier.name}` })),
+    ...(linkedItems ?? [])
+      .filter((link) => !link.supplierActive)
+      .map((link) => ({
+        value: link.supplierId,
+        label: `${link.supplierCode} · ${link.supplierName} (ngừng)`,
+      })),
+  ]
 
   const handleSubmit = async (values: UpdateProductInput) => {
     let saved: Product
@@ -114,6 +146,21 @@ export function ProductFormModal({ open, editing, onClose, onSaved }: ProductFor
         extra="Báo Sắp hết khi tổng tồn mọi kho ≤ mức này. Để trống nếu không cần cảnh báo."
       >
         <InputNumber min={0} style={{ width: '100%' }} placeholder="Ví dụ: 50" />
+      </Form.Item>
+      <Form.Item
+        name="supplierIds"
+        label="Nhà cung cấp (tùy chọn)"
+        extra="Chỉ lập được phiếu nhập SP từ NCC đã gán. Có thể gán sau ở màn Nhà cung cấp."
+      >
+        <Select
+          mode="multiple"
+          options={supplierOptions}
+          placeholder="Chọn một hoặc nhiều NCC"
+          showSearch={{ optionFilterProp: 'label' }}
+          // Sửa SP: khóa ô cho đến khi tải xong NCC đang gán. Ô chưa có giá trị thì không gửi supplierIds
+          // → backend giữ nguyên liên kết, tránh lỡ tay gỡ hết khi tải lỗi
+          disabled={editing != null && linkedItems == null}
+        />
       </Form.Item>
       <Form.Item name="description" label="Mô tả" rules={[{ max: 1000 }]}>
         <Input.TextArea rows={2} />

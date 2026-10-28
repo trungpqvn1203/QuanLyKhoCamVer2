@@ -37,7 +37,7 @@ lỗi đã gặp và câu hỏi ôn tập. Do AI ghi sau mỗi module (CLAUDE.md
 
 | Bài | Nội dung chính |
 |---|---|
-| [Nhà cung cấp](3-danh-muc/01-nha-cung-cap.md) | Liên kết NCC–SP, mã số thuế |
+| [Nhà cung cấp](3-danh-muc/01-nha-cung-cap.md) | Liên kết NCC–SP, mã số thuế, chọn NCC từ form SP (đảo chiều phụ thuộc) |
 | [Khách hàng](3-danh-muc/02-khach-hang.md) | SĐT duy nhất, loại khách |
 | [Nhân viên, chấm công, bảng lương](3-danh-muc/03-nhan-vien-cham-cong-luong.md) | Chốt lương, khóa tháng |
 | [Nhập hàng loạt từ Excel](3-danh-muc/04-nhap-excel.md) | Hai bước kiểm tra / xác nhận, tất cả hoặc không gì |
@@ -141,6 +141,13 @@ lỗi đã gặp và câu hỏi ôn tập. Do AI ghi sau mỗi module (CLAUDE.md
 1. Nếu `product_supplier` dùng `id` tự tăng và **không** có UNIQUE `(supplier_id, product_id)`, hai người bấm "Gán" cùng lúc thì sao? Thiết kế hiện tại chặn ở đâu?
 2. Vì sao truy vấn "SP Y do NCC nào cung cấp" không dùng được index của khóa chính?
 3. Vì sao test `shouldSoftUnlink` fail lần đầu dù code service đúng?
+
+**[Nhà cung cấp — chọn NCC từ form SP](3-danh-muc/01-nha-cung-cap.md)**
+
+1. Vẽ mũi tên phụ thuộc giữa `product` và `supplier` trước và sau khi thêm `ProductSupplierLinks`. Bean nào được tiêm vào đâu lúc chạy?
+2. Nếu `ProductSupplierLinkService` dùng `REQUIRES_NEW` thay vì `MANDATORY`, kịch bản nào để lại dữ liệu sai?
+3. Vì sao test "NCC ngừng → SP không được tạo" vẫn viết được trong lớp test có `@Transactional`? Nếu `validate` chỉ chạy sau `save` thì test đó còn đúng không?
+4. PUT không gửi `supplierIds` thì giữ nguyên liên kết. Đánh đổi gì so với quy ước "PUT = thay toàn bộ"?
 
 **[Khách hàng](3-danh-muc/02-khach-hang.md)**
 

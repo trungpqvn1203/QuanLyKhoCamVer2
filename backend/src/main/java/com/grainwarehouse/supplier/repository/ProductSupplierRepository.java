@@ -7,6 +7,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import java.util.List;
+
 public interface ProductSupplierRepository extends JpaRepository<ProductSupplier, ProductSupplierId> {
 
     // "IdSupplierId" = thuộc tính id.supplierId. @EntityGraph: JOIN lấy luôn product, tránh N+1
@@ -16,4 +18,7 @@ public interface ProductSupplierRepository extends JpaRepository<ProductSupplier
     // Chiều ngược: SP này do những NCC nào cung cấp — dùng idx_product_supplier_product
     @EntityGraph(attributePaths = "supplier")
     Page<ProductSupplier> findByIdProductIdAndActiveTrue(Long productId, Pageable pageable);
+
+    // Mọi dòng (cả đã gỡ) của một SP — form SP bật lại dòng cũ thay vì tạo trùng khóa chính
+    List<ProductSupplier> findByIdProductId(Long productId);
 }

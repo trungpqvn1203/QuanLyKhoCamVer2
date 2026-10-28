@@ -180,6 +180,7 @@ _(Trả lời BR-SAL-Q01: có công nợ, chỉ ở mức phiếu bán + lịch 
 - **BR-PRD-07:** Không lưu giá trong sản phẩm. Giá nhập/bán ghi trên từng dòng chứng từ.
 - **BR-PRD-08:** Sản phẩm không xóa cứng; ngừng kinh doanh bằng `active = false`.
 - **BR-PRD-09:** Không tạo mới sản phẩm trùng tên với sản phẩm **đã ngừng kinh doanh** (tránh một mặt hàng có hai mã, lịch sử bị tách đôi). Hệ thống từ chối kèm mã SP cũ và hướng dẫn **mở bán lại** (`PUT` với `active: true`). _(Xác nhận 2026-10-15)_
+- **BR-PRD-10:** Khi thêm hoặc sửa SP (form và file Excel) được chọn **0..nhiều NCC** cung cấp SP đó — **tùy chọn**. Chọn = tạo hoặc bật lại liên kết BR-SUP-05, bỏ chọn ở form sửa = gỡ (`active = false`). Áp dụng BR-SUP-06 cho liên kết mới; liên kết sẵn có với NCC nay đã ngừng được giữ (BR-SUP-07). Tạo SP và gán NCC trong **cùng một transaction**: NCC lỗi thì SP không được tạo. Excel ghi **mã NCC**, nhiều mã cách nhau bằng `;`. _(Xác nhận 2026-10-28)_
 
 ## Danh mục sản phẩm
 

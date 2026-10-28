@@ -42,3 +42,19 @@
 - **Unique index một phần (partial index).** `CREATE UNIQUE INDEX ... ON supplier (tax_code) WHERE tax_code IS NOT NULL`: MST có nhập thì không được trùng, còn nhiều NCC chưa có MST vẫn hợp lệ. (Trong PostgreSQL, UNIQUE thường cũng coi các NULL là khác nhau; viết `WHERE` để ý đồ rõ ràng và index nhỏ hơn.) Đây là phiên bản "tùy chọn nhưng duy nhất" của `uk_customer_phone`.
 - **Exception mang theo field.** `DuplicateResourceException` có thêm `field` (tùy chọn). API 409 vẫn trả như cũ, nhưng khi nhập Excel, lỗi "MST đã thuộc về NCC X" được gắn vào đúng cột "Mã số thuế" thay vì cột "Tên". Tương tự, `ImportDefinition.duplicateKeys()` trả về một map field → khóa, để mỗi file so trùng **từng** field riêng (tên và MST).
 - **Đổi cấu trúc mẫu Excel thì tăng phiên bản** (`SUPPLIER_v1` → `v2`). Ai đang giữ file mẫu cũ sẽ nhận lỗi "không phải mẫu nhập", thay vì cột MST bị đọc nhầm thành "người liên hệ".
+
+## Thay đổi: chọn NCC ngay khi thêm / sửa sản phẩm (2026-10-28, BR-PRD-10)
+
+- **Đảo chiều phụ thuộc (Dependency Inversion) để tránh phụ thuộc vòng.** Module `supplier` đã import `product` (entity `ProductSupplier` trỏ tới `Product`, `SupplierService` đọc `ProductRepository`). Nếu `ProductService` import thẳng `ProductSupplierRepository` thì hai module sẽ phụ thuộc lẫn nhau, sửa module này phải hiểu module kia. Cách làm ở đây: module product **tự khai báo interface** `ProductSupplierLinks` theo đúng nhu cầu của mình (`validate`, `sync`, `findSupplierIdByCode`); module supplier **cài đặt** interface đó (`ProductSupplierLinkService`). Spring tiêm bản cài đặt vào `ProductService` lúc chạy, còn mũi tên phụ thuộc trong code vẫn chỉ một chiều supplier → product.
+- **`Propagation.MANDATORY` để buộc chung transaction.** `ProductSupplierLinkService` báo lỗi nếu được gọi khi chưa có transaction. Nhờ vậy không thể vô tình tạo SP ở một transaction và gán NCC ở transaction khác, dẫn tới SP đã lưu mà liên kết hỏng. Đây là cùng ý tưởng với `InventoryService` ở bài nhập kho.
+- **Kiểm tra trước, ghi sau.** `prepareNew` gọi `validate` khi SP chưa lưu (id null, nên mọi NCC đều là liên kết mới). Vì vậy NCC sai bị chặn **trước** câu INSERT sản phẩm. Bước nhập Excel cũng tận dụng điều này: `preview` chỉ gọi `validate` nên báo lỗi đúng dòng mà không ghi gì. `sync` (ghi thật) chỉ chạy sau khi SP có id.
+- **`null` khác `[]` trong PUT.** Theo quy ước PUT là "cập nhật toàn bộ", không gửi `supplierIds` lẽ ra nghĩa là gỡ hết. Nhưng nút "Mở bán lại" trên trang Sản phẩm và các client cũ đều không gửi field này, nên hiểu theo cách đó sẽ âm thầm xóa hết NCC của SP. Quy ước được chọn: `null` = giữ nguyên, `[]` = gỡ hết. Phía form, ô NCC bị khóa cho đến khi tải xong NCC đang gán; tải lỗi thì ô để trống, không gửi gì, nên không gỡ nhầm.
+- **Một quy tắc, một chỗ kiểm tra (lần hai).** BR-SUP-06 ban đầu bị viết lại trong service mới. Đã gom về `SupplierService.checkCanLink`, cả màn NCC lẫn form SP cùng gọi hàm này.
+- **Antd `Select` nhiều lựa chọn:** tag của option `disabled` không có nút xóa. Đánh dấu NCC đã ngừng là `disabled` sẽ khiến người dùng không gỡ được NCC đó khỏi SP. NCC ngừng chỉ xuất hiện trong danh sách khi đã được gán sẵn, nên không cần `disabled` vẫn không gán mới được.
+
+### Câu hỏi ôn tập (thay đổi này)
+
+1. Vẽ mũi tên phụ thuộc giữa `product` và `supplier` trước và sau khi thêm `ProductSupplierLinks`. Bean nào được tiêm vào đâu lúc chạy?
+2. Nếu `ProductSupplierLinkService` dùng `REQUIRES_NEW` thay vì `MANDATORY`, kịch bản nào để lại dữ liệu sai?
+3. Vì sao test "NCC ngừng → SP không được tạo" vẫn viết được trong lớp test có `@Transactional`? Nếu `validate` chỉ chạy sau `save` thì test đó còn đúng không?
+4. PUT không gửi `supplierIds` thì giữ nguyên liên kết. Đánh đổi gì so với quy ước "PUT = thay toàn bộ"?

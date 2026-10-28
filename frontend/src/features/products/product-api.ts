@@ -46,6 +46,11 @@ export interface CreateProductInput {
   description?: string
   // null: người dùng xóa ô → gửi null → backend bỏ mức tối thiểu
   minStockQuantity?: number | null
+  /**
+   * BR-PRD-10: NCC được phép cung cấp SP. Không gửi = giữ nguyên liên kết (sửa) / chưa gán NCC nào (tạo);
+   * [] = gỡ hết.
+   */
+  supplierIds?: number[]
 }
 
 export interface UpdateProductInput extends CreateProductInput {

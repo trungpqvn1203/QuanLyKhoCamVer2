@@ -8,6 +8,7 @@ import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 /** Không có trường code: mã do hệ thống tự sinh (BR-PRD-02). */
 public record CreateProductRequest(
@@ -31,5 +32,8 @@ public record CreateProductRequest(
 
         // BR-STK-03: tùy chọn; không gửi = không cảnh báo Sắp hết
         @PositiveOrZero(message = "Tồn tối thiểu không được âm")
-        Integer minStockQuantity) {
+        Integer minStockQuantity,
+
+        // BR-PRD-10: NCC được phép cung cấp SP, tùy chọn. PUT không gửi (null) = giữ nguyên liên kết, [] = gỡ hết
+        List<@NotNull Long> supplierIds) {
 }

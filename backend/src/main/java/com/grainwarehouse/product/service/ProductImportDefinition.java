@@ -14,22 +14,37 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 
-/** Mẫu nhập sản phẩm (BR-XLS). Danh mục và đơn vị ghi bằng TÊN — người dùng không biết id. */
+/**
+ * Mẫu nhập sản phẩm (BR-XLS). Danh mục và đơn vị ghi bằng TÊN, NCC ghi bằng MÃ — người dùng không biết id.
+ * Entity đã kiểm tra là {@link PreparedProduct}: SP chưa lưu + NCC cần gán sau khi SP có id (BR-PRD-10).
+ */
 @Component
 @RequiredArgsConstructor
-public class ProductImportDefinition implements ImportDefinition<CreateProductRequest, Product> {
+public class ProductImportDefinition implements ImportDefinition<CreateProductRequest, ProductImportDefinition.PreparedProduct> {
+
+    /** Nhiều mã NCC trong một ô, ví dụ "NCC001; NCC003" — dùng ; vì không có trong mã. */
+    private static final String SUPPLIER_SEPARATOR = ";";
+
+    public record PreparedProduct(Product product, Set<Long> supplierIds) {
+    }
 
     private final ProductService productService;
     private final ProductRepository productRepository;
     private final CategoryRepository categoryRepository;
     private final ProductUnitRepository unitRepository;
+    private final ProductSupplierLinks supplierLinks;
 
     @Override
     public String templateId() {
-        return "PRODUCT_v1";
+        // v2 (2026-10-28): thêm cột Nhà cung cấp → file mẫu cũ bị từ chối, tải mẫu mới
+        return "PRODUCT_v2";
     }
 
     @Override
@@ -60,12 +75,14 @@ public class ProductImportDefinition implements ImportDefinition<CreateProductRe
                         "Khối lượng một đơn vị: bao 25kg ghi 25. Đơn vị Kg ghi 1 hoặc để trống"),
                 ImportColumn.optional("minStockQuantity", "Tồn tối thiểu",
                         "Số nguyên ≥ 0; để trống = không cảnh báo sắp hết"),
+                ImportColumn.optional("supplierIds", "Nhà cung cấp",
+                        "Mã NCC đang hoạt động, nhiều mã cách nhau bằng dấu ; (ví dụ NCC001; NCC003). Để trống = gán sau"),
                 ImportColumn.optional("description", "Mô tả", "Tối đa 1000 ký tự"));
     }
 
     @Override
     public List<String> example() {
-        return List.of("Cám heo con 25kg", "Cám heo", "Bao", "25", "50", "Cho heo con 7–15kg");
+        return List.of("Cám heo con 25kg", "Cám heo", "Bao", "25", "50", "NCC001; NCC003", "Cho heo con 7–15kg");
     }
 
     @Override
@@ -78,7 +95,28 @@ public class ProductImportDefinition implements ImportDefinition<CreateProductRe
             netWeightKg = unit.getFixedNetWeightKg();
         }
         return new CreateProductRequest(row.text("name"), categoryId(row), unit == null ? null : unit.getId(),
-                netWeightKg, row.text("description"), row.integer("minStockQuantity"));
+                netWeightKg, row.text("description"), row.integer("minStockQuantity"), supplierIds(row));
+    }
+
+    /** "NCC001; ncc003" → id. Mã không tồn tại → lỗi tại cột Nhà cung cấp; NCC ngừng hoạt động do prepare() báo. */
+    private List<Long> supplierIds(ImportRow row) {
+        String cell = row.text("supplierIds");
+        List<Long> ids = new ArrayList<>();
+        if (cell == null) {
+            return ids;
+        }
+        for (String code : cell.split(SUPPLIER_SEPARATOR)) {
+            if (code.isBlank()) {
+                continue;
+            }
+            Optional<Long> id = supplierLinks.findSupplierIdByCode(code);
+            if (id.isEmpty()) {
+                row.error("supplierIds", "Nhà cung cấp mã '" + code.trim() + "' không tồn tại");
+            } else {
+                ids.add(id.get());
+            }
+        }
+        return ids;
     }
 
     /** Tên đơn vị → bản ghi. Không tìm thấy / đã ngừng dùng → lỗi ngay tại cột Đơn vị. */
@@ -123,12 +161,15 @@ public class ProductImportDefinition implements ImportDefinition<CreateProductRe
     }
 
     @Override
-    public Product prepare(CreateProductRequest request) {
-        return productService.prepareNew(request);
+    public PreparedProduct prepare(CreateProductRequest request) {
+        Set<Long> supplierIds = request.supplierIds() == null ? Set.of() : new LinkedHashSet<>(request.supplierIds());
+        return new PreparedProduct(productService.prepareNew(request), supplierIds);
     }
 
     @Override
-    public void saveAll(List<Product> products) {
-        productRepository.saveAll(products);
+    public void saveAll(List<PreparedProduct> rows) {
+        productRepository.saveAll(rows.stream().map(PreparedProduct::product).toList());
+        // Sau saveAll SP đã có id → tạo liên kết NCC trong cùng transaction nhập file (tất cả hoặc không gì)
+        rows.forEach(row -> supplierLinks.sync(row.product(), row.supplierIds()));
     }
 }

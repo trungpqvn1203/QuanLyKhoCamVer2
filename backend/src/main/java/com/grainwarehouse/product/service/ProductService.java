@@ -21,7 +21,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -31,6 +34,7 @@ public class ProductService {
     private final ProductRepository productRepository;
     private final CategoryRepository categoryRepository;
     private final ProductUnitRepository unitRepository;
+    private final ProductSupplierLinks supplierLinks;
 
     /** Tham số lọc đều tùy chọn; null = không lọc theo tiêu chí đó. */
     public PageResponse<ProductResponse> list(ProductSearchCriteria criteria, Pageable pageable) {
@@ -45,7 +49,10 @@ public class ProductService {
     @Transactional
     public ProductResponse create(CreateProductRequest request) {
         // Sau save(), code đã có giá trị nhờ @Generated (BR-PRD-02)
-        return ProductResponse.from(productRepository.save(prepareNew(request)));
+        Product product = productRepository.save(prepareNew(request));
+        // BR-PRD-10: gán NCC trong cùng transaction — lỗi liên kết thì SP cũng không được tạo
+        supplierLinks.sync(product, supplierIds(request.supplierIds()));
+        return ProductResponse.from(product);
     }
 
     /**
@@ -66,6 +73,7 @@ public class ProductService {
         product.setNetWeightKg(request.netWeightKg());
         product.setDescription(request.description());
         product.setMinStockQuantity(request.minStockQuantity());
+        supplierLinks.validate(product, supplierIds(request.supplierIds()));
         return product;
     }
 
@@ -88,6 +96,10 @@ public class ProductService {
         product.setDescription(request.description());
         product.setMinStockQuantity(request.minStockQuantity());
         product.setActive(request.active());
+        // null = client không gửi (ví dụ nút "Mở bán lại") → giữ nguyên liên kết NCC
+        if (request.supplierIds() != null) {
+            supplierLinks.sync(product, supplierIds(request.supplierIds()));
+        }
         return ProductResponse.from(productRepository.saveAndFlush(product));
     }
 
@@ -118,6 +130,11 @@ public class ProductService {
             throw new BusinessException("Sản phẩm đơn vị " + unit.getName() + " phải có khối lượng tịnh bằng "
                     + fixed.stripTrailingZeros().toPlainString() + " kg");
         }
+    }
+
+    /** Gửi trùng id thì bỏ trùng, giữ thứ tự. */
+    private static Set<Long> supplierIds(List<Long> ids) {
+        return ids == null ? Set.of() : new LinkedHashSet<>(ids);
     }
 
     private ProductUnit findActiveUnit(Long unitId) {

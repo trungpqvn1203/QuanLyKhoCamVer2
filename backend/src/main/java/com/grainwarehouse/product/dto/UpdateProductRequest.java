@@ -8,6 +8,7 @@ import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 /** PUT = cập nhật toàn bộ. Không có code (không sửa được); có active để mở bán lại. */
 public record UpdateProductRequest(
@@ -34,5 +35,8 @@ public record UpdateProductRequest(
 
         // BR-STK-03: PUT = cập nhật toàn bộ → không gửi nghĩa là bỏ mức tối thiểu
         @PositiveOrZero(message = "Tồn tối thiểu không được âm")
-        Integer minStockQuantity) {
+        Integer minStockQuantity,
+
+        // BR-PRD-10: NCC được phép cung cấp SP, tùy chọn. PUT không gửi (null) = giữ nguyên liên kết, [] = gỡ hết
+        List<@NotNull Long> supplierIds) {
 }

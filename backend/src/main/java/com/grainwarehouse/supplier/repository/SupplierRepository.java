@@ -17,4 +17,7 @@ public interface SupplierRepository extends JpaRepository<Supplier, Long>, JpaSp
     Optional<Supplier> findByTaxCode(String taxCode);
 
     Optional<Supplier> findByTaxCodeAndIdNot(String taxCode, Long id);
+
+    // Cột "Nhà cung cấp" của file Excel sản phẩm ghi mã NCC (BR-PRD-10)
+    Optional<Supplier> findByCode(String code);
 }
