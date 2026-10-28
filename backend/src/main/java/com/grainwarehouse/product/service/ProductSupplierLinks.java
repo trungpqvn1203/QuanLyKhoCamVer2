@@ -2,6 +2,7 @@ package com.grainwarehouse.product.service;
 
 import com.grainwarehouse.product.entity.Product;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
@@ -12,7 +13,14 @@ import java.util.Set;
  */
 public interface ProductSupplierLinks {
 
-    /** Mã NCC (không phân biệt hoa thường) → id; dùng cho cột "Nhà cung cấp" của file Excel. */
+    /** NCC dùng được trong file Excel. */
+    record SupplierOption(String code, String name) {
+    }
+
+    /** NCC đang hoạt động, sắp theo mã — dropdown các cột "NCC 1..3" của file mẫu. Tự mở transaction chỉ-đọc. */
+    List<SupplierOption> activeSuppliers();
+
+    /** Mã NCC (không phân biệt hoa thường) → id; đọc file Excel. Tự mở transaction chỉ-đọc. */
     Optional<Long> findSupplierIdByCode(String code);
 
     /**

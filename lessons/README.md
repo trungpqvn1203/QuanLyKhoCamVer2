@@ -148,6 +148,7 @@ lỗi đã gặp và câu hỏi ôn tập. Do AI ghi sau mỗi module (CLAUDE.md
 2. Nếu `ProductSupplierLinkService` dùng `REQUIRES_NEW` thay vì `MANDATORY`, kịch bản nào để lại dữ liệu sai?
 3. Vì sao test "NCC ngừng → SP không được tạo" vẫn viết được trong lớp test có `@Transactional`? Nếu `validate` chỉ chạy sau `save` thì test đó còn đúng không?
 4. PUT không gửi `supplierIds` thì giữ nguyên liên kết. Đánh đổi gì so với quy ước "PUT = thay toàn bộ"?
+5. Vì sao một bug chỉ xuất hiện khi "không có transaction" lại lọt qua toàn bộ test API? Viết test thế nào để bắt được?
 
 **[Khách hàng](3-danh-muc/02-khach-hang.md)**
 

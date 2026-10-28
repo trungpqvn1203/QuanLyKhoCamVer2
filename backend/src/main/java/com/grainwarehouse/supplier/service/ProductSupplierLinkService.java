@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
@@ -30,7 +31,18 @@ public class ProductSupplierLinkService implements ProductSupplierLinks {
     private final SupplierRepository supplierRepository;
     private final ProductSupplierRepository productSupplierRepository;
 
+    // Hai hàm đọc dưới đây được gọi lúc sinh file mẫu / đọc file Excel — KHÔNG có transaction bao ngoài
+    // → ghi đè MANDATORY của class bằng transaction chỉ-đọc riêng
     @Override
+    @Transactional(readOnly = true)
+    public List<SupplierOption> activeSuppliers() {
+        return supplierRepository.findByActiveTrueOrderByCodeAsc().stream()
+                .map(supplier -> new SupplierOption(supplier.getCode(), supplier.getName()))
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public Optional<Long> findSupplierIdByCode(String code) {
         // Mã tự sinh luôn viết hoa (NCC001) → người dùng gõ "ncc001" vẫn khớp
         return supplierRepository.findByCode(code.trim().toUpperCase(Locale.ROOT)).map(Supplier::getId);

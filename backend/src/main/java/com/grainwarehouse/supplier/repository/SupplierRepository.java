@@ -4,6 +4,7 @@ import com.grainwarehouse.supplier.entity.Supplier;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 
+import java.util.List;
 import java.util.Optional;
 
 public interface SupplierRepository extends JpaRepository<Supplier, Long>, JpaSpecificationExecutor<Supplier> {
@@ -20,4 +21,6 @@ public interface SupplierRepository extends JpaRepository<Supplier, Long>, JpaSp
 
     // Cột "Nhà cung cấp" của file Excel sản phẩm ghi mã NCC (BR-PRD-10)
     Optional<Supplier> findByCode(String code);
+
+    List<Supplier> findByActiveTrueOrderByCodeAsc();
 }

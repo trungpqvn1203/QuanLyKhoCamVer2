@@ -79,6 +79,8 @@ class ProductImportApiTest {
     @Test
     @DisplayName("BR-XLS-01: file mẫu có tiêu đề, dropdown danh mục đang dùng, mã mẫu trong sheet ẩn")
     void shouldGenerateTemplate() throws Exception {
+        Supplier active = saveSupplier("NCC trong dropdown", true);
+        Supplier stopped = saveSupplier("NCC ngừng không có trong dropdown", false);
         mockMvc.perform(get(BASE + "/template"))
                 .andExpect(status().isOk())
                 .andExpect(header().string(HttpHeaders.CONTENT_TYPE, ExcelTestFiles.XLSX))
@@ -90,10 +92,12 @@ class ProductImportApiTest {
             Row header = workbook.getSheet("Dữ liệu").getRow(0);
             assertThat(header.getCell(0).getStringCellValue()).isEqualTo("Tên sản phẩm *");
             assertThat(header.getCell(4).getStringCellValue()).isEqualTo("Tồn tối thiểu");
-            assertThat(header.getCell(5).getStringCellValue()).isEqualTo("Nhà cung cấp");
+            assertThat(header.getCell(5).getStringCellValue()).isEqualTo("Nhà cung cấp 1");
+            assertThat(header.getCell(7).getStringCellValue()).isEqualTo("Nhà cung cấp 3");
+            assertThat(header.getCell(8).getStringCellValue()).isEqualTo("Mô tả");
 
             List<? extends DataValidation> dropdowns = workbook.getSheet("Dữ liệu").getDataValidations();
-            assertThat(dropdowns).hasSize(2); // Danh mục, Đơn vị
+            assertThat(dropdowns).hasSize(5); // Danh mục, Đơn vị, Nhà cung cấp 1..3
 
             Sheet meta = workbook.getSheet("_meta");
             assertThat(workbook.getSheetVisibility(workbook.getSheetIndex(meta))).isEqualTo(SheetVisibility.VERY_HIDDEN);
@@ -106,6 +110,13 @@ class ProductImportApiTest {
                 }
             }
             assertThat(categories).contains("Cám heo").doesNotContain("Cám vịt");
+            // BR-SUP-06: dropdown NCC dạng "mã · tên", chỉ NCC đang hoạt động
+            List<String> metaValues = new ArrayList<>();
+            for (Row row : meta) {
+                row.forEach(cell -> metaValues.add(cell.getStringCellValue()));
+            }
+            assertThat(metaValues).contains(active.getCode() + " · " + active.getName())
+                    .noneMatch(value -> value.startsWith(stopped.getCode()));
         }
     }
 
@@ -115,8 +126,8 @@ class ProductImportApiTest {
         long before = productRepository.count();
 
         preview(file(
-                row("Cám heo con 25kg", "Cám heo", "Bao", 25, 50, null, "Heo con"),
-                row("Cám heo thịt", "cám HEO", "bao", "40", null, null, null)))
+                row("Cám heo con 25kg", "Cám heo", "Bao", 25, 50, null, null, null, "Heo con"),
+                row("Cám heo thịt", "cám HEO", "bao", "40", null, null, null, null, null)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.totalRows").value(2))
                 .andExpect(jsonPath("$.data.validRows").value(2))
@@ -164,7 +175,7 @@ class ProductImportApiTest {
         long before = productRepository.count();
 
         mockMvc.perform(multipart(BASE).file(upload(file(
-                        row("Cám heo con 25kg", "Cám heo", "Bao", 25, 50, null, "Heo con"),
+                        row("Cám heo con 25kg", "Cám heo", "Bao", 25, 50, null, null, null, "Heo con"),
                         row("Cám xá", "Cám heo", "Kg", null)))))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.data.importedCount").value(2))
@@ -246,14 +257,16 @@ class ProductImportApiTest {
     }
 
     @Test
-    @DisplayName("BR-PRD-10: cột Nhà cung cấp - nhiều mã cách nhau bằng ; (không phân biệt hoa thường), gán khi nhập")
-    void shouldLinkSuppliersByCode() throws Exception {
+    @DisplayName("BR-PRD-10: cột NCC 1..3 - chọn \"mã · tên\" hoặc gõ mã (không phân biệt hoa thường); chọn trùng thì bỏ trùng")
+    void shouldLinkSuppliersFromColumns() throws Exception {
         Supplier first = saveSupplier("NCC nhập Excel 1", true);
         Supplier second = saveSupplier("NCC nhập Excel 2", true);
 
         mockMvc.perform(multipart(BASE).file(upload(file(
                         row("Cám heo có NCC", "Cám heo", "Bao", 25, null,
-                                first.getCode().toLowerCase() + " ;" + second.getCode() + ";")))))
+                                first.getCode() + " · " + first.getName(),
+                                second.getCode().toLowerCase(),
+                                first.getCode() + " · tên cũ đã đổi")))))
                 .andExpect(status().isCreated());
 
         Long productId = productRepository.findByNameIgnoreCase("Cám heo có NCC").orElseThrow().getId();
@@ -263,17 +276,18 @@ class ProductImportApiTest {
     }
 
     @Test
-    @DisplayName("BR-PRD-10: mã NCC không tồn tại - lỗi tại cột Nhà cung cấp; NCC ngừng hoạt động - lỗi của dòng")
+    @DisplayName("BR-PRD-10: mã NCC không tồn tại - lỗi tại đúng cột NCC; NCC ngừng hoạt động - lỗi của dòng")
     void shouldReportSupplierErrors() throws Exception {
         Supplier stopped = saveSupplier("NCC nhập Excel đã ngừng", false);
 
         preview(file(
-                row("Cám A", "Cám heo", "Bao", 25, null, "NCC99999"),
+                row("Cám A", "Cám heo", "Bao", 25, null, null, "NCC99999 · Không có"),
                 row("Cám B", "Cám heo", "Bao", 25, null, stopped.getCode())))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.validRows").value(0))
                 .andExpect(jsonPath("$.data.errors[0].row").value(2))
-                .andExpect(jsonPath("$.data.errors[0].field").value("supplierIds"))
+                .andExpect(jsonPath("$.data.errors[0].field").value("supplier2"))
+                .andExpect(jsonPath("$.data.errors[0].column").value("Nhà cung cấp 2"))
                 .andExpect(jsonPath("$.data.errors[0].message").value("Nhà cung cấp mã 'NCC99999' không tồn tại"))
                 .andExpect(jsonPath("$.data.errors[1].row").value(3))
                 .andExpect(jsonPath("$.data.errors[1].message").value(containsString("đang ngừng hoạt động")));
