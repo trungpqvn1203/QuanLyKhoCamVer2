@@ -394,8 +394,8 @@ _(Trả lời BR-SAL-Q01: có công nợ, chỉ ở mức phiếu bán + lịch 
 ### ✅ Đã xác nhận (2026-10-28)
 
 - **BR-PRT-01:** **Thông tin cửa hàng** (tên — bắt buộc; địa chỉ, SĐT, lời chào cuối phiếu — tùy chọn) in ở đầu / cuối phiếu. Một bản duy nhất, Quản lý hệ thống sửa ở menu tài khoản → "Thông tin cửa hàng"; mọi vai trò đọc được để in. Chưa cấu hình thì phiếu vẫn in, chỉ thiếu phần đầu.
-- **BR-PRT-02:** **Phiếu bán hàng** (đưa khách), khổ **K80** kiểu bill siêu thị: số phiếu, ngày bán, khách + SĐT, từng dòng "SL ĐVT x đơn giá → thành tiền", tổng cộng, **số tiền bằng chữ**. Phiếu đã hoàn tất in thêm đã thanh toán và còn nợ **của phiếu đó** (không in tổng nợ của khách). Phiếu **nháp** in được, có dòng "PHIẾU TẠM TÍNH – CHƯA HOÀN TẤT".
-- **BR-PRT-03:** **Phiếu xuất kho – giao hàng** (đưa lái xe, bốc vác để xếp hàng lên xe), khổ **K80**, **không có giá**: kho xuất, khách + SĐT, ghi chú, từng dòng số lượng + tấn, tổng tấn, tổng số lượng theo từng đơn vị, ô ký Thủ kho / Lái xe. In được khi **nháp**: thiếu hàng thì sửa phiếu nháp rồi in lại.
+- **BR-PRT-02:** **Phiếu bán hàng** — **một mẫu dùng chung** đưa khách và lái xe / bốc vác _(sửa 2026-10-28)_, khổ **K80** kiểu bill siêu thị: số phiếu, ngày bán, khách + SĐT, từng dòng "SL ĐVT x đơn giá → thành tiền", tổng cộng, **số tiền bằng chữ**. Phiếu đã hoàn tất in thêm đã thanh toán và còn nợ **của phiếu đó** (không in tổng nợ của khách). Phiếu **nháp** in được, có dòng "PHIẾU TẠM TÍNH – CHƯA HOÀN TẤT".
+- **BR-PRT-03:** In được khi **nháp** (lái xe cầm phiếu để xếp hàng; thiếu hàng thì sửa phiếu nháp rồi in lại). _(2026-10-28: bỏ mẫu "phiếu xuất kho" riêng không giá — chủ cửa hàng chọn dùng chung phiếu bán. API vẫn trả `tons` / `totalTons` của phiếu bán, chưa dùng khi in.)_
 - **BR-PRT-04:** In bản **đã lưu** của phiếu: đang sửa nháp chưa lưu thì không cho in. Phiếu đã hủy / đã đảo không in. In qua hộp thoại in của trình duyệt (chọn máy in nhiệt K80); chưa ghi "người lập" vì chứng từ chưa lưu người tạo.
 
 ---

@@ -50,7 +50,7 @@ lỗi đã gặp và câu hỏi ôn tập. Do AI ghi sau mỗi module (CLAUDE.md
 | [Đăng nhập & phân quyền](4-nen-tang-he-thong/01-dang-nhap-phan-quyen.md) | JWT trong cookie, CSRF, ma trận quyền |
 | [Bộ lọc dùng chung và giao diện danh sách](4-nen-tang-he-thong/02-bo-loc-dung-chung-va-ui.md) | SearchCriteria + Specification, chuẩn UI |
 | [Mã tự sinh](4-nen-tang-he-thong/03-ma-tu-sinh.md) | Sequence, lỗi mã bị cắt cụt |
-| [In phiếu (K80)](4-nen-tang-he-thong/04-in-phieu.md) | Hai mẫu in, in qua iframe, số tiền bằng chữ, `tsc -b` |
+| [In phiếu (K80)](4-nen-tang-he-thong/04-in-phieu.md) | Phiếu bán K80, in qua iframe, số tiền bằng chữ, `tsc -b` |
 
 ### Vận hành: đóng gói và triển khai
 
@@ -204,7 +204,7 @@ lỗi đã gặp và câu hỏi ôn tập. Do AI ghi sau mỗi module (CLAUDE.md
 
 **[In phiếu (K80)](4-nen-tang-he-thong/04-in-phieu.md)**
 
-1. Vì sao phiếu xuất kho cho lái xe không in giá? Dữ liệu tách ở đâu: backend hay mẫu in?
+1. Nếu sau này cần lại phiếu cho lái xe không có giá thì làm ở đâu: backend hay mẫu in? Vì sao?
 2. Nếu cho in khi form nháp chưa lưu, kịch bản nào làm lệch giữa hàng thực giao và sổ sách?
 3. Đọc thành chữ: 1.000.005, 2.000.001.000, 21, 11, 105. Giải thích "không trăm", "linh", "mốt".
 4. Vì sao dùng iframe chứ không `window.print()` thẳng trên trang?

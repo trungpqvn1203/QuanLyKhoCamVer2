@@ -2,7 +2,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import type { StoreInfo } from '../../store/store-info-api'
 import type { SalesOrder } from '../sales-order-api'
-import { DeliverySlip, SalesReceipt } from './SalesPrints'
+import { SalesReceipt } from './SalesPrints'
 
 const store: StoreInfo = {
   configured: true,
@@ -45,7 +45,7 @@ function order(overrides: Partial<SalesOrder> = {}): SalesOrder {
 
 const render = (element: React.ReactElement) => renderToStaticMarkup(element)
 
-describe('SalesReceipt (phiếu bán cho khách, BR-PRT-02)', () => {
+describe('SalesReceipt (phiếu bán, BR-PRT-02)', () => {
   it('có thông tin cửa hàng, dòng hàng, tổng, đã trả, còn nợ, số tiền bằng chữ', () => {
     const html = render(<SalesReceipt order={order()} store={store} printedAt="28/10/2026 17:40" />)
 
@@ -76,20 +76,5 @@ describe('SalesReceipt (phiếu bán cho khách, BR-PRT-02)', () => {
 
     expect(html).toContain('PHIẾU BÁN HÀNG')
     expect(html).not.toContain('class="store"')
-  })
-})
-
-describe('DeliverySlip (phiếu xuất kho cho lái xe, BR-PRT-03)', () => {
-  it('có kho, ghi chú, số lượng, tấn từng dòng và tổng, tổng theo đơn vị, ô ký — KHÔNG có giá', () => {
-    const html = render(<DeliverySlip order={order()} store={store} printedAt="x" />)
-
-    expect(html).toContain('KHO001 · Kho tổng Hà Nội')
-    expect(html).toContain('Giao trước 8h')
-    expect(html).toContain('1,25 tấn')
-    expect(html).toContain('1,29 tấn')
-    expect(html).toContain('50 bao, 40 kg')
-    expect(html).toContain('Lái xe')
-    expect(html).not.toContain('320.000')
-    expect(html).not.toContain('16.410.000')
   })
 })

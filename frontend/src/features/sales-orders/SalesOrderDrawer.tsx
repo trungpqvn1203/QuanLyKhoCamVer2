@@ -1,14 +1,12 @@
 import {
-  CarOutlined,
   CheckOutlined,
   DollarOutlined,
   PrinterOutlined,
   RollbackOutlined,
   SaveOutlined,
   StopOutlined,
-  UserOutlined,
 } from '@ant-design/icons'
-import { Alert, App, Button, Drawer, Dropdown, Flex, Form, Skeleton } from 'antd'
+import { Alert, App, Button, Drawer, Flex, Form, Skeleton } from 'antd'
 import { useEffect, useMemo, useState } from 'react'
 import { ApiError } from '../../api/client'
 import { toFormFieldErrors } from '../../api/form-errors'
@@ -92,10 +90,10 @@ export function SalesOrderDrawer({ open, orderId, references, onClose, onChanged
   }, [formVersion, showForm, form])
 
   /**
-   * BR-PRT-02, 03: in bản ĐÃ LƯU của phiếu. Đang sửa nháp mà chưa lưu thì chặn — in ra sẽ khác phiếu thật
+   * BR-PRT-02: một mẫu in dùng chung cho khách và lái xe. In bản ĐÃ LƯU của phiếu. Đang sửa nháp mà chưa lưu thì chặn — in ra sẽ khác phiếu thật
    * (ví dụ vừa giảm số lượng vì thiếu hàng nhưng chưa bấm Lưu nháp).
    */
-  const print = async (kind: 'receipt' | 'delivery') => {
+  const print = async () => {
     if (!order) return
     if (showForm && form.isFieldsTouched()) {
       message.warning('Phiếu có thay đổi chưa lưu — bấm Lưu nháp trước khi in')
@@ -103,14 +101,13 @@ export function SalesOrderDrawer({ open, orderId, references, onClose, onChanged
     }
     try {
       // Tải lười: react-dom/server + mẫu in chỉ tải khi bấm In, không làm nặng lần mở trang đầu
-      const [{ printK80 }, { DeliverySlip, SalesReceipt }, store] = await Promise.all([
+      const [{ printK80 }, { SalesReceipt }, store] = await Promise.all([
         import('../../utils/print'),
         import('./print/SalesPrints'),
         storeInfoApi.get(),
       ])
-      const props = { order, store, printedAt: formatDateTime(new Date().toISOString()) }
-      if (kind === 'receipt') printK80(`Phiếu bán ${order.code}`, <SalesReceipt {...props} />)
-      else printK80(`Phiếu xuất kho ${order.code}`, <DeliverySlip {...props} />)
+      const printedAt = formatDateTime(new Date().toISOString())
+      printK80(`Phiếu bán ${order.code}`, <SalesReceipt order={order} store={store} printedAt={printedAt} />)
       if (!store.configured) message.info('Chưa có thông tin cửa hàng — Quản lý hệ thống nhập ở menu tài khoản')
     } catch (err) {
       message.error(err instanceof ApiError ? err.message : 'Không in được phiếu')
@@ -290,19 +287,9 @@ export function SalesOrderDrawer({ open, orderId, references, onClose, onChanged
             Đóng
           </Button>
           {printable && (
-            <Dropdown
-              menu={{
-                items: [
-                  { key: 'receipt', icon: <UserOutlined />, label: 'Phiếu bán (đưa khách)' },
-                  { key: 'delivery', icon: <CarOutlined />, label: 'Phiếu xuất kho (lái xe, bốc vác)' },
-                ],
-                onClick: ({ key }) => void print(key as 'receipt' | 'delivery'),
-              }}
-            >
-              <Button icon={<PrinterOutlined />} disabled={busy !== null}>
-                In phiếu
-              </Button>
-            </Dropdown>
+            <Button icon={<PrinterOutlined />} disabled={busy !== null} onClick={() => void print()}>
+              In phiếu
+            </Button>
           )}
           {canWrite && order?.status === 'COMPLETED' && order.outstandingAmount > 0 && (
             <Button type="primary" icon={<DollarOutlined />} onClick={() => setPaying(true)}>

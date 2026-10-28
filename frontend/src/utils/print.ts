@@ -22,8 +22,6 @@ body { margin: 0; padding: 3mm 4mm 6mm; width: 80mm; color: #000;
 .total { font-size: 14px; font-weight: 700; }
 .stamp { border: 1px solid #000; text-align: center; font-weight: 700; padding: 2px; margin: 4px 0; }
 hr { border: 0; border-top: 1px dashed #000; margin: 6px 0; }
-.signs { display: flex; justify-content: space-around; margin-top: 10px; text-align: center; font-weight: 600; }
-.signs > div { width: 45%; height: 64px; }
 `
 
 /**
