@@ -17,7 +17,7 @@ public interface ProductSupplierLinks {
     record SupplierOption(String code, String name) {
     }
 
-    /** NCC đang hoạt động, sắp theo mã — dropdown các cột "NCC 1..3" của file mẫu. Tự mở transaction chỉ-đọc. */
+    /** NCC đang hoạt động, sắp theo mã — dropdown cột "Nhà cung cấp" của file mẫu. Tự mở transaction chỉ-đọc. */
     List<SupplierOption> activeSuppliers();
 
     /** Mã NCC (không phân biệt hoa thường) → id; đọc file Excel. Tự mở transaction chỉ-đọc. */

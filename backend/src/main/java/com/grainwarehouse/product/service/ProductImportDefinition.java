@@ -14,7 +14,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
-import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -29,11 +28,6 @@ import java.util.Set;
 @RequiredArgsConstructor
 public class ProductImportDefinition implements ImportDefinition<CreateProductRequest, ProductImportDefinition.PreparedProduct> {
 
-    /**
-     * Dropdown Excel chỉ chọn được MỘT giá trị mỗi ô → tối đa 3 cột NCC, mỗi cột một dropdown.
-     * SP nhiều NCC hơn thì gán thêm trên màn hình.
-     */
-    private static final List<String> SUPPLIER_COLUMNS = List.of("supplier1", "supplier2", "supplier3");
     /** Nhãn dropdown "NCC001 · Công ty A"; khi đọc chỉ lấy phần mã trước dấu này. */
     private static final String SUPPLIER_LABEL_SEPARATOR = " · ";
 
@@ -73,7 +67,7 @@ public class ProductImportDefinition implements ImportDefinition<CreateProductRe
         List<String> suppliers = supplierLinks.activeSuppliers().stream()
                 .map(supplier -> supplier.code() + SUPPLIER_LABEL_SEPARATOR + supplier.name())
                 .toList();
-        List<ImportColumn> columns = new ArrayList<>(List.of(
+        return List.of(
                 ImportColumn.required("name", "Tên sản phẩm", "Tối đa 200 ký tự, không trùng sản phẩm đã có"),
                 ImportColumn.required("categoryId", "Danh mục", "Chọn trong danh sách danh mục đang dùng")
                         .withOptions(categories),
@@ -82,20 +76,18 @@ public class ProductImportDefinition implements ImportDefinition<CreateProductRe
                 ImportColumn.required("netWeightKg", "Khối lượng tịnh (kg)",
                         "Khối lượng một đơn vị: bao 25kg ghi 25. Đơn vị Kg ghi 1 hoặc để trống"),
                 ImportColumn.optional("minStockQuantity", "Tồn tối thiểu",
-                        "Số nguyên ≥ 0; để trống = không cảnh báo sắp hết")));
-        for (int i = 0; i < SUPPLIER_COLUMNS.size(); i++) {
-            columns.add(ImportColumn.optional(SUPPLIER_COLUMNS.get(i), "Nhà cung cấp " + (i + 1),
-                            "Chọn NCC đang hoạt động; để trống = không gán. Hơn 3 NCC thì gán thêm trên màn hình")
-                    .withOptions(suppliers));
-        }
-        columns.add(ImportColumn.optional("description", "Mô tả", "Tối đa 1000 ký tự"));
-        return columns;
+                        "Số nguyên ≥ 0; để trống = không cảnh báo sắp hết"),
+                // BR-PRD-10: file nhập chọn MỘT NCC (dropdown Excel chỉ chọn một giá trị mỗi ô);
+                // SP nhiều NCC thì gán thêm ở màn Nhà cung cấp. Bảng product_supplier vẫn nhiều–nhiều
+                ImportColumn.optional("supplierId", "Nhà cung cấp",
+                                "Chọn NCC đang hoạt động; để trống = gán sau ở màn Nhà cung cấp")
+                        .withOptions(suppliers),
+                ImportColumn.optional("description", "Mô tả", "Tối đa 1000 ký tự"));
     }
 
     @Override
     public List<String> example() {
-        return List.of("Cám heo con 25kg", "Cám heo", "Bao", "25", "50", "NCC001 · Công ty A", "", "",
-                "Cho heo con 7–15kg");
+        return List.of("Cám heo con 25kg", "Cám heo", "Bao", "25", "50", "NCC001 · Công ty A", "Cho heo con 7–15kg");
     }
 
     @Override
@@ -112,26 +104,22 @@ public class ProductImportDefinition implements ImportDefinition<CreateProductRe
     }
 
     /**
-     * "NCC001 · Công ty A" (hoặc chỉ gõ "ncc001") ở các cột NCC → id; chọn trùng hai cột thì bỏ trùng ở prepare().
-     * Mã không tồn tại → lỗi tại đúng cột; NCC ngừng hoạt động do prepare() báo (BR-SUP-06).
+     * "NCC001 · Công ty A" (hoặc chỉ gõ "ncc001") → [id]; để trống → []. Trả danh sách vì request nhận nhiều NCC.
+     * Mã không tồn tại → lỗi tại cột Nhà cung cấp; NCC ngừng hoạt động do prepare() báo (BR-SUP-06).
      */
     private List<Long> supplierIds(ImportRow row) {
-        List<Long> ids = new ArrayList<>();
-        for (String column : SUPPLIER_COLUMNS) {
-            String cell = row.text(column);
-            if (cell == null) {
-                continue;
-            }
-            // Tên NCC có thể đổi sau khi tải mẫu → chỉ tin phần mã
-            String code = cell.split(SUPPLIER_LABEL_SEPARATOR, 2)[0].trim();
-            Optional<Long> id = supplierLinks.findSupplierIdByCode(code);
-            if (id.isEmpty()) {
-                row.error(column, "Nhà cung cấp mã '" + code + "' không tồn tại");
-            } else {
-                ids.add(id.get());
-            }
+        String cell = row.text("supplierId");
+        if (cell == null) {
+            return List.of();
         }
-        return ids;
+        // Tên NCC có thể đổi sau khi tải mẫu → chỉ tin phần mã
+        String code = cell.split(SUPPLIER_LABEL_SEPARATOR, 2)[0].trim();
+        Optional<Long> id = supplierLinks.findSupplierIdByCode(code);
+        if (id.isEmpty()) {
+            row.error("supplierId", "Nhà cung cấp mã '" + code + "' không tồn tại");
+            return List.of();
+        }
+        return List.of(id.get());
     }
 
     /** Tên đơn vị → bản ghi. Không tìm thấy / đã ngừng dùng → lỗi ngay tại cột Đơn vị. */

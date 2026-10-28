@@ -41,7 +41,7 @@ class ProductImportNoTransactionTest {
 
         mockMvc.perform(multipart(BASE + "/preview").file(upload(ExcelTestFiles.fill(template, List.of(row)))))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.errors[?(@.field == 'supplier1')].message")
+                .andExpect(jsonPath("$.data.errors[?(@.field == 'supplierId')].message")
                         .value(hasItem("Nhà cung cấp mã 'NCC99999' không tồn tại")));
     }
 }
