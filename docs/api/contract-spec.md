@@ -19,7 +19,8 @@
     "id": 1,
     "code": "CAM-HEO-01",
     "name": "Cám heo con 20kg",
-    "unit": "BAG",
+    "unitId": 1,
+    "unitName": "Bao",
     "price": 320000
   },
   "timestamp": "2026-10-13T23:30:00Z"
@@ -113,7 +114,7 @@ Khi có lỗi (4xx, 5xx), Backend bắt qua `@RestControllerAdvice` và trả v�
 
 > `error.message` không bao giờ chứa chi tiết nội bộ (SQL, stack trace, host DB) — chi tiết chỉ ghi vào log backend.
 >
-> **Giới hạn đã biết:** nếu JSON sai kiểu (ví dụ `unit: "TON"`), lỗi đọc JSON xảy ra **trước** Bean Validation → `details` chỉ chứa field sai kiểu, chưa liệt kê các field khác (ví dụ thiếu `name`).
+> **Giới hạn đã biết:** nếu JSON sai kiểu (ví dụ `unitId: "abc"`), lỗi đọc JSON xảy ra **trước** Bean Validation → `details` chỉ chứa field sai kiểu, chưa liệt kê các field khác (ví dụ thiếu `name`).
 
 ### Lưu ý cho Frontend
 
@@ -156,7 +157,8 @@ DELETE /api/products/:id          # Xóa (soft delete)
 | Module | Endpoint | Ghi chú |
 |---|---|---|
 | Danh mục | `GET/POST /api/categories`, `GET/PUT/DELETE /api/categories/{id}` | DELETE = `active=false`; PUT có `active` để mở lại |
-| Sản phẩm | `GET/POST /api/products`, `GET/PUT/DELETE /api/products/{id}` | Không nhận `code` (tự sinh); response có `categoryName` |
+| Đơn vị tính | `GET/POST /api/product-units`, `GET/PUT/DELETE /api/product-units/{id}` | _(Từ 2026-10-28)_ POST `{ name }`, PUT `{ name, active }` (tên ≤ 50 ký tự). Trùng tên (kể cả đã ngừng) → 409 `DUPLICATE_RESOURCE`, đã ngừng thì message gợi ý mở lại. Response `{ id, name, fixedNetWeightKg?, active, createdAt, updatedAt }` — `fixedNetWeightKg` chỉ có ở Kg (= 1), không nhận từ request. DELETE = `active=false`. Ghi: chỉ Quản lý hệ thống |
+| Sản phẩm | `GET/POST /api/products`, `GET/PUT/DELETE /api/products/{id}` | Không nhận `code` (tự sinh); response có `categoryName`, `unitId`, `unitName`. Request gửi `unitId` _(từ 2026-10-28; trước đó `unit: "BAG"\|"KG"`)_ và tùy chọn `supplierIds: [id]` (BR-PRD-10; giao diện hiện chỉ gửi tối đa một id, API nhận nhiều để mở rộng sau): POST không gửi = chưa gán NCC; PUT không gửi = **giữ nguyên** liên kết, `[]` = gỡ hết; NCC không tồn tại → 404, NCC ngừng hoạt động (liên kết mới) → 409, SP không được tạo: thiếu → 400 field `unitId`; không tồn tại → 404; chuyển sang đơn vị đã ngừng → 409; đơn vị có khối lượng cố định mà `netWeightKg` khác → 409 `BUSINESS_RULE_VIOLATION` |
 | Kho | `GET/POST /api/warehouses`, `GET/PUT/DELETE /api/warehouses/{id}` | Không nhận `code` (tự sinh `KHO001`); `type`: `CENTRAL` \| `RETAIL`; `address` bắt buộc; DELETE = `active=false`; PUT có `active` để mở lại |
 | Nhà cung cấp | `GET/POST /api/suppliers`, `GET/PUT/DELETE /api/suppliers/{id}` | Không nhận `code` (tự sinh `NCC001`); chỉ `name` bắt buộc; `taxCode`, `phone`, `email`, `address` tùy chọn (rỗng → bỏ khỏi JSON). `taxCode` bỏ khoảng trắng rồi phải là 10 số hoặc 10 số-3 số, sai → 400 field `taxCode`; trùng NCC khác (kể cả đã ngừng) → 409 `DUPLICATE_RESOURCE`. Lọc `keyword` khớp mã, tên hoặc MST (từ 2026-10-24; trước đó có `contactName` — đã bỏ); DELETE = `active=false`; PUT có `active` để mở lại |
 | Khách hàng | `GET/POST /api/customers`, `GET/PUT/DELETE /api/customers/{id}` | Không nhận `code` (tự sinh `KH0001`); bắt buộc `name`, `type` (`DEALER`/`FARM`/`RETAIL`, sai → 400), `phone`; `contactName`, `address`, `note` tùy chọn. `phone` được chuẩn hóa (bỏ khoảng trắng/chấm/gạch), sai định dạng → 400 field `phone`; trùng SĐT khách khác (kể cả đã ngừng) → 409 `DUPLICATE_RESOURCE`. DELETE = `active=false`; PUT có `active` để mở lại |
@@ -168,6 +170,7 @@ DELETE /api/products/:id          # Xóa (soft delete)
 | Phiếu nhập | `GET/POST /api/inbound-receipts`, `GET/PUT /api/inbound-receipts/{id}`, `POST /api/inbound-receipts/{id}/complete`, `…/cancel`, `…/reverse` | Xem mục **Phiếu nhập kho** bên dưới. Không có DELETE → 405 |
 | Phiếu bán | `GET/POST /api/sales-orders`, `GET/PUT /api/sales-orders/{id}`, `POST …/{id}/complete`, `…/cancel`, `…/reverse`, `POST …/{id}/payments`, `POST …/{id}/payments/{paymentId}/reverse` | Xem mục **Phiếu bán, thanh toán, công nợ** bên dưới. Không có DELETE → 405 |
 | Giá riêng của khách | `GET /api/customers/{id}/prices`, `PUT/DELETE /api/customers/{id}/prices/{productId}` | Xem mục **Phiếu bán, thanh toán, công nợ** |
+| Thông tin cửa hàng | `GET/PUT /api/store-info` | _(Từ 2026-10-28, BR-PRT-01)_ GET (mọi vai trò): `{ configured, name?, address?, phone?, receiptFooter?, updatedAt? }` — chưa cấu hình → `{ configured: false }`. PUT (chỉ Quản lý hệ thống) `{ name, address?, phone?, receiptFooter? }` ghi đè toàn bộ; tên trống → 400 field `name`; ô tùy chọn để trống → lưu NULL, bỏ khỏi JSON |
 | Công nợ khách | `GET /api/customer-debts?customerId=` | Xem mục **Phiếu bán, thanh toán, công nợ** |
 | Sổ quỹ, phiếu thu/chi | `GET /api/cash-book?account=`, `GET /api/cash-book/summary`, `GET/PUT /api/cash-book/opening`; `GET/POST /api/cash-vouchers`, `POST …/{id}/reverse`; `GET/POST /api/cash-categories`, `PUT …/{id}` | Chỉ `SYSTEM_ADMIN`. Xem mục **Sổ quỹ** bên dưới |
 | Kiểm kê kho | `GET/POST /api/stock-counts`, `GET/PUT …/{id}`, `POST …/{id}/refresh-book`, `…/complete`, `…/cancel`, `…/reverse`; `GET/POST /api/stock-count-reasons`, `PUT …/{id}` | Chỉ `SYSTEM_ADMIN`. Xem mục **Kiểm kê kho** bên dưới |
@@ -190,7 +193,7 @@ DELETE /api/products/:id          # Xóa (soft delete)
 | `POST …/{id}/cancel` | `{ reason? }` (body tùy chọn) | Chỉ `DRAFT` → `CANCELLED`, không đổi tồn |
 | `POST …/{id}/reverse` | `{ reason }` (bắt buộc) | Chỉ `COMPLETED` → `REVERSED`: mỗi giao dịch IN có một OUT trỏ về nó. Tồn không đủ → 409, không đổi gì. Đã đảo rồi → 409 "chỉ được đảo một lần" |
 
-Response chi tiết: `id, code, status, documentDate, warehouseId/Code/Name, supplierId/Code/Name, note, totalAmount, reason, completedAt, cancelledAt, reversedAt, createdAt, updatedAt, lines: [{ id, productId, productCode, productName, unit, orderedQuantity, receivedQuantity, unitPrice, lineAmount }]` (trường null bị bỏ). `lineAmount = receivedQuantity × unitPrice` làm tròn `HALF_UP` về đồng; `totalAmount` = tổng `lineAmount`. Danh sách trả bản tóm tắt (không có `lines`, `note`, `reason`), mặc định sắp xếp `id` giảm dần.
+Response chi tiết: `id, code, status, documentDate, warehouseId/Code/Name, supplierId/Code/Name, note, totalAmount, reason, completedAt, cancelledAt, reversedAt, createdAt, updatedAt, lines: [{ id, productId, productCode, productName, unitName, orderedQuantity, receivedQuantity, unitPrice, lineAmount }]` (trường null bị bỏ). `lineAmount = receivedQuantity × unitPrice` làm tròn `HALF_UP` về đồng; `totalAmount` = tổng `lineAmount`. Danh sách trả bản tóm tắt (không có `lines`, `note`, `reason`), mặc định sắp xếp `id` giảm dần.
 
 Lọc `GET /api/inbound-receipts` (tất cả tùy chọn):
 
@@ -206,7 +209,7 @@ Lọc `GET /api/inbound-receipts` (tất cả tùy chọn):
 | Endpoint | Body / tham số | Kết quả |
 |---|---|---|
 | `GET /api/opening-stocks` | `keyword` (mã phiếu), `status`, `warehouseId`, `documentDateFrom`, `documentDateTo`, phân trang (mặc định id giảm dần) | Trang `{ id, code, status, documentDate, warehouseId, warehouseCode, warehouseName, lineCount, totalQuantity, totalAmount, createdBy?, completedBy?, completedAt?, createdAt }` |
-| `GET /api/opening-stocks/{id}` | — | `{ …như trên, note?, reason?, cancelledAt?, reversedAt?, updatedAt, lines: [{ id, productId, productCode, productName, unit, quantity, unitPrice, lineAmount }] }` |
+| `GET /api/opening-stocks/{id}` | — | `{ …như trên, note?, reason?, cancelledAt?, reversedAt?, updatedAt, lines: [{ id, productId, productCode, productName, unitName, quantity, unitPrice, lineAmount }] }` |
 | `POST /api/opening-stocks` | `{ warehouseId, documentDate?, note?, lines: [{ productId, quantity, unitPrice? }] }` | 201, Nháp, mã `DTK…`. SL ≤ 0 / lẻ → 400 field `lines[i].quantity`; trùng SP → 400 field `lines[i].productId`; không dòng → 400 field `lines`; ngày tương lai → 400 field `documentDate`; kho / SP ngừng → 409; không có → 404. SP đã có biến động vẫn lưu nháp được |
 | `PUT /api/opening-stocks/{id}` | như POST | 200. Phiếu không còn Nháp → 409 |
 | `POST /api/opening-stocks/{id}/complete` | — | 200, Hoàn tất, tồn tăng. Có SP đã có biến động tại kho → 409 (liệt kê mọi SP vi phạm), phiếu vẫn Nháp; không còn Nháp → 409 |
@@ -219,7 +222,7 @@ Lọc `GET /api/inbound-receipts` (tất cả tùy chọn):
 | Endpoint | Body / tham số | Kết quả |
 |---|---|---|
 | `GET /api/stock-counts` | `keyword` (mã), `status`, `warehouseId`, `documentDateFrom`, `documentDateTo`, phân trang (mặc định id giảm dần) | Trang `{ id, code, status, documentDate, warehouseId, warehouseCode, warehouseName, lineCount, countedLineCount, differenceLineCount, surplusQuantity, shortageQuantity, createdBy?, completedBy?, completedAt?, createdAt }` |
-| `GET /api/stock-counts/{id}` | — | `{ …như trên, note?, bookSnapshotAt, reason?, cancelledAt?, reversedAt?, updatedAt, movedSinceSnapshot: [productId] (chỉ phiếu đang kiểm), lines: [{ id, productId, productCode, productName, unit, productActive, bookQuantity, countedQuantity?, difference?, reasonId?, reasonName?, reasonNote? }] }` |
+| `GET /api/stock-counts/{id}` | — | `{ …như trên, note?, bookSnapshotAt, reason?, cancelledAt?, reversedAt?, updatedAt, movedSinceSnapshot: [productId] (chỉ phiếu đang kiểm), lines: [{ id, productId, productCode, productName, unitName, productActive, bookQuantity, countedQuantity?, difference?, reasonId?, reasonName?, reasonNote? }] }` |
 | `POST /api/stock-counts` | `{ warehouseId, documentDate?, note? }` | 201, phiếu đang kiểm (`DRAFT`) đã nạp mọi SP có tồn > 0. Kho đang có phiếu dở / ngừng hoạt động → 409; ngày tương lai → 400; kho không có → 404 |
 | `PUT /api/stock-counts/{id}` | `{ documentDate?, note?, lines: [{ productId, countedQuantity?, reasonId?, reasonNote? }] }` | 200. Thay toàn bộ dòng; SL sổ sách không gửi (dòng cũ giữ số đã chụp, SP mới chụp lúc thêm). SL đếm âm → 400 field `lines[i].countedQuantity`; trùng SP → 400 field `lines[i].productId`; SP / lý do không có → 404; không còn đang kiểm → 409 |
 | `POST /api/stock-counts/{id}/refresh-book` | — | 200, chụp lại SL sổ sách mọi dòng, dời `bookSnapshotAt` |
@@ -301,13 +304,13 @@ Response chi tiết phiếu nhập có thêm `paidAmount`, `outstandingAmount`, 
 | `POST …/{id}/payments` | `{ paymentDate?, cashAmount?, transferAmount?, note? }` | 201. Chỉ phiếu `COMPLETED`. Mỗi phần > 0 thành một dòng (`CASH` / `BANK_TRANSFER`). Cả hai trống/0 → 400 field `cashAmount`; số âm hoặc có phần lẻ → 400 field tương ứng; `paymentDate` không gửi = hôm nay, chọn ngày nào cũng được. Tổng vượt số còn nợ → 409 |
 | `POST …/{id}/payments/{paymentId}/reverse` | `{ reason }` (bắt buộc) | Ghi dòng `REVERSAL` cùng hình thức, cùng số tiền, ngày = hôm nay. Khoản thu của phiếu khác → 404; đã hoàn / là dòng hoàn → 409 |
 
-Response chi tiết phiếu bán: `id, code, status, documentDate, warehouseId/Code/Name, customerId/Code/Name, customerPhone, note, totalAmount, paidAmount, outstandingAmount, reason, completedAt, cancelledAt, reversedAt, createdAt, updatedAt, lines: [{ id, productId, productCode, productName, unit, quantity, unitPrice, lineAmount }], payments: [{ id, type (PAYMENT|REVERSAL), method (CASH|BANK_TRANSFER), amount, paymentDate, note, reversalOfId?, reversed, createdAt }]`. `outstandingAmount` = `totalAmount − paidAmount` khi `COMPLETED`, còn lại luôn `0` (nháp/hủy/đảo không phát sinh nợ). Mọi hành động (complete, reverse, payments…) trả lại response này. Danh sách trả bản tóm tắt (không `lines`, `payments`, `note`, `reason`, `customerPhone`), mặc định `id` giảm dần.
+Response chi tiết phiếu bán: `id, code, status, documentDate, warehouseId/Code/Name, customerId/Code/Name, customerPhone, note, totalAmount, paidAmount, outstandingAmount, totalTons, reason, completedAt, cancelledAt, reversedAt, createdAt, updatedAt, lines: [{ id, productId, productCode, productName, unitName, quantity, unitPrice, lineAmount, tons }], payments: [{ id, type (PAYMENT|REVERSAL), method (CASH|BANK_TRANSFER), amount, paymentDate, note, reversalOfId?, reversed, createdAt }]`. `outstandingAmount` = `totalAmount − paidAmount` khi `COMPLETED`, còn lại luôn `0` (nháp/hủy/đảo không phát sinh nợ). Mọi hành động (complete, reverse, payments…) trả lại response này. Danh sách trả bản tóm tắt (không `lines`, `payments`, `note`, `reason`, `customerPhone`, `totalTons`), mặc định `id` giảm dần. `tons` = SL × khối lượng tịnh / 1000, làm tròn 3 chữ số lẻ; `totalTons` = cộng `tons` các dòng (in phiếu xuất kho, BR-PRT-03; thêm 2026-10-28).
 
 Lọc `GET /api/sales-orders`: `keyword` (mã phiếu), `status`, `warehouseId`, `customerId`, `documentDateFrom`, `documentDateTo` (như phiếu nhập) + `unpaidOnly=true` (chỉ phiếu `COMPLETED` còn nợ).
 
 | Endpoint | Body | Kết quả / lỗi |
 |---|---|---|
-| `GET /api/customers/{id}/prices` | — | `[{ productId, productCode, productName, unit, productActive, unitPrice, updatedAt }]` sắp theo mã SP (không phân trang). Khách không tồn tại → 404 |
+| `GET /api/customers/{id}/prices` | — | `[{ productId, productCode, productName, unitName, productActive, unitPrice, updatedAt }]` sắp theo mã SP (không phân trang). Khách không tồn tại → 404 |
 | `PUT /api/customers/{id}/prices/{productId}` | `{ unitPrice }` (≥ 0, 2 chữ số lẻ) | 200, đặt hoặc ghi đè giá; trả lại **cả bảng giá** của khách. Khách/SP không tồn tại → 404 |
 | `DELETE /api/customers/{id}/prices/{productId}` | — | 204. Chưa có giá riêng → 404 |
 | `GET /api/customer-debts` | `?customerId=` tùy chọn | `[{ customerId, customerCode, customerName, customerType, customerPhone, customerActive, outstandingAmount, openOrderCount, oldestDocumentDate }]` — chỉ khách còn nợ, nợ nhiều nhất trước (không phân trang) |
@@ -317,7 +320,7 @@ Lọc `GET /api/sales-orders`: `keyword` (mã phiếu), `status`, `warehouseId`,
 | Endpoint | Kết quả |
 |---|---|
 | `GET /api/inventory/products` | Trang SP, mỗi item = **đủ trường của `/api/products`** + `stockQuantity` (tổng mọi kho, kể cả kho ngừng), `stockTons`, `incomingQuantity` (SL đặt trên phiếu nhập Nháp), `stockStatus` (`IN_STOCK` \| `LOW` \| `OUT`, theo tổng). Có `warehouseId` thì thêm `warehouseId`, `warehouseStockQuantity`, `warehouseStockTons`, `warehouseIncomingQuantity` |
-| `GET /api/inventory/products/{productId}` | `productId, productCode, productName, unit, netWeightKg, minStockQuantity?, stockQuantity, stockTons, incomingQuantity, stockStatus, warehouses: [{ warehouseId, warehouseCode, warehouseName, warehouseActive, quantity, tons, incomingQuantity, updatedAt? }]`. Chỉ liệt kê kho có tồn > 0 hoặc có hàng đang về, sắp theo mã kho. SP không tồn tại → 404 |
+| `GET /api/inventory/products/{productId}` | `productId, productCode, productName, unitName, netWeightKg, minStockQuantity?, stockQuantity, stockTons, incomingQuantity, stockStatus, warehouses: [{ warehouseId, warehouseCode, warehouseName, warehouseActive, quantity, tons, incomingQuantity, updatedAt? }]`. Chỉ liệt kê kho có tồn > 0 hoặc có hàng đang về, sắp theo mã kho. SP không tồn tại → 404 |
 
 Tham số lọc của danh sách: `keyword`, `categoryId`, `active` (giống `/api/products`) + `warehouseId` (không bớt SP, chỉ thêm số tại kho đó) + `stockStatus` (lọc trong SQL; sai giá trị → 400). `sort` nhận thuộc tính của sản phẩm, chưa sắp theo số tồn.
 
@@ -331,7 +334,7 @@ Tham số lọc của danh sách: `keyword`, `categoryId`, `active` (giống `/a
 | `keyword` | string | Mã chứng từ chứa từ khóa, không phân biệt hoa thường |
 | `createdFrom`, `createdTo` | `YYYY-MM-DD` | Ngày **ghi sổ** (lúc hoàn tất / đảo phiếu) theo giờ VN, hai đầu đều tính — không phải ngày chứng từ |
 
-Item: `id, createdAt, type, quantity, quantityBefore, quantityAfter, reversalOfId?, productId, productCode, productName, unit, warehouseId, warehouseCode, warehouseName, documentId, documentCode, documentType, documentDate, supplierId?, supplierName?, customerId?, customerName?`. `quantityBefore/After` là tồn **tại kho của dòng đó**. `reversalOfId` có giá trị = giao dịch đảo. Lọc một SP + một kho: `quantityAfter` dòng đầu = tồn hiện tại, `quantityBefore` mỗi dòng = `quantityAfter` dòng ngay sau.
+Item: `id, createdAt, type, quantity, quantityBefore, quantityAfter, reversalOfId?, productId, productCode, productName, unitName, warehouseId, warehouseCode, warehouseName, documentId, documentCode, documentType, documentDate, supplierId?, supplierName?, customerId?, customerName?`. `quantityBefore/After` là tồn **tại kho của dòng đó**. `reversalOfId` có giá trị = giao dịch đảo. Lọc một SP + một kho: `quantityAfter` dòng đầu = tồn hiện tại, `quantityBefore` mỗi dòng = `quantityAfter` dòng ngay sau.
 
 **Xác thực & phân quyền** (thêm 2026-10-20, [ADR-0003](../decisions/ADR-0003-authentication.md), BR-AUTH-01..08):
 
@@ -398,7 +401,7 @@ Bốn loại dữ liệu dùng chung một bộ 3 endpoint. Quyền giống quy�
 - `row` là **số dòng trong Excel** (dòng tiêu đề là 1), không phải chỉ số mảng. `field` là tên field của request tạo tay (`name`, `phone`, `categoryId`…); thiếu `field` nghĩa là lỗi cả dòng. `column` là tiêu đề cột để hiển thị.
 - Lỗi ở mức file (không phải `.xlsx`, sai mẫu hoặc mẫu cũ, đổi tiêu đề cột, file chưa có dòng nào, quá 1.000 dòng, quá 2 MB, thiếu part `file`) → 400 `VALIDATION_FAILED`, `details: [{ field: "file", message }]`. Áp dụng cho cả `preview` lẫn `import`.
 - Bước `import` kiểm tra lại từ đầu, không dựa vào kết quả `preview` trước đó (dữ liệu có thể đã đổi). Nếu hai người nhập trùng cùng lúc thì UNIQUE ở DB chặn → 409, toàn bộ file được rollback.
-- Cột của từng mẫu: SP `Tên sản phẩm*, Danh mục* (theo tên), Đơn vị* (Bao/Kg), Khối lượng tịnh (kg)*, Tồn tối thiểu, Mô tả`. KH `Tên khách hàng*, Loại khách hàng* (Đại lý/Trang trại/Bán lẻ), Số điện thoại*, Người liên hệ, Địa chỉ, Ghi chú`. NCC (mẫu `SUPPLIER_v2`, từ 2026-10-24) `Tên nhà cung cấp*, Mã số thuế, Số điện thoại, Email, Địa chỉ`. NV (mẫu `EMPLOYEE_v2`, từ 2026-10-26) `Tên nhân viên*, Số điện thoại, Lương ngày (đồng), Đơn giá tấn bốc xuống (đồng/tấn), Đơn giá tấn giao hàng (đồng/tấn)` (phải có ít nhất một trong ba loại lương).
+- Cột của từng mẫu: SP `Tên sản phẩm*, Danh mục* (theo tên), Đơn vị* (tên đơn vị đang dùng; lỗi ở field `unitId`), Khối lượng tịnh (kg)*, Tồn tối thiểu, Nhà cung cấp (dropdown `mã · tên` NCC đang hoạt động, một NCC, chỉ đọc phần mã; lỗi ở field `supplierId`; mẫu `PRODUCT_v2` từ 2026-10-28), Mô tả`. KH `Tên khách hàng*, Loại khách hàng* (Đại lý/Trang trại/Bán lẻ), Số điện thoại*, Người liên hệ, Địa chỉ, Ghi chú`. NCC (mẫu `SUPPLIER_v2`, từ 2026-10-24) `Tên nhà cung cấp*, Mã số thuế, Số điện thoại, Email, Địa chỉ`. NV (mẫu `EMPLOYEE_v2`, từ 2026-10-26) `Tên nhân viên*, Số điện thoại, Lương ngày (đồng), Đơn giá tấn bốc xuống (đồng/tấn), Đơn giá tấn giao hàng (đồng/tấn)` (phải có ít nhất một trong ba loại lương).
 
 ---
 

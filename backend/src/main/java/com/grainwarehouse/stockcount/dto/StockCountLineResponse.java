@@ -2,7 +2,6 @@ package com.grainwarehouse.stockcount.dto;
 
 import com.grainwarehouse.inventory.entity.StockDocumentItem;
 import com.grainwarehouse.product.entity.Product;
-import com.grainwarehouse.product.entity.ProductUnit;
 
 /** Một dòng kiểm kê. countedQuantity / difference không có = chưa đếm. difference dương = thừa, âm = thiếu. */
 public record StockCountLineResponse(
@@ -10,7 +9,7 @@ public record StockCountLineResponse(
         Long productId,
         String productCode,
         String productName,
-        ProductUnit unit,
+        String unitName,
         boolean productActive,
         int bookQuantity,
         Integer countedQuantity,
@@ -26,7 +25,7 @@ public record StockCountLineResponse(
                 product.getId(),
                 product.getCode(),
                 product.getName(),
-                product.getUnit(),
+                product.getUnit().getName(),
                 product.isActive(),
                 item.getBookQuantity(),
                 item.getCountedQuantity(),

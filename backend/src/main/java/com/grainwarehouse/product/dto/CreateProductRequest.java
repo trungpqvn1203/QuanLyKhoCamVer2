@@ -1,6 +1,5 @@
 package com.grainwarehouse.product.dto;
 
-import com.grainwarehouse.product.entity.ProductUnit;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.NotBlank;
@@ -9,6 +8,7 @@ import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 /** Không có trường code: mã do hệ thống tự sinh (BR-PRD-02). */
 public record CreateProductRequest(
@@ -20,7 +20,7 @@ public record CreateProductRequest(
         Long categoryId,
 
         @NotNull(message = "Đơn vị tính không được để trống")
-        ProductUnit unit,
+        Long unitId,
 
         @NotNull(message = "Khối lượng tịnh không được để trống")
         @DecimalMin(value = "0", inclusive = false, message = "Khối lượng tịnh phải lớn hơn 0")
@@ -32,5 +32,8 @@ public record CreateProductRequest(
 
         // BR-STK-03: tùy chọn; không gửi = không cảnh báo Sắp hết
         @PositiveOrZero(message = "Tồn tối thiểu không được âm")
-        Integer minStockQuantity) {
+        Integer minStockQuantity,
+
+        // BR-PRD-10: NCC được phép cung cấp SP, tùy chọn. PUT không gửi (null) = giữ nguyên liên kết, [] = gỡ hết
+        List<@NotNull Long> supplierIds) {
 }

@@ -107,7 +107,7 @@ public class ProductStockService {
         // Tổng tính từ mọi dòng tồn (kể cả kho ngừng, BR-STK-01) — cùng nguồn với danh sách
         long totalQuantity = stockByWarehouse.values().stream().mapToLong(Inventory::getQuantity).sum();
         long totalIncoming = incomingByWarehouse.values().stream().mapToLong(Long::longValue).sum();
-        return new ProductStockDetailResponse(product.getId(), product.getCode(), product.getName(), product.getUnit(),
+        return new ProductStockDetailResponse(product.getId(), product.getCode(), product.getName(), product.getUnit().getName(),
                 product.getNetWeightKg(), product.getMinStockQuantity(), totalQuantity,
                 StockFigures.tons(totalQuantity, product.getNetWeightKg()), totalIncoming,
                 StockStatus.of(totalQuantity, product.getMinStockQuantity()), rows);

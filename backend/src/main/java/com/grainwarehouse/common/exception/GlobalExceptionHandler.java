@@ -45,7 +45,7 @@ public class GlobalExceptionHandler {
         return error(HttpStatus.BAD_REQUEST, "VALIDATION_FAILED", VALIDATION_MESSAGE, details);
     }
 
-    // JSON sai cú pháp hoặc sai kiểu (ví dụ unit = "TON" không có trong enum)
+    // JSON sai cú pháp hoặc sai kiểu (ví dụ unitId = "abc", số lượng 2.5)
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ResponseEntity<ApiResponse<Void>> handleUnreadable(HttpMessageNotReadableException ex) {
         if (ex.getCause() instanceof MismatchedInputException mie && !mie.getPath().isEmpty()) {

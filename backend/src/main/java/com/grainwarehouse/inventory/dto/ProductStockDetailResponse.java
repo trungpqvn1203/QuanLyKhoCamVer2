@@ -1,7 +1,5 @@
 package com.grainwarehouse.inventory.dto;
 
-import com.grainwarehouse.product.entity.ProductUnit;
-
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
@@ -11,7 +9,7 @@ public record ProductStockDetailResponse(
         Long productId,
         String productCode,
         String productName,
-        ProductUnit unit,
+        String unitName,
         BigDecimal netWeightKg,
         Integer minStockQuantity,
         long stockQuantity,

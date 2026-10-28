@@ -2,7 +2,6 @@ import { Alert, Button, Col, Flex, Row, Skeleton, Statistic, Typography } from '
 import { useEffect, useState } from 'react'
 import { ApiError } from '../../api/client'
 import { EMPTY_TEXT, formatQuantity, formatTons } from '../../utils/format'
-import { PRODUCT_UNIT_LABELS } from './product-api'
 import type { Product } from './product-api'
 import { productStockApi } from './product-stock-api'
 import type { ProductStockDetail } from './product-stock-api'
@@ -55,7 +54,7 @@ export function ProductStockPanel({ product }: { product: Product }) {
   }
   if (!detail) return <Skeleton active paragraph={{ rows: 4 }} />
 
-  const unit = PRODUCT_UNIT_LABELS[detail.unit].toLowerCase()
+  const unit = detail.unitName.toLowerCase()
 
   return (
     <Flex vertical gap={16}>

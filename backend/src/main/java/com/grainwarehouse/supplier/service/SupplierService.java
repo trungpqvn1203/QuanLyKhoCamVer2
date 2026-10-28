@@ -126,16 +126,10 @@ public class SupplierService {
     @Transactional
     public SupplierProductResponse linkProduct(Long supplierId, LinkProductRequest request) {
         Supplier supplier = findOrThrow(supplierId);
-        if (!supplier.isActive()) {
-            throw new BusinessException(label(supplier) + " đang ngừng hoạt động, không thể gán sản phẩm");
-        }
         Product product = productRepository.findById(request.productId())
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Không tìm thấy sản phẩm id=" + request.productId()));
-        if (!product.isActive()) {
-            throw new BusinessException("Sản phẩm '" + product.getName() + "' (" + product.getCode()
-                    + ") đã ngừng kinh doanh, không thể gán cho nhà cung cấp");
-        }
+        checkCanLink(supplier, product);
 
         ProductSupplierId id = new ProductSupplierId(supplierId, product.getId());
         ProductSupplier link = productSupplierRepository.findById(id).orElse(null);
@@ -149,6 +143,22 @@ public class SupplierService {
         }
         // Hai request gán cùng cặp đồng thời: request sau vi phạm khóa chính → GlobalExceptionHandler trả 409
         return SupplierProductResponse.from(productSupplierRepository.saveAndFlush(link));
+    }
+
+    /**
+     * BR-SUP-06 — chỗ kiểm tra DUY NHẤT, dùng cho cả màn NCC (linkProduct) lẫn form / Excel sản phẩm
+     * (ProductSupplierLinkService). Chỉ áp cho liên kết tạo mới hoặc bật lại.
+     */
+    static void checkCanLink(Supplier supplier, Product product) {
+        if (!supplier.isActive()) {
+            throw new BusinessException(label(supplier) + " đang ngừng hoạt động, không thể gán sản phẩm");
+        }
+        if (!product.isActive()) {
+            // SP đang tạo (chưa lưu) chưa có mã
+            String code = product.getCode() == null ? "" : " (" + product.getCode() + ")";
+            throw new BusinessException("Sản phẩm '" + product.getName() + "'" + code
+                    + " đã ngừng kinh doanh, không thể gán cho nhà cung cấp");
+        }
     }
 
     /** BR-SUP-05: gỡ liên kết = active=false, không xóa dòng. */

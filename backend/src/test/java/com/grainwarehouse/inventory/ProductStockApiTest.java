@@ -165,7 +165,7 @@ class ProductStockApiTest {
         mockMvc.perform(get(BASE + "/{id}", pig))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.productId").value(pig))
-                .andExpect(jsonPath("$.data.unit").value("BAG"))
+                .andExpect(jsonPath("$.data.unitName").value("Bao"))
                 .andExpect(jsonPath("$.data.stockQuantity").value(50))
                 .andExpect(jsonPath("$.data.stockTons").value(1.25))
                 .andExpect(jsonPath("$.data.incomingQuantity").value(100))
@@ -231,8 +231,8 @@ class ProductStockApiTest {
     }
 
     private long product(String name, long category, Integer minStock) {
-        return id("INSERT INTO product (name, category_id, unit, net_weight_kg, min_stock_quantity)"
-                + " VALUES (?, ?, 'BAG', 25, ?) RETURNING id", name, category, minStock);
+        return id("INSERT INTO product (name, category_id, unit_id, net_weight_kg, min_stock_quantity)"
+                + " VALUES (?, ?, (SELECT id FROM product_unit WHERE name = 'Bao'), 25, ?) RETURNING id", name, category, minStock);
     }
 
     private long warehouse(String name, boolean active) {

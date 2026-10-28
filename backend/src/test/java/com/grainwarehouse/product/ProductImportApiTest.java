@@ -2,9 +2,12 @@ package com.grainwarehouse.product;
 
 import com.grainwarehouse.product.entity.Category;
 import com.grainwarehouse.product.entity.Product;
-import com.grainwarehouse.product.entity.ProductUnit;
 import com.grainwarehouse.product.repository.CategoryRepository;
 import com.grainwarehouse.product.repository.ProductRepository;
+import com.grainwarehouse.product.repository.ProductUnitRepository;
+import com.grainwarehouse.supplier.entity.Supplier;
+import com.grainwarehouse.supplier.repository.ProductSupplierRepository;
+import com.grainwarehouse.supplier.repository.SupplierRepository;
 import com.grainwarehouse.support.ExcelTestFiles;
 import org.apache.poi.ss.usermodel.DataValidation;
 import org.apache.poi.ss.usermodel.Row;
@@ -56,7 +59,16 @@ class ProductImportApiTest {
     private CategoryRepository categoryRepository;
 
     @Autowired
+    private ProductUnitRepository unitRepository;
+
+    @Autowired
     private ProductRepository productRepository;
+
+    @Autowired
+    private SupplierRepository supplierRepository;
+
+    @Autowired
+    private ProductSupplierRepository productSupplierRepository;
 
     @BeforeEach
     void setUp() {
@@ -67,6 +79,8 @@ class ProductImportApiTest {
     @Test
     @DisplayName("BR-XLS-01: file mẫu có tiêu đề, dropdown danh mục đang dùng, mã mẫu trong sheet ẩn")
     void shouldGenerateTemplate() throws Exception {
+        Supplier active = saveSupplier("NCC trong dropdown", true);
+        Supplier stopped = saveSupplier("NCC ngừng không có trong dropdown", false);
         mockMvc.perform(get(BASE + "/template"))
                 .andExpect(status().isOk())
                 .andExpect(header().string(HttpHeaders.CONTENT_TYPE, ExcelTestFiles.XLSX))
@@ -78,13 +92,15 @@ class ProductImportApiTest {
             Row header = workbook.getSheet("Dữ liệu").getRow(0);
             assertThat(header.getCell(0).getStringCellValue()).isEqualTo("Tên sản phẩm *");
             assertThat(header.getCell(4).getStringCellValue()).isEqualTo("Tồn tối thiểu");
+            assertThat(header.getCell(5).getStringCellValue()).isEqualTo("Nhà cung cấp");
+            assertThat(header.getCell(6).getStringCellValue()).isEqualTo("Mô tả");
 
             List<? extends DataValidation> dropdowns = workbook.getSheet("Dữ liệu").getDataValidations();
-            assertThat(dropdowns).hasSize(2); // Danh mục, Đơn vị
+            assertThat(dropdowns).hasSize(3); // Danh mục, Đơn vị, Nhà cung cấp
 
             Sheet meta = workbook.getSheet("_meta");
             assertThat(workbook.getSheetVisibility(workbook.getSheetIndex(meta))).isEqualTo(SheetVisibility.VERY_HIDDEN);
-            assertThat(meta.getRow(0).getCell(0).getStringCellValue()).isEqualTo("PRODUCT_v1");
+            assertThat(meta.getRow(0).getCell(0).getStringCellValue()).isEqualTo("PRODUCT_v2");
             // Danh mục đã ngừng dùng không có trong dropdown
             List<String> categories = new ArrayList<>();
             for (Row row : meta) {
@@ -93,6 +109,13 @@ class ProductImportApiTest {
                 }
             }
             assertThat(categories).contains("Cám heo").doesNotContain("Cám vịt");
+            // BR-SUP-06: dropdown NCC dạng "mã · tên", chỉ NCC đang hoạt động
+            List<String> metaValues = new ArrayList<>();
+            for (Row row : meta) {
+                row.forEach(cell -> metaValues.add(cell.getStringCellValue()));
+            }
+            assertThat(metaValues).contains(active.getCode() + " · " + active.getName())
+                    .noneMatch(value -> value.startsWith(stopped.getCode()));
         }
     }
 
@@ -102,8 +125,8 @@ class ProductImportApiTest {
         long before = productRepository.count();
 
         preview(file(
-                row("Cám heo con 25kg", "Cám heo", "Bao", 25, 50, "Heo con"),
-                row("Cám heo thịt", "cám HEO", "bao", "40", null, null)))
+                row("Cám heo con 25kg", "Cám heo", "Bao", 25, 50, null, "Heo con"),
+                row("Cám heo thịt", "cám HEO", "bao", "40", null, null, null)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.totalRows").value(2))
                 .andExpect(jsonPath("$.data.validRows").value(2))
@@ -121,9 +144,9 @@ class ProductImportApiTest {
                 row(null, "Cám heo", "Bao", 25),                 // dòng 2: thiếu tên
                 row("Cám A", "Cám bò", "Bao", 25),               // dòng 3: danh mục không tồn tại
                 row("Cám B", "Cám vịt", "Bao", 25),              // dòng 4: danh mục ngừng dùng
-                row("Cám C", "Cám heo", "Tấn", "25kg"),           // dòng 5: sai đơn vị + khối lượng không phải số
+                row("Cám C", "Cám heo", "Tấn", "25kg"),           // dòng 5: đơn vị không tồn tại + khối lượng không phải số
                 row("cám heo NÁI", "Cám heo", "Bao", 25),        // dòng 6: trùng SP đã có trong DB
-                row("Cám D", "Cám heo", "Kg", 25),               // dòng 7: đơn vị Kg phải 1 kg (BR-PRD-06)
+                row("Cám D", "Cám heo", "Kg", 25),               // dòng 7: đơn vị Kg phải 1 kg (BR-UNIT-03)
                 row("Cám E", "Cám heo", "Bao", 25, 10.5),        // dòng 8: tồn tối thiểu không nguyên
                 row("Cám F", "Cám heo", "Bao", 25),              // dòng 9: hợp lệ
                 row("cám f ", "Cám heo", "Bao", 25)))            // dòng 10: trùng dòng 9 trong file
@@ -135,11 +158,11 @@ class ProductImportApiTest {
                 .andExpect(jsonPath("$.data.errors[0].column").value("Tên sản phẩm"))
                 .andExpect(jsonPath("$.data.errors[1].message").value("Danh mục 'Cám bò' không tồn tại"))
                 .andExpect(jsonPath("$.data.errors[2].message").value("Danh mục 'Cám vịt' đã ngừng dùng"))
-                .andExpect(jsonPath("$.data.errors[?(@.row == 5)].field").value(hasItems("unit", "netWeightKg")))
+                .andExpect(jsonPath("$.data.errors[?(@.row == 5)].field").value(hasItems("unitId", "netWeightKg")))
                 .andExpect(jsonPath("$.data.errors[?(@.row == 6)].message")
                         .value(hasItems(containsString("đã tồn tại"))))
                 .andExpect(jsonPath("$.data.errors[?(@.row == 7)].message")
-                        .value(hasItems("Sản phẩm đơn vị KG phải có khối lượng tịnh bằng 1 kg")))
+                        .value(hasItems("Sản phẩm đơn vị Kg phải có khối lượng tịnh bằng 1 kg")))
                 .andExpect(jsonPath("$.data.errors[?(@.row == 8)].field").value(hasItems("minStockQuantity")))
                 .andExpect(jsonPath("$.data.errors[?(@.row == 10)].message")
                         .value(hasItems("Trùng với dòng 9 trong file")));
@@ -151,7 +174,7 @@ class ProductImportApiTest {
         long before = productRepository.count();
 
         mockMvc.perform(multipart(BASE).file(upload(file(
-                        row("Cám heo con 25kg", "Cám heo", "Bao", 25, 50, "Heo con"),
+                        row("Cám heo con 25kg", "Cám heo", "Bao", 25, 50, null, "Heo con"),
                         row("Cám xá", "Cám heo", "Kg", null)))))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.data.importedCount").value(2))
@@ -160,7 +183,7 @@ class ProductImportApiTest {
         assertThat(productRepository.count()).isEqualTo(before + 2);
         Product bulk = productRepository.findByNameIgnoreCase("Cám xá").orElseThrow();
         assertThat(bulk.getCode()).matches("SP\\d{6}");
-        assertThat(bulk.getUnit()).isEqualTo(ProductUnit.KG);
+        assertThat(bulk.getUnit().getName()).isEqualTo("Kg");
         assertThat(bulk.getNetWeightKg()).isEqualByComparingTo("1");
     }
 
@@ -233,6 +256,41 @@ class ProductImportApiTest {
     }
 
     @Test
+    @DisplayName("BR-PRD-10: cột Nhà cung cấp - chọn \"mã · tên\" (tên đã đổi vẫn khớp theo mã) hoặc gõ mã thường")
+    void shouldLinkSupplierFromColumn() throws Exception {
+        Supplier first = saveSupplier("NCC nhập Excel 1", true);
+        Supplier second = saveSupplier("NCC nhập Excel 2", true);
+
+        mockMvc.perform(multipart(BASE).file(upload(file(
+                        row("Cám heo có NCC 1", "Cám heo", "Bao", 25, null, first.getCode() + " · tên cũ đã đổi"),
+                        row("Cám heo có NCC 2", "Cám heo", "Bao", 25, null, second.getCode().toLowerCase()),
+                        row("Cám heo chưa NCC", "Cám heo", "Bao", 25)))))
+                .andExpect(status().isCreated());
+
+        assertThat(supplierIdsOf("Cám heo có NCC 1")).containsExactly(first.getId());
+        assertThat(supplierIdsOf("Cám heo có NCC 2")).containsExactly(second.getId());
+        assertThat(supplierIdsOf("Cám heo chưa NCC")).isEmpty();
+    }
+
+    @Test
+    @DisplayName("BR-PRD-10: mã NCC không tồn tại - lỗi tại cột Nhà cung cấp; NCC ngừng hoạt động - lỗi của dòng")
+    void shouldReportSupplierErrors() throws Exception {
+        Supplier stopped = saveSupplier("NCC nhập Excel đã ngừng", false);
+
+        preview(file(
+                row("Cám A", "Cám heo", "Bao", 25, null, "NCC99999 · Không có"),
+                row("Cám B", "Cám heo", "Bao", 25, null, stopped.getCode())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.validRows").value(0))
+                .andExpect(jsonPath("$.data.errors[0].row").value(2))
+                .andExpect(jsonPath("$.data.errors[0].field").value("supplierId"))
+                .andExpect(jsonPath("$.data.errors[0].column").value("Nhà cung cấp"))
+                .andExpect(jsonPath("$.data.errors[0].message").value("Nhà cung cấp mã 'NCC99999' không tồn tại"))
+                .andExpect(jsonPath("$.data.errors[1].row").value(3))
+                .andExpect(jsonPath("$.data.errors[1].message").value(containsString("đang ngừng hoạt động")));
+    }
+
+    @Test
     @DisplayName("Không gửi file - 400 field file")
     void shouldRequireFile() throws Exception {
         mockMvc.perform(multipart(BASE + "/preview"))
@@ -254,6 +312,21 @@ class ProductImportApiTest {
         return Arrays.asList(values);
     }
 
+    private List<Long> supplierIdsOf(String productName) {
+        Long productId = productRepository.findByNameIgnoreCase(productName).orElseThrow().getId();
+        return productSupplierRepository.findByIdProductId(productId).stream()
+                .map(link -> link.getId().getSupplierId())
+                .toList();
+    }
+
+    private Supplier saveSupplier(String name, boolean active) {
+        Supplier supplier = new Supplier();
+        supplier.setName(name);
+        supplier.setActive(active);
+        // saveAndFlush: đọc lại mã NCC do DB tự sinh
+        return supplierRepository.saveAndFlush(supplier);
+    }
+
     private void saveCategory(String name, boolean active) {
         Category category = new Category();
         category.setName(name);
@@ -265,7 +338,7 @@ class ProductImportApiTest {
         Product product = new Product();
         product.setName(name);
         product.setCategory(categoryRepository.findByNameIgnoreCase("Cám heo").orElseThrow());
-        product.setUnit(ProductUnit.BAG);
+        product.setUnit(unitRepository.findByNameIgnoreCase("Bao").orElseThrow());
         product.setNetWeightKg(BigDecimal.valueOf(25));
         productRepository.save(product);
     }

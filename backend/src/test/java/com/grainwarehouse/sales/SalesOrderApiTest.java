@@ -8,9 +8,9 @@ import com.grainwarehouse.customer.entity.CustomerType;
 import com.grainwarehouse.customer.repository.CustomerRepository;
 import com.grainwarehouse.product.entity.Category;
 import com.grainwarehouse.product.entity.Product;
-import com.grainwarehouse.product.entity.ProductUnit;
 import com.grainwarehouse.product.repository.CategoryRepository;
 import com.grainwarehouse.product.repository.ProductRepository;
+import com.grainwarehouse.product.repository.ProductUnitRepository;
 import com.grainwarehouse.warehouse.entity.Warehouse;
 import com.grainwarehouse.warehouse.entity.WarehouseType;
 import com.grainwarehouse.warehouse.repository.WarehouseRepository;
@@ -65,6 +65,9 @@ class SalesOrderApiTest {
     private CategoryRepository categoryRepository;
 
     @Autowired
+    private ProductUnitRepository unitRepository;
+
+    @Autowired
     private ProductRepository productRepository;
 
     @Autowired
@@ -117,6 +120,10 @@ class SalesOrderApiTest {
                 .andExpect(jsonPath("$.data.totalAmount").value(2537037))
                 .andExpect(jsonPath("$.data.paidAmount").value(0))
                 .andExpect(jsonPath("$.data.outstandingAmount").value(0))
+                // BR-PRT-03: 3 bao × 25 kg = 0,075 tấn; 10 bao × 25 kg = 0,25 tấn → tổng 0,325
+                .andExpect(jsonPath("$.data.lines[0].tons").value(0.075))
+                .andExpect(jsonPath("$.data.lines[1].tons").value(0.25))
+                .andExpect(jsonPath("$.data.totalTons").value(0.325))
                 .andExpect(jsonPath("$.data.payments.length()").value(0));
 
         assertThat(stock(pigFeed)).isEqualTo(100);
@@ -635,7 +642,7 @@ class SalesOrderApiTest {
         Product product = new Product();
         product.setName(name);
         product.setCategory(category);
-        product.setUnit(ProductUnit.BAG);
+        product.setUnit(unitRepository.findByNameIgnoreCase("Bao").orElseThrow());
         product.setNetWeightKg(new BigDecimal("25"));
         return productRepository.save(product);
     }

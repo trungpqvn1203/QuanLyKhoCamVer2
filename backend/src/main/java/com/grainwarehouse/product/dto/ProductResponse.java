@@ -1,7 +1,6 @@
 package com.grainwarehouse.product.dto;
 
 import com.grainwarehouse.product.entity.Product;
-import com.grainwarehouse.product.entity.ProductUnit;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -12,7 +11,8 @@ public record ProductResponse(
         String name,
         Long categoryId,
         String categoryName,
-        ProductUnit unit,
+        Long unitId,
+        String unitName,
         BigDecimal netWeightKg,
         String description,
         Integer minStockQuantity,
@@ -28,7 +28,8 @@ public record ProductResponse(
                 product.getName(),
                 product.getCategory().getId(),
                 product.getCategory().getName(),
-                product.getUnit(),
+                product.getUnit().getId(),
+                product.getUnit().getName(),
                 product.getNetWeightKg(),
                 product.getDescription(),
                 product.getMinStockQuantity(),

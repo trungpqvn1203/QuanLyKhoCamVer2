@@ -2,9 +2,9 @@ package com.grainwarehouse.product;
 
 import com.grainwarehouse.product.entity.Category;
 import com.grainwarehouse.product.entity.Product;
-import com.grainwarehouse.product.entity.ProductUnit;
 import com.grainwarehouse.product.repository.CategoryRepository;
 import com.grainwarehouse.product.repository.ProductRepository;
+import com.grainwarehouse.product.repository.ProductUnitRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -37,6 +37,9 @@ class ProductPersistenceTest {
     private CategoryRepository categoryRepository;
 
     @Autowired
+    private ProductUnitRepository unitRepository;
+
+    @Autowired
     private JdbcTemplate jdbcTemplate;
 
     private Category category;
@@ -54,7 +57,7 @@ class ProductPersistenceTest {
         Product product = new Product();
         product.setName("Cám heo con 25kg");
         product.setCategory(category);
-        product.setUnit(ProductUnit.BAG);
+        product.setUnit(unitRepository.findByNameIgnoreCase("Bao").orElseThrow());
         product.setNetWeightKg(new BigDecimal("25"));
 
         Product saved = productRepository.save(product);
@@ -67,25 +70,43 @@ class ProductPersistenceTest {
     @Test
     @DisplayName("BR-PRD-03: DB chặn tên sản phẩm trùng dù khác hoa thường")
     void dbShouldRejectDuplicateNameIgnoringCase() {
-        insertProduct("Cám heo con 25kg", "BAG", "25");
+        insertProduct("Cám heo con 25kg", "Bao", "25");
 
-        assertThatThrownBy(() -> insertProduct("CÁM HEO CON 25KG", "BAG", "25"))
+        assertThatThrownBy(() -> insertProduct("CÁM HEO CON 25KG", "Bao", "25"))
                 .isInstanceOf(DataIntegrityViolationException.class)
                 .hasMessageContaining("uk_product_name");
     }
 
     @Test
-    @DisplayName("BR-PRD-05: DB chặn đơn vị ngoài BAG/KG")
+    @DisplayName("BR-PRD-05: DB chặn đơn vị không có trong danh mục đơn vị (FK)")
     void dbShouldRejectUnknownUnit() {
-        assertThatThrownBy(() -> insertProduct("Cám gà đẻ", "TON", "1000"))
+        assertThatThrownBy(() -> jdbcTemplate.update(
+                "INSERT INTO product (name, category_id, unit_id, net_weight_kg) VALUES ('Cám gà đẻ', ?, -1, 1000)",
+                category.getId()))
                 .isInstanceOf(DataIntegrityViolationException.class)
-                .hasMessageContaining("ck_product_unit");
+                .hasMessageContaining("fk_product_unit");
+    }
+
+    @Test
+    @DisplayName("BR-UNIT-01: DB chặn tên đơn vị trùng dù khác hoa thường")
+    void dbShouldRejectDuplicateUnitNameIgnoringCase() {
+        assertThatThrownBy(() -> jdbcTemplate.update("INSERT INTO product_unit (name) VALUES ('BAO')"))
+                .isInstanceOf(DataIntegrityViolationException.class)
+                .hasMessageContaining("uk_product_unit_name");
+    }
+
+    @Test
+    @DisplayName("V23: chuyển dữ liệu - có sẵn Bao (khối lượng tùy SP) và Kg (cố định 1 kg)")
+    void shouldSeedLegacyUnits() {
+        assertThat(unitRepository.findByNameIgnoreCase("Bao").orElseThrow().getFixedNetWeightKg()).isNull();
+        assertThat(unitRepository.findByNameIgnoreCase("Kg").orElseThrow().getFixedNetWeightKg())
+                .isEqualByComparingTo("1");
     }
 
     @Test
     @DisplayName("BR-PRD-06: DB chặn khối lượng tịnh <= 0")
     void dbShouldRejectNonPositiveNetWeight() {
-        assertThatThrownBy(() -> insertProduct("Cám cá xá", "KG", "0"))
+        assertThatThrownBy(() -> insertProduct("Cám cá xá", "Kg", "0"))
                 .isInstanceOf(DataIntegrityViolationException.class)
                 .hasMessageContaining("ck_product_net_weight");
     }
@@ -101,15 +122,15 @@ class ProductPersistenceTest {
     @Test
     @DisplayName("BR-STK-03: DB chặn tồn tối thiểu âm (V7)")
     void dbShouldRejectNegativeMinStock() {
-        assertThatThrownBy(() -> jdbcTemplate.update("INSERT INTO product (name, category_id, unit, net_weight_kg,"
-                + " min_stock_quantity) VALUES ('Cám heo', ?, 'BAG', 25, -1)", category.getId()))
+        assertThatThrownBy(() -> jdbcTemplate.update("INSERT INTO product (name, category_id, unit_id, net_weight_kg,"
+                + " min_stock_quantity) VALUES ('Cám heo', ?, (SELECT id FROM product_unit WHERE name = 'Bao'), 25, -1)", category.getId()))
                 .isInstanceOf(DataIntegrityViolationException.class)
                 .hasMessageContaining("ck_product_min_stock");
     }
 
-    private void insertProduct(String name, String unit, String netWeightKg) {
-        jdbcTemplate.update(
-                "INSERT INTO product (name, category_id, unit, net_weight_kg) VALUES (?, ?, ?, ?)",
-                name, category.getId(), unit, new BigDecimal(netWeightKg));
+    private void insertProduct(String name, String unitName, String netWeightKg) {
+        jdbcTemplate.update("INSERT INTO product (name, category_id, unit_id, net_weight_kg)"
+                        + " VALUES (?, ?, (SELECT id FROM product_unit WHERE name = ?), ?)",
+                name, category.getId(), unitName, new BigDecimal(netWeightKg));
     }
 }

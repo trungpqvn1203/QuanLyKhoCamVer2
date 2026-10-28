@@ -2,7 +2,6 @@ package com.grainwarehouse.inbound.dto;
 
 import com.grainwarehouse.inventory.entity.StockDocumentItem;
 import com.grainwarehouse.product.entity.Product;
-import com.grainwarehouse.product.entity.ProductUnit;
 
 import java.math.BigDecimal;
 
@@ -11,7 +10,7 @@ public record InboundReceiptLineResponse(
         Long productId,
         String productCode,
         String productName,
-        ProductUnit unit,
+        String unitName,
         Integer orderedQuantity,
         int receivedQuantity,
         BigDecimal unitPrice,
@@ -24,7 +23,7 @@ public record InboundReceiptLineResponse(
                 product.getId(),
                 product.getCode(),
                 product.getName(),
-                product.getUnit(),
+                product.getUnit().getName(),
                 item.getOrderedQuantity(),
                 item.getQuantity(),
                 item.getUnitPrice(),

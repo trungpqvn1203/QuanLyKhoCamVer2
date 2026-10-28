@@ -33,7 +33,7 @@ class InventoryPersistenceTest {
     @BeforeEach
     void setUp() {
         Long categoryId = id("INSERT INTO category (name) VALUES ('Cám test') RETURNING id");
-        productId = id("INSERT INTO product (name, category_id, unit, net_weight_kg) VALUES ('Cám heo', ?, 'BAG', 25)"
+        productId = id("INSERT INTO product (name, category_id, unit_id, net_weight_kg) VALUES ('Cám heo', ?, (SELECT id FROM product_unit WHERE name = 'Bao'), 25)"
                 + " RETURNING id", categoryId);
         warehouseId = id("INSERT INTO warehouse (name, type, address) VALUES ('Kho test', 'CENTRAL', 'Hà Nội')"
                 + " RETURNING id");

@@ -2,9 +2,9 @@ package com.grainwarehouse.common.search;
 
 import com.grainwarehouse.product.entity.Category;
 import com.grainwarehouse.product.entity.Product;
-import com.grainwarehouse.product.entity.ProductUnit;
 import com.grainwarehouse.product.repository.CategoryRepository;
 import com.grainwarehouse.product.repository.ProductRepository;
+import com.grainwarehouse.product.repository.ProductUnitRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -37,6 +37,9 @@ class CommonSpecificationsTest {
     private CategoryRepository categoryRepository;
 
     @Autowired
+    private ProductUnitRepository unitRepository;
+
+    @Autowired
     private JdbcTemplate jdbcTemplate;
 
     private Category category;
@@ -46,10 +49,10 @@ class CommonSpecificationsTest {
         category = new Category();
         category.setName("Danh mục test lọc");
         category = categoryRepository.save(category);
-        save("Cám heo con 25kg", ProductUnit.BAG, "25");
-        save("CÁM HEO THỊT 40KG", ProductUnit.BAG, "40");
-        save("Cám gà Đồng Nai", ProductUnit.BAG, "20");
-        save("Cám xá 100% ngô", ProductUnit.KG, "1");
+        save("Cám heo con 25kg", "Bao", "25");
+        save("CÁM HEO THỊT 40KG", "Bao", "40");
+        save("Cám gà Đồng Nai", "Bao", "20");
+        save("Cám xá 100% ngô", "Kg", "1");
     }
 
     @Test
@@ -90,7 +93,7 @@ class CommonSpecificationsTest {
     @Test
     @DisplayName("in / between: lọc theo danh sách và khoảng, hai đầu tính, thiếu một đầu là khoảng hở")
     void shouldFilterByInAndBetween() {
-        assertThat(names(CommonSpecifications.in("unit", List.of(ProductUnit.KG))))
+        assertThat(names(CommonSpecifications.in("unit.name", List.of("Kg"))))
                 .containsExactly("Cám xá 100% ngô");
         assertThat(names(CommonSpecifications.between("netWeightKg", new BigDecimal("20"), new BigDecimal("25"))))
                 .containsExactlyInAnyOrder("Cám heo con 25kg", "Cám gà Đồng Nai");
@@ -101,8 +104,8 @@ class CommonSpecificationsTest {
     @Test
     @DisplayName("instantWithinDates: theo NGÀY giờ Việt Nam, ngày cuối tính trọn đến 23:59")
     void shouldFilterInstantByVietnamDates() {
-        Product early = save("Cám mốc đầu ngày", ProductUnit.BAG, "25");
-        Product late = save("Cám mốc cuối ngày", ProductUnit.BAG, "25");
+        Product early = save("Cám mốc đầu ngày", "Bao", "25");
+        Product late = save("Cám mốc cuối ngày", "Bao", "25");
         productRepository.flush();
         // 00:00 ngày 15/10 giờ VN = 17:00 ngày 14/10 UTC; 23:59 ngày 15/10 giờ VN = 16:59 ngày 15/10 UTC
         jdbcTemplate.update("UPDATE product SET created_at = '2026-10-14T17:00:00Z' WHERE id = ?", early.getId());
@@ -122,17 +125,17 @@ class CommonSpecificationsTest {
     void shouldIgnoreEmptyParameters() {
         assertThat(CommonSpecifications.<Product>keywordContains("   ", "name")).isNull();
         assertThat(CommonSpecifications.<Product>equal("active", null)).isNull();
-        assertThat(CommonSpecifications.<Product>in("unit", List.of())).isNull();
+        assertThat(CommonSpecifications.<Product>in("unit.name", List.of())).isNull();
         assertThat(CommonSpecifications.<Product, BigDecimal>between("netWeightKg", null, null)).isNull();
         assertThat(CommonSpecifications.<Product>instantWithinDates("createdAt", null, null)).isNull();
         assertThat(names(null)).hasSize(4);
     }
 
-    private Product save(String name, ProductUnit unit, String netWeightKg) {
+    private Product save(String name, String unitName, String netWeightKg) {
         Product product = new Product();
         product.setName(name);
         product.setCategory(category);
-        product.setUnit(unit);
+        product.setUnit(unitRepository.findByNameIgnoreCase(unitName).orElseThrow());
         product.setNetWeightKg(new BigDecimal(netWeightKg));
         return productRepository.save(product);
     }

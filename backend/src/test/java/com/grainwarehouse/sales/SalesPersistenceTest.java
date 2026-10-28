@@ -115,8 +115,8 @@ class SalesPersistenceTest {
     @DisplayName("BR-SAL-06: mỗi cặp (khách, SP) chỉ có một giá riêng")
     void dbShouldRejectDuplicateCustomerPrice() {
         Long categoryId = id("INSERT INTO category (name) VALUES ('Cám test') RETURNING id");
-        Long productId = id("INSERT INTO product (name, category_id, unit, net_weight_kg)"
-                + " VALUES ('Cám heo', ?, 'BAG', 25) RETURNING id", categoryId);
+        Long productId = id("INSERT INTO product (name, category_id, unit_id, net_weight_kg)"
+                + " VALUES ('Cám heo', ?, (SELECT id FROM product_unit WHERE name = 'Bao'), 25) RETURNING id", categoryId);
         String insert = "INSERT INTO customer_product_price (customer_id, product_id, unit_price) VALUES (?, ?, 1000)";
         jdbcTemplate.update(insert, customerId, productId);
 

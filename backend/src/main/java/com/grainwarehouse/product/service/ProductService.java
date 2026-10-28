@@ -14,13 +14,17 @@ import com.grainwarehouse.product.entity.ProductUnit;
 import com.grainwarehouse.product.repository.CategoryRepository;
 import com.grainwarehouse.product.repository.ProductRepository;
 import com.grainwarehouse.product.repository.ProductSpecifications;
+import com.grainwarehouse.product.repository.ProductUnitRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -29,6 +33,8 @@ public class ProductService {
 
     private final ProductRepository productRepository;
     private final CategoryRepository categoryRepository;
+    private final ProductUnitRepository unitRepository;
+    private final ProductSupplierLinks supplierLinks;
 
     /** Tham số lọc đều tùy chọn; null = không lọc theo tiêu chí đó. */
     public PageResponse<ProductResponse> list(ProductSearchCriteria criteria, Pageable pageable) {
@@ -43,7 +49,10 @@ public class ProductService {
     @Transactional
     public ProductResponse create(CreateProductRequest request) {
         // Sau save(), code đã có giá trị nhờ @Generated (BR-PRD-02)
-        return ProductResponse.from(productRepository.save(prepareNew(request)));
+        Product product = productRepository.save(prepareNew(request));
+        // BR-PRD-10: gán NCC trong cùng transaction — lỗi liên kết thì SP cũng không được tạo
+        supplierLinks.sync(product, supplierIds(request.supplierIds()));
+        return ProductResponse.from(product);
     }
 
     /**
@@ -53,16 +62,18 @@ public class ProductService {
     public Product prepareNew(CreateProductRequest request) {
         String name = request.name().trim();
         productRepository.findByNameIgnoreCase(name).ifPresent(this::throwDuplicate);
-        validateNetWeight(request.unit(), request.netWeightKg());
         Category category = findActiveCategory(request.categoryId());
+        ProductUnit unit = findActiveUnit(request.unitId());
+        validateNetWeight(unit, request.netWeightKg());
 
         Product product = new Product();
         product.setName(name);
         product.setCategory(category);
-        product.setUnit(request.unit());
+        product.setUnit(unit);
         product.setNetWeightKg(request.netWeightKg());
         product.setDescription(request.description());
         product.setMinStockQuantity(request.minStockQuantity());
+        supplierLinks.validate(product, supplierIds(request.supplierIds()));
         return product;
     }
 
@@ -71,18 +82,24 @@ public class ProductService {
         Product product = findOrThrow(id);
         String name = request.name().trim();
         productRepository.findByNameIgnoreCaseAndIdNot(name, id).ifPresent(this::throwDuplicate);
-        validateNetWeight(request.unit(), request.netWeightKg());
-        // Chỉ chặn khi CHUYỂN sang danh mục khác đang ngừng dùng;
-        // sản phẩm cũ vẫn sửa được mô tả dù danh mục hiện tại đã ngừng dùng
+        // Chỉ chặn khi CHUYỂN sang danh mục / đơn vị khác đang ngừng dùng;
+        // sản phẩm cũ vẫn sửa được mô tả dù danh mục / đơn vị hiện tại đã ngừng dùng
         if (!Objects.equals(product.getCategory().getId(), request.categoryId())) {
             product.setCategory(findActiveCategory(request.categoryId()));
         }
+        if (!Objects.equals(product.getUnit().getId(), request.unitId())) {
+            product.setUnit(findActiveUnit(request.unitId()));
+        }
+        validateNetWeight(product.getUnit(), request.netWeightKg());
         product.setName(name);
-        product.setUnit(request.unit());
         product.setNetWeightKg(request.netWeightKg());
         product.setDescription(request.description());
         product.setMinStockQuantity(request.minStockQuantity());
         product.setActive(request.active());
+        // null = client không gửi (ví dụ nút "Mở bán lại") → giữ nguyên liên kết NCC
+        if (request.supplierIds() != null) {
+            supplierLinks.sync(product, supplierIds(request.supplierIds()));
+        }
         return ProductResponse.from(productRepository.saveAndFlush(product));
     }
 
@@ -105,12 +122,28 @@ public class ProductService {
         throw new DuplicateResourceException("name", label + " đã tồn tại");
     }
 
-    /** BR-PRD-06: đơn vị KG thì khối lượng một đơn vị phải đúng 1 kg. */
+    /** BR-PRD-06, BR-UNIT-03: đơn vị có khối lượng cố định (Kg = 1) thì khối lượng tịnh phải đúng bằng nó. */
     private void validateNetWeight(ProductUnit unit, BigDecimal netWeightKg) {
+        BigDecimal fixed = unit.getFixedNetWeightKg();
         // compareTo thay vì equals: new BigDecimal("1.000").equals(BigDecimal.ONE) == false (khác scale)
-        if (unit == ProductUnit.KG && netWeightKg.compareTo(BigDecimal.ONE) != 0) {
-            throw new BusinessException("Sản phẩm đơn vị KG phải có khối lượng tịnh bằng 1 kg");
+        if (fixed != null && netWeightKg.compareTo(fixed) != 0) {
+            throw new BusinessException("Sản phẩm đơn vị " + unit.getName() + " phải có khối lượng tịnh bằng "
+                    + fixed.stripTrailingZeros().toPlainString() + " kg");
         }
+    }
+
+    /** Gửi trùng id thì bỏ trùng, giữ thứ tự. */
+    private static Set<Long> supplierIds(List<Long> ids) {
+        return ids == null ? Set.of() : new LinkedHashSet<>(ids);
+    }
+
+    private ProductUnit findActiveUnit(Long unitId) {
+        ProductUnit unit = unitRepository.findById(unitId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đơn vị id=" + unitId));
+        if (!unit.isActive()) {
+            throw new BusinessException("Đơn vị '" + unit.getName() + "' đã ngừng dùng");
+        }
+        return unit;
     }
 
     private Category findActiveCategory(Long categoryId) {

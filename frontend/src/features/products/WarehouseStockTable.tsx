@@ -2,7 +2,6 @@ import { Table, Tag, Typography } from 'antd'
 import type { TableProps } from 'antd'
 import { CodeText } from '../../components/ui/CodeLink'
 import { EMPTY_TEXT, formatDateTime, formatQuantity, formatTons } from '../../utils/format'
-import { PRODUCT_UNIT_LABELS } from './product-api'
 import type { ProductStockDetail, WarehouseStock } from './product-stock-api'
 
 interface WarehouseStockTableProps {
@@ -16,7 +15,7 @@ interface WarehouseStockTableProps {
  * Kho đã ngừng vẫn hiện và vẫn cộng vào tổng — hàng còn nằm đó đến khi điều chuyển đi (BR-STK-01).
  */
 export function WarehouseStockTable({ detail, compact = false }: WarehouseStockTableProps) {
-  const unit = PRODUCT_UNIT_LABELS[detail.unit].toLowerCase()
+  const unit = detail.unitName.toLowerCase()
 
   const columns: TableProps<WarehouseStock>['columns'] = [
     {

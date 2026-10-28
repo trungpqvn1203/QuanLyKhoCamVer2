@@ -1,8 +1,8 @@
 package com.grainwarehouse.sales.dto;
 
+import com.grainwarehouse.inventory.dto.StockFigures;
 import com.grainwarehouse.inventory.entity.StockDocumentItem;
 import com.grainwarehouse.product.entity.Product;
-import com.grainwarehouse.product.entity.ProductUnit;
 
 import java.math.BigDecimal;
 
@@ -11,10 +11,12 @@ public record SalesOrderLineResponse(
         Long productId,
         String productCode,
         String productName,
-        ProductUnit unit,
+        String unitName,
         int quantity,
         BigDecimal unitPrice,
-        BigDecimal lineAmount) {
+        BigDecimal lineAmount,
+        // Khối lượng dòng (tấn, 3 chữ số lẻ) — in phiếu xuất kho cho lái xe biết xe chở bao nhiêu (BR-PRT-03)
+        BigDecimal tons) {
 
     public static SalesOrderLineResponse from(StockDocumentItem item) {
         Product product = item.getProduct();
@@ -23,9 +25,10 @@ public record SalesOrderLineResponse(
                 product.getId(),
                 product.getCode(),
                 product.getName(),
-                product.getUnit(),
+                product.getUnit().getName(),
                 item.getQuantity(),
                 item.getUnitPrice(),
-                item.getLineAmount());
+                item.getLineAmount(),
+                StockFigures.tons(item.getQuantity(), product.getNetWeightKg()));
     }
 }

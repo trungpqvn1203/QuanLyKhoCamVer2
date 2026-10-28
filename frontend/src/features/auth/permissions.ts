@@ -19,6 +19,7 @@ export type Permission =
   | 'opening' // số dư đầu kỳ: tồn kho (BR-OPN-09), ghi nhận / đảo công nợ đầu kỳ (BR-ODB-08)
   | 'stockcount' // kiểm kê kho, lý do lệch (BR-CNT-10)
   | 'users'
+  | 'store.write' // thông tin cửa hàng in trên phiếu (BR-PRT-01)
 
 const GRANTS: Record<Permission, Role[]> = {
   'catalog.write': ['SYSTEM_ADMIN'],
@@ -34,6 +35,7 @@ const GRANTS: Record<Permission, Role[]> = {
   opening: ['SYSTEM_ADMIN'],
   stockcount: ['SYSTEM_ADMIN'],
   users: ['SYSTEM_ADMIN'],
+  'store.write': ['SYSTEM_ADMIN'],
 }
 
 /** Kiêm nhiều vai trò → có quyền nếu MỘT trong các vai trò có quyền đó. */

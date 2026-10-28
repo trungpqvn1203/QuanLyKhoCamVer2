@@ -7,9 +7,9 @@ import com.grainwarehouse.opening.dto.OpeningStockRequest;
 import com.grainwarehouse.opening.service.OpeningStockService;
 import com.grainwarehouse.product.entity.Category;
 import com.grainwarehouse.product.entity.Product;
-import com.grainwarehouse.product.entity.ProductUnit;
 import com.grainwarehouse.product.repository.CategoryRepository;
 import com.grainwarehouse.product.repository.ProductRepository;
+import com.grainwarehouse.product.repository.ProductUnitRepository;
 import com.grainwarehouse.stockcount.dto.StockCountCreateRequest;
 import com.grainwarehouse.stockcount.dto.StockCountLineRequest;
 import com.grainwarehouse.stockcount.dto.StockCountUpdateRequest;
@@ -60,6 +60,9 @@ class StockCountConcurrencyTest {
     private CategoryRepository categoryRepository;
 
     @Autowired
+    private ProductUnitRepository unitRepository;
+
+    @Autowired
     private ProductRepository productRepository;
 
     @Autowired
@@ -89,7 +92,7 @@ class StockCountConcurrencyTest {
         corn = new Product();
         corn.setName("Cám " + tag);
         corn.setCategory(category);
-        corn.setUnit(ProductUnit.BAG);
+        corn.setUnit(unitRepository.findByNameIgnoreCase("Bao").orElseThrow());
         corn.setNetWeightKg(new BigDecimal("25"));
         productRepository.save(corn);
         long opening = openingStockService.create(new OpeningStockRequest(warehouse.getId(), null, null,
@@ -148,7 +151,7 @@ class StockCountConcurrencyTest {
         Product other = new Product();
         other.setName("Cám khác " + tag);
         other.setCategory(category);
-        other.setUnit(ProductUnit.BAG);
+        other.setUnit(unitRepository.findByNameIgnoreCase("Bao").orElseThrow());
         other.setNetWeightKg(new BigDecimal("25"));
         productRepository.save(other);
         long opening = openingStockService.create(new OpeningStockRequest(warehouse.getId(), null, null,

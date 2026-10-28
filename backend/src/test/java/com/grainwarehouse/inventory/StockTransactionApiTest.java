@@ -67,9 +67,9 @@ class StockTransactionApiTest {
     @BeforeEach
     void setUp() throws Exception {
         long category = id("INSERT INTO category (name) VALUES ('Cám test lịch sử') RETURNING id");
-        pig = id("INSERT INTO product (name, category_id, unit, net_weight_kg) VALUES ('Cám heo lịch sử', ?, 'BAG', 25)"
+        pig = id("INSERT INTO product (name, category_id, unit_id, net_weight_kg) VALUES ('Cám heo lịch sử', ?, (SELECT id FROM product_unit WHERE name = 'Bao'), 25)"
                 + " RETURNING id", category);
-        chicken = id("INSERT INTO product (name, category_id, unit, net_weight_kg) VALUES ('Cám gà lịch sử', ?, 'BAG', 25)"
+        chicken = id("INSERT INTO product (name, category_id, unit_id, net_weight_kg) VALUES ('Cám gà lịch sử', ?, (SELECT id FROM product_unit WHERE name = 'Bao'), 25)"
                 + " RETURNING id", category);
         hanoi = id("INSERT INTO warehouse (name, type, address) VALUES ('Kho HN lịch sử', 'CENTRAL', 'HN') RETURNING id");
         haiphong = id("INSERT INTO warehouse (name, type, address) VALUES ('Kho HP lịch sử', 'RETAIL', 'HP') RETURNING id");
@@ -115,7 +115,7 @@ class StockTransactionApiTest {
                 .andExpect(jsonPath("$.data.items[4].supplierName").value("NCC lịch sử"))
                 .andExpect(jsonPath("$.data.items[4].customerName").doesNotExist())
                 .andExpect(jsonPath("$.data.items[4].productCode").exists())
-                .andExpect(jsonPath("$.data.items[4].unit").value("BAG"))
+                .andExpect(jsonPath("$.data.items[4].unitName").value("Bao"))
                 .andExpect(jsonPath("$.data.items[4].warehouseName").value("Kho HN lịch sử"))
                 .andReturn().getResponse().getContentAsString();
 

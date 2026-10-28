@@ -1,7 +1,6 @@
 import { apiRequest, withQuery } from '../../api/client'
 import type { PageQuery, PageResponse } from '../../api/types'
 import { toFilterParams } from '../../utils/filters'
-import type { ProductUnit } from '../products/product-api'
 
 /** IN tăng tồn, OUT giảm tồn — số lượng luôn dương. */
 export type StockTransactionType = 'IN' | 'OUT'
@@ -35,7 +34,7 @@ export interface StockTransaction {
   productId: number
   productCode: string
   productName: string
-  unit: ProductUnit
+  unitName: string
   warehouseId: number
   warehouseCode: string
   warehouseName: string

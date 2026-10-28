@@ -7,8 +7,8 @@ import { toFormFieldErrors } from '../../api/form-errors'
 import { CodeText } from '../../components/ui/CodeLink'
 import { formatDateTime } from '../../utils/format'
 import { formatPriceInput, formatVnd, hasAtMostTwoDecimals, parsePriceInput } from '../../utils/money'
-import { PRODUCT_UNIT_LABELS, productApi } from '../products/product-api'
-import type { Product, ProductUnit } from '../products/product-api'
+import { productApi } from '../products/product-api'
+import type { Product } from '../products/product-api'
 import { customerPriceApi } from '../sales-orders/sales-order-api'
 import type { CustomerPrice } from '../sales-orders/sales-order-api'
 import type { Customer } from './customer-api'
@@ -123,7 +123,7 @@ export function CustomerPriceDrawer({ open, customer, onClose }: CustomerPriceDr
         </>
       ),
     },
-    { title: 'ĐVT', dataIndex: 'unit', width: 64, render: (unit: ProductUnit) => PRODUCT_UNIT_LABELS[unit] },
+    { title: 'ĐVT', dataIndex: 'unitName', width: 64 },
     { title: 'Giá riêng', dataIndex: 'unitPrice', width: 140, align: 'right', render: (v: number) => formatVnd(v) },
     { title: 'Cập nhật', dataIndex: 'updatedAt', width: 150, render: (at: string) => formatDateTime(at) },
     {

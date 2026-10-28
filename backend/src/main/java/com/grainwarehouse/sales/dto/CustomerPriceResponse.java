@@ -1,7 +1,6 @@
 package com.grainwarehouse.sales.dto;
 
 import com.grainwarehouse.product.entity.Product;
-import com.grainwarehouse.product.entity.ProductUnit;
 import com.grainwarehouse.sales.entity.CustomerProductPrice;
 
 import java.math.BigDecimal;
@@ -11,7 +10,7 @@ public record CustomerPriceResponse(
         Long productId,
         String productCode,
         String productName,
-        ProductUnit unit,
+        String unitName,
         boolean productActive,
         BigDecimal unitPrice,
         Instant updatedAt) {
@@ -22,7 +21,7 @@ public record CustomerPriceResponse(
                 product.getId(),
                 product.getCode(),
                 product.getName(),
-                product.getUnit(),
+                product.getUnit().getName(),
                 product.isActive(),
                 price.getUnitPrice(),
                 price.getUpdatedAt());

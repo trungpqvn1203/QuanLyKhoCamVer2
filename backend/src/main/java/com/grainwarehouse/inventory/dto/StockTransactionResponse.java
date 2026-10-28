@@ -5,7 +5,6 @@ import com.grainwarehouse.inventory.entity.StockDocument;
 import com.grainwarehouse.inventory.entity.StockDocumentType;
 import com.grainwarehouse.inventory.entity.StockTransaction;
 import com.grainwarehouse.inventory.entity.StockTransactionType;
-import com.grainwarehouse.product.entity.ProductUnit;
 import com.grainwarehouse.supplier.entity.Supplier;
 
 import java.time.Instant;
@@ -27,7 +26,7 @@ public record StockTransactionResponse(
         Long productId,
         String productCode,
         String productName,
-        ProductUnit unit,
+        String unitName,
         Long warehouseId,
         String warehouseCode,
         String warehouseName,
@@ -56,7 +55,7 @@ public record StockTransactionResponse(
                 transaction.getProduct().getId(),
                 transaction.getProduct().getCode(),
                 transaction.getProduct().getName(),
-                transaction.getProduct().getUnit(),
+                transaction.getProduct().getUnit().getName(),
                 transaction.getWarehouse().getId(),
                 transaction.getWarehouse().getCode(),
                 transaction.getWarehouse().getName(),

@@ -25,7 +25,7 @@ Phân biệt 3 loại:
 
 ### ✅ Đã xác nhận (2026-10-19)
 
-- **BR-INV-07:** Số lượng tồn và số lượng trên chứng từ **luôn là số nguyên** (cả `BAG` lẫn `KG`). _(Trả lời BR-INV-Q02)_
+- **BR-INV-07:** Số lượng tồn và số lượng trên chứng từ **luôn là số nguyên** (với mọi đơn vị: bao, kg, túi…). _(Trả lời BR-INV-Q02)_
 
 ### ❓ Câu hỏi mở
 
@@ -175,11 +175,12 @@ _(Trả lời BR-SAL-Q01: có công nợ, chỉ ở mức phiếu bán + lịch 
 - **BR-PRD-02:** Mã sản phẩm do **hệ thống tự sinh** dạng `SP` + 6 chữ số (ví dụ `SP000001`), duy nhất toàn hệ thống, **không sửa được** sau khi tạo. Mã có thể nhảy số (do rollback) — chấp nhận.
 - **BR-PRD-03:** Tên sản phẩm duy nhất, **không phân biệt hoa thường** ("Cám heo con 25kg" = "cám heo con 25kg").
 - **BR-PRD-04:** Mỗi sản phẩm **bắt buộc** thuộc đúng một danh mục.
-- **BR-PRD-05:** Mỗi sản phẩm có **một đơn vị giao dịch cố định**: `BAG` (bao) hoặc `KG`. Không quy đổi đơn vị khi giao dịch.
-- **BR-PRD-06:** Mỗi sản phẩm có `net_weight_kg` > 0 (khối lượng một đơn vị; `KG` thì = 1). **Tấn chỉ là đơn vị báo cáo**: `tấn = số lượng × net_weight_kg / 1000` (ví dụ tổng nhập theo nhà cung cấp, tổng bán theo khách hàng).
+- **BR-PRD-05:** Mỗi sản phẩm có **một đơn vị giao dịch cố định**, chọn từ danh mục đơn vị tính (BR-UNIT). Không quy đổi đơn vị khi giao dịch. _(Sửa 2026-10-28: trước đây chỉ `BAG` hoặc `KG`)_
+- **BR-PRD-06:** Mỗi sản phẩm có `net_weight_kg` > 0 (khối lượng một đơn vị, luôn bắt buộc; đơn vị Kg thì = 1, BR-UNIT-03). **Tấn chỉ là đơn vị báo cáo**: `tấn = số lượng × net_weight_kg / 1000` (ví dụ tổng nhập theo nhà cung cấp, tổng bán theo khách hàng).
 - **BR-PRD-07:** Không lưu giá trong sản phẩm. Giá nhập/bán ghi trên từng dòng chứng từ.
 - **BR-PRD-08:** Sản phẩm không xóa cứng; ngừng kinh doanh bằng `active = false`.
 - **BR-PRD-09:** Không tạo mới sản phẩm trùng tên với sản phẩm **đã ngừng kinh doanh** (tránh một mặt hàng có hai mã, lịch sử bị tách đôi). Hệ thống từ chối kèm mã SP cũ và hướng dẫn **mở bán lại** (`PUT` với `active: true`). _(Xác nhận 2026-10-15)_
+- **BR-PRD-10:** Khi thêm hoặc sửa SP (form và file Excel) được chọn **một NCC** cung cấp SP đó — **tùy chọn** _(sửa 2026-10-28: chọn một cho đơn giản; quan hệ NCC–SP vẫn nhiều–nhiều, SP cần thêm NCC thì gán ở màn Nhà cung cấp; API vẫn nhận mảng để sau mở rộng)_. Chọn = tạo hoặc bật lại liên kết BR-SUP-05; đổi NCC ở form sửa = gỡ NCC cũ, gán NCC mới; xóa trắng = gỡ. SP đang có **nhiều** NCC thì form chỉ hiển thị, không sửa NCC (tránh gỡ nhầm). Áp dụng BR-SUP-06 cho liên kết mới; liên kết sẵn có với NCC nay đã ngừng được giữ (BR-SUP-07). Tạo SP và gán NCC trong **cùng một transaction**: NCC lỗi thì SP không được tạo. Excel có **một cột "Nhà cung cấp"** là dropdown "mã · tên" các NCC đang hoạt động; khi đọc chỉ lấy phần mã. _(Xác nhận 2026-10-28)_
 
 ## Danh mục sản phẩm
 
@@ -189,6 +190,16 @@ _(Trả lời BR-SAL-Q01: có công nợ, chỉ ở mức phiếu bán + lịch 
 - **BR-CAT-02:** Tên danh mục duy nhất, không phân biệt hoa thường.
 - **BR-CAT-03:** Danh mục không xóa cứng; ngừng dùng bằng `active = false`.
 - **BR-CAT-04:** Không tạo mới danh mục trùng tên với danh mục đã ngừng dùng; hệ thống hướng dẫn mở lại. _(Xác nhận 2026-10-15)_
+
+## Đơn vị tính
+
+### ✅ Đã xác nhận (2026-10-28)
+
+- **BR-UNIT-01:** Đơn vị tính (bao, kg, túi, thùng…) là danh mục **do người dùng tự quản lý**: thêm, đổi tên, ngừng dùng, mở lại. Tên duy nhất, không phân biệt hoa thường. Có sẵn **Bao** và **Kg** (chuyển từ `BAG`/`KG` cũ).
+- **BR-UNIT-02:** Không xóa cứng; ngừng dùng bằng `active = false`. SP đang dùng đơn vị đã ngừng vẫn giữ nguyên và vẫn sửa được; chỉ chặn **chọn mới** đơn vị đã ngừng. Tạo trùng tên với đơn vị đã ngừng → hướng dẫn mở lại (như BR-CAT-04).
+- **BR-UNIT-03:** Đơn vị có **khối lượng cố định** (hiện chỉ Kg = 1 kg) thì khối lượng tịnh của SP phải đúng bằng số đó. Người dùng **không** đặt được khối lượng cố định; đơn vị tự thêm luôn để khối lượng theo từng SP.
+- **BR-UNIT-04:** Đổi tên đơn vị thì mọi chứng từ cũ hiển thị **tên mới** (không chụp tên lúc lập phiếu), giống tên sản phẩm.
+- Quản lý đơn vị tính và danh mục: chỉ **Quản lý hệ thống**; mọi vai trò được xem. Giao diện: nút **Cấu hình** trên trang Sản phẩm (không thêm mục menu).
 
 ---
 
@@ -230,7 +241,7 @@ _(Trả lời BR-SAL-Q01: có công nợ, chỉ ở mức phiếu bán + lịch 
 ### ✅ Đã xác nhận (2026-10-20)
 
 - **BR-CUS-01:** Mỗi khách có mã, tên, loại, **số điện thoại (bắt buộc)**; người liên hệ, địa chỉ, ghi chú **tùy chọn**.
-- **BR-CUS-02:** Mã khách do **hệ thống tự sinh** dạng `KH` + 4 chữ số (`KH0001`), duy nhất, **không sửa được**. Có thể nhảy số (rollback) — chấp nhận. Quá 9999 thì mã dài thêm (`KH10000`), vẫn duy nhất — _đúng từ V10; trước đó `lpad` cắt cụt mã, xem LESSONS 2026-10-20_.
+- **BR-CUS-02:** Mã khách do **hệ thống tự sinh** dạng `KH` + 4 chữ số (`KH0001`), duy nhất, **không sửa được**. Có thể nhảy số (rollback) — chấp nhận. Quá 9999 thì mã dài thêm (`KH10000`), vẫn duy nhất — _đúng từ V10; trước đó `lpad` cắt cụt mã, xem [lessons/4-nen-tang-he-thong/03-ma-tu-sinh.md](../../lessons/4-nen-tang-he-thong/03-ma-tu-sinh.md)_.
 - **BR-CUS-03:** Loại khách: Đại lý (`DEALER`), Trang trại (`FARM`), Khách lẻ (`RETAIL`).
 - **BR-CUS-04:** **SĐT là định danh chống trùng**, duy nhất trên toàn bộ khách (kể cả đã ngừng). **Tên được phép trùng** (hai "Trại heo Minh" ở hai xã).
 - **BR-CUS-05:** Khách không xóa cứng; ngừng hoạt động bằng `active = false`. Tạo khách mới bằng SĐT của khách đã ngừng → từ chối, hướng dẫn mở lại (giống BR-SUP-04).
@@ -378,6 +389,17 @@ _(Trả lời BR-SAL-Q01: có công nợ, chỉ ở mức phiếu bán + lịch 
 
 ---
 
+## In phiếu
+
+### ✅ Đã xác nhận (2026-10-28)
+
+- **BR-PRT-01:** **Thông tin cửa hàng** (tên — bắt buộc; địa chỉ, SĐT, lời chào cuối phiếu — tùy chọn) in ở đầu / cuối phiếu. Một bản duy nhất, Quản lý hệ thống sửa ở menu tài khoản → "Thông tin cửa hàng"; mọi vai trò đọc được để in. Chưa cấu hình thì phiếu vẫn in, chỉ thiếu phần đầu.
+- **BR-PRT-02:** **Phiếu bán hàng** — **một mẫu dùng chung** đưa khách và lái xe / bốc vác _(sửa 2026-10-28)_, khổ **K80** kiểu bill siêu thị: số phiếu, ngày bán, khách + SĐT, từng dòng "SL ĐVT x đơn giá → thành tiền", tổng cộng, **số tiền bằng chữ**. Phiếu đã hoàn tất in thêm đã thanh toán và còn nợ **của phiếu đó** (không in tổng nợ của khách). Phiếu **nháp** in được, có dòng "PHIẾU TẠM TÍNH – CHƯA HOÀN TẤT".
+- **BR-PRT-03:** In được khi **nháp** (lái xe cầm phiếu để xếp hàng; thiếu hàng thì sửa phiếu nháp rồi in lại). _(2026-10-28: bỏ mẫu "phiếu xuất kho" riêng không giá — chủ cửa hàng chọn dùng chung phiếu bán. API vẫn trả `tons` / `totalTons` của phiếu bán, chưa dùng khi in.)_
+- **BR-PRT-04:** In bản **đã lưu** của phiếu: đang sửa nháp chưa lưu thì không cho in. Phiếu đã hủy / đã đảo không in. In qua hộp thoại in của trình duyệt (chọn máy in nhiệt K80); chưa ghi "người lập" vì chứng từ chưa lưu người tạo.
+
+---
+
 ## Nhập hàng loạt từ Excel (danh mục)
 
 > Áp dụng cho: sản phẩm, khách hàng, nhà cung cấp, nhân viên. Thiết kế kỹ thuật: [ADR-0004](../decisions/ADR-0004-excel-import.md).
@@ -395,7 +417,7 @@ _(Trả lời BR-SAL-Q01: có công nợ, chỉ ở mức phiếu bán + lịch 
 ### ⚠️ Giả định tạm thời
 
 - **BR-XLS-A01:** Nhân viên không có khóa duy nhất (BR-EMP-03), nên import **không so trùng với DB**, giống form nhập tay. Trong cùng một file, chỉ chặn hai dòng **cùng tên và cùng SĐT** (thường do dán lặp). Hệ quả: nhập lại cùng một file hai lần sẽ tạo nhân viên trùng.
-- **BR-XLS-A02:** Sản phẩm đơn vị Kg mà để trống khối lượng tịnh thì được hiểu là 1 kg (BR-PRD-06), giống form nhập tay tự điền 1.
+- **BR-XLS-A02:** Sản phẩm có đơn vị khối lượng cố định (Kg) mà để trống khối lượng tịnh thì được hiểu là khối lượng đó — 1 kg (BR-UNIT-03), giống form nhập tay tự điền. Cột Đơn vị ghi theo **tên** đơn vị đang dùng.
 
 ### ❓ Câu hỏi mở
 

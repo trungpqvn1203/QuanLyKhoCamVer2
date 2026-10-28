@@ -5,9 +5,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.grainwarehouse.common.search.CommonSpecifications;
 import com.grainwarehouse.product.entity.Category;
 import com.grainwarehouse.product.entity.Product;
-import com.grainwarehouse.product.entity.ProductUnit;
 import com.grainwarehouse.product.repository.CategoryRepository;
 import com.grainwarehouse.product.repository.ProductRepository;
+import com.grainwarehouse.product.repository.ProductUnitRepository;
 import com.grainwarehouse.supplier.entity.ProductSupplier;
 import com.grainwarehouse.supplier.entity.Supplier;
 import com.grainwarehouse.supplier.repository.ProductSupplierRepository;
@@ -60,6 +60,9 @@ class SupplierPaymentApiTest {
     private CategoryRepository categoryRepository;
 
     @Autowired
+    private ProductUnitRepository unitRepository;
+
+    @Autowired
     private ProductRepository productRepository;
 
     @Autowired
@@ -90,7 +93,7 @@ class SupplierPaymentApiTest {
         pigFeed = new Product();
         pigFeed.setName("Cám heo con 25kg");
         pigFeed.setCategory(category);
-        pigFeed.setUnit(ProductUnit.BAG);
+        pigFeed.setUnit(unitRepository.findByNameIgnoreCase("Bao").orElseThrow());
         pigFeed.setNetWeightKg(new BigDecimal("25"));
         productRepository.save(pigFeed);
 

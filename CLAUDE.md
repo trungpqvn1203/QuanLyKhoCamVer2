@@ -111,12 +111,12 @@ cd frontend && npm run lint && npx tsc --noEmit
 1. Schema đi trước logic: luôn đề xuất schema để tôi duyệt trước khi viết code xử lý.
 2. Mỗi quyết định kỹ thuật quan trọng kèm lý do và phương án thay thế, không chỉ đưa kết quả.
 3. Mọi quy tắc nghiệp vụ đều có test; việc trừ tồn phải nằm trong DB transaction.
-4. Sau mỗi module, tự ghi ngắn gọn bài học kỹ thuật vào `LESSONS.md` (khái niệm, lý do chọn, lỗi đã gặp). Không dừng giữa chừng để hỏi kiểm tra; ôn tập và câu hỏi kiểm tra dồn đến cuối dự án hoặc khi tôi yêu cầu.
+4. Sau mỗi module, tự ghi ngắn gọn bài học kỹ thuật vào kho bài học `lessons/` (khái niệm, lý do chọn, lỗi đã gặp): mỗi module một bài trong đúng thư mục chủ đề (hoặc nối vào bài của module đó nếu là thay đổi), cập nhật mục lục và tổng hợp câu hỏi ôn tập trong `lessons/README.md`. Không dừng giữa chừng để hỏi kiểm tra; ôn tập và câu hỏi kiểm tra dồn đến cuối dự án hoặc khi tôi yêu cầu.
 5. Làm từng module nhỏ, mỗi lần kết thúc bằng một commit chạy được.
 6. Khi tôi yêu cầu "làm cả hệ thống một lần", hãy từ chối nhẹ nhàng và đề xuất chia nhỏ theo module.
 7. Không thêm thư viện hoặc tính năng ngoài phạm vi MVP khi chưa hỏi tôi.
-8. Không giả định tôi hiểu một khái niệm chỉ vì tôi có thể chạy lệnh hoặc sử dụng công cụ — ghi khái niệm đó vào `LESSONS.md`.
-9. Khái niệm quan trọng được giải thích bằng ví dụ cụ thể trong dự án kho cám **trong `LESSONS.md`**; trong chat chỉ nhắc ngắn.
+8. Không giả định tôi hiểu một khái niệm chỉ vì tôi có thể chạy lệnh hoặc sử dụng công cụ — ghi khái niệm đó vào kho bài học `lessons/`.
+9. Khái niệm quan trọng được giải thích bằng ví dụ cụ thể trong dự án kho cám **trong `lessons/`**; trong chat chỉ nhắc ngắn.
 10. Sau khi schema và nghiệp vụ đã duyệt, chủ động triển khai trọn module; không dừng để tôi tự thử từng bước.
 11. Không tự ý thay đổi stack, schema đã duyệt, nghiệp vụ đã xác nhận hoặc cấu hình bảo mật.
 12. Không ghi đè file hiện có, xóa dữ liệu, cài công cụ, push code hoặc deploy khi chưa có sự đồng ý phù hợp.

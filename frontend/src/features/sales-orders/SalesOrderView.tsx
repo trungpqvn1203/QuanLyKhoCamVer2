@@ -3,8 +3,6 @@ import type { TableProps } from 'antd'
 import { CodeText } from '../../components/ui/CodeLink'
 import { formatDate, formatDateTime, orEmpty } from '../../utils/format'
 import { formatVnd } from '../../utils/money'
-import { PRODUCT_UNIT_LABELS } from '../products/product-api'
-import type { ProductUnit } from '../products/product-api'
 import { PaymentSection } from './PaymentSection'
 import type { SalePayment, SalesOrder, SalesOrderLine } from './sales-order-api'
 
@@ -54,7 +52,7 @@ export function SalesOrderView({ order, onReversePayment }: SalesOrderViewProps)
     { title: '#', key: 'index', width: 40, align: 'center', render: (_, __, index) => index + 1 },
     { title: 'Mã SP', dataIndex: 'productCode', width: 100, render: (code: string) => <CodeText code={code} /> },
     { title: 'Tên sản phẩm', dataIndex: 'productName' },
-    { title: 'ĐVT', dataIndex: 'unit', width: 64, render: (unit: ProductUnit) => PRODUCT_UNIT_LABELS[unit] },
+    { title: 'ĐVT', dataIndex: 'unitName', width: 64 },
     { title: 'Số lượng', dataIndex: 'quantity', width: 90, align: 'right' },
     { title: 'Đơn giá', dataIndex: 'unitPrice', width: 130, align: 'right', render: (price: number) => formatVnd(price) },
     { title: 'Thành tiền', dataIndex: 'lineAmount', width: 140, align: 'right', render: (amount: number) => formatVnd(amount) },
