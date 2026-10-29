@@ -63,7 +63,10 @@ function toFormValues(count: StockCount): CountFormValues {
 export function StockCountDrawer({ countId, products, reasons, onClose, onChanged }: StockCountDrawerProps) {
   const { modal, notification } = App.useApp()
   const [form] = Form.useForm<CountFormValues>()
-  const lines = Form.useWatch('lines', form) as LineValues[] | undefined
+  // preserve: true — dòng đã lưu hiện tên SP dạng chữ, KHÔNG render ô productId. Mặc định useWatch bỏ giá trị của ô
+  // không render → productId thành undefined → dòng bị coi là mới, hiện lại ô chọn SP → ô có giá trị → lại thành dòng
+  // đã lưu… vòng lặp làm bảng nháy liên tục. preserve đọc thẳng giá trị trong store, kể cả ô không render.
+  const lines = Form.useWatch('lines', { form, preserve: true }) as LineValues[] | undefined
   const [count, setCount] = useState<StockCount | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [busy, setBusy] = useState<'save' | 'complete' | 'refresh' | null>(null)
