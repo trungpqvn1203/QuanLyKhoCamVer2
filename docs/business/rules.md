@@ -389,6 +389,19 @@ _(Trả lời BR-SAL-Q01: có công nợ, chỉ ở mức phiếu bán + lịch 
 
 ---
 
+## Báo cáo tồn kho & tổng quan
+
+### ✅ Đã xác nhận (2026-10-29) — mô phỏng báo cáo của KiotViet / MISA
+
+- **BR-RPT-01:** **Tổng quan** là trang đầu sau đăng nhập. Thẻ tồn kho (mọi vai trò): tổng tấn đang tồn (mọi SP, mọi kho, kể cả đã ngừng — BR-STK-01), số SP **đang kinh doanh** hết hàng / sắp hết (theo BR-STK-04, bấm vào mở danh sách SP đã lọc), hàng đang về (tấn, BR-STK-06), số phiếu nhập nháp.
+- **BR-RPT-02:** **Doanh số** = tổng tiền phiếu bán **Hoàn tất** theo **ngày bán**; phiếu **đã đảo không tính**. Thẻ bán hàng (mọi vai trò): hôm nay, tháng này (doanh số, số phiếu, số tấn), số phiếu bán nháp.
+- **BR-RPT-03:** Biểu đồ doanh số **30 ngày gần nhất** (kể cả hôm nay, ngày không bán = 0). Thẻ tiền chỉ hiện với vai trò có quyền: khách còn nợ (quyền công nợ khách), còn nợ NCC (quyền nhập kho), tiền mặt / tài khoản (quyền sổ quỹ).
+- **BR-RPT-04:** **Tồn theo kho**: bảng SP × kho (cột mỗi kho đang hoạt động hoặc đã ngừng mà còn hàng), tổng SL + tấn mỗi SP, dòng tổng **chỉ tính tấn** (cộng bao với kg là vô nghĩa). Lọc danh mục, từ khóa (không dấu); mặc định ẩn SP hết hàng; SP đã ngừng kinh doanh chỉ hiện khi còn hàng. Không phân trang.
+- **BR-RPT-05:** **Nhập – xuất – tồn theo kỳ** (chọn nhanh hôm nay / hôm qua / 7 ngày / tháng này / tháng trước, hoặc tự chọn; lọc kho, danh mục): mỗi SP có tồn đầu, nhập, xuất, tồn cuối (SL + tấn), **theo ngày ghi sổ** (thời điểm hoàn tất / đảo phiếu, giờ Việt Nam). Giao dịch **đảo** bù trừ vào cột của giao dịch gốc (đảo phiếu nhập làm giảm cột Nhập, không cộng vào Xuất). Tồn cuối = tồn đầu + nhập − xuất; kỳ kết thúc hôm nay thì tồn cuối = tồn hiện tại. Không có cột giá trị tiền (hệ thống chưa tính giá vốn).
+- **BR-RPT-06:** Hai báo cáo **in A4 ngang** qua trình duyệt (đầu trang tên cửa hàng, điều kiện lọc, dòng tổng). Mọi vai trò xem được báo cáo tồn.
+
+---
+
 ## In phiếu
 
 ### ✅ Đã xác nhận (2026-10-28)

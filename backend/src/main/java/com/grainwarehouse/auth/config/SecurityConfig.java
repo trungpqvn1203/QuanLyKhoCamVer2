@@ -131,6 +131,8 @@ public class SecurityConfig {
 
                 // Tồn kho chỉ có API đọc; phương thức khác → 405 từ Spring MVC
                 .requestMatchers("/api/inventory/**").authenticated()
+                // Báo cáo tồn kho + tổng quan (BR-RPT-06): chỉ đọc số mọi vai trò vốn đã xem được (tồn, phiếu bán)
+                .requestMatchers(HttpMethod.GET, "/api/reports/**").authenticated()
 
                 .requestMatchers("/api/attendance/**").hasAnyRole(WAREHOUSE, ADMIN)
                 // Gồm tạm ứng (/api/employees/{id}/advances), trả lương (/api/payrolls/{tháng}/items/...) và công nợ nhân viên

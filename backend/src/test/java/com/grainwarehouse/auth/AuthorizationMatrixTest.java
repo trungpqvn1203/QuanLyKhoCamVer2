@@ -80,6 +80,8 @@ class AuthorizationMatrixTest {
                 new Rule(HttpMethod.POST, "/api/product-units", ADMIN_ONLY),
                 new Rule(HttpMethod.GET, "/api/store-info", ALL),
                 new Rule(HttpMethod.PUT, "/api/store-info", ADMIN_ONLY),
+                new Rule(HttpMethod.GET, "/api/reports/dashboard", ALL),
+                new Rule(HttpMethod.GET, "/api/reports/stock-by-warehouse", ALL),
                 new Rule(HttpMethod.GET, "/api/warehouses", ALL),
                 new Rule(HttpMethod.PUT, "/api/warehouses/999999", ADMIN_ONLY),
                 // Nhà cung cấp (kể cả xem NCC của một SP), phiếu nhập: quản lý kho

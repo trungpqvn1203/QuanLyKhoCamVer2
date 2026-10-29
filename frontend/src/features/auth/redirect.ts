@@ -1,4 +1,5 @@
-export const HOME_PATH = '/products'
+/** Trang đầu sau đăng nhập: Tổng quan (BR-RPT-01) */
+export const HOME_PATH = '/dashboard'
 
 /**
  * ?redirect=... sau đăng nhập chỉ nhận đường dẫn NỘI BỘ. Nhận cả URL ngoài thì kẻ gian gửi link

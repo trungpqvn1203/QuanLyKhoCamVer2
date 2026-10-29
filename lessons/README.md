@@ -23,6 +23,7 @@ lỗi đã gặp và câu hỏi ôn tập. Do AI ghi sau mỗi module (CLAUDE.md
 | [Lịch sử biến động tồn kho](1-kho-hang/04-lich-su-ton-kho.md) | Đọc lại stock_transaction để dò tồn từng bước |
 | [Tồn kho đầu kỳ](1-kho-hang/05-ton-dau-ky.md) | Khởi tạo tồn bằng chứng từ, chặn trùng hai lớp |
 | [Kiểm kê kho](1-kho-hang/06-kiem-ke.md) | Chụp sổ sách, ghi phần chênh, không khóa kho |
+| [Báo cáo tồn kho và tổng quan](1-kho-hang/07-bao-cao-ton-kho.md) | Tính lại từ sổ, đảo bù cột gốc, tải lười biểu đồ |
 
 ### Tiền và công nợ
 
@@ -115,6 +116,14 @@ lỗi đã gặp và câu hỏi ôn tập. Do AI ghi sau mỗi module (CLAUDE.md
 2. Chụp số sổ sách lúc nào, khi nào phải chụp lại? Không khóa kho thì đổi lại phải chấp nhận điều gì?
 3. Vì sao mỗi kho chỉ được một phiếu đang kiểm? Chuyện gì xảy ra nếu có hai phiếu cùng kiểm cám A?
 4. Vì sao test rollback đặt trong lớp `@Transactional` lại cho kết quả sai?
+
+**[Báo cáo tồn kho và tổng quan](1-kho-hang/07-bao-cao-ton-kho.md)**
+
+1. Vì sao không cần bảng lưu "tồn cuối mỗi ngày" để làm báo cáo nhập – xuất – tồn? Khi nào mới cần?
+2. Phiếu nhập 4 bao rồi đảo trong cùng kỳ: báo cáo hiện gì ở cột Nhập / Xuất? Vì sao không để giao dịch đảo vào cột Xuất?
+3. Báo cáo tồn dùng ngày ghi sổ, doanh số dùng ngày bán. Cho ví dụ hai cách cho ra số khác nhau.
+4. Vì sao thẻ "Tiền mặt" trên tổng quan gọi API sổ quỹ chứ không nằm trong `/api/reports/dashboard`?
+5. Nêu một lỗi có thể xảy ra khi ghép chuỗi SQL động, và cách test để phát hiện.
 
 **[Công nợ nhân viên: lương theo tấn, trả lương, tạm ứng](2-tien-va-cong-no/02-cong-no-nhan-vien.md)**
 

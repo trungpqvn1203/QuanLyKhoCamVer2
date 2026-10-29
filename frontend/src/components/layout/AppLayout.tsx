@@ -1,4 +1,4 @@
-import { AccountBookOutlined, AppstoreOutlined, AuditOutlined, BankOutlined, CalendarOutlined, DollarOutlined, DownOutlined, ExportOutlined, FlagOutlined, HistoryOutlined, HomeOutlined, IdcardOutlined, ImportOutlined, InboxOutlined, KeyOutlined, LogoutOutlined, SafetyOutlined, ShopOutlined, ShoppingOutlined, TeamOutlined, UserOutlined, UsergroupAddOutlined, WalletOutlined } from '@ant-design/icons'
+import { AccountBookOutlined, AppstoreOutlined, AuditOutlined, BankOutlined, BarChartOutlined, CalendarOutlined, DashboardOutlined, DollarOutlined, DownOutlined, ExportOutlined, FlagOutlined, HistoryOutlined, HomeOutlined, IdcardOutlined, ImportOutlined, InboxOutlined, KeyOutlined, LogoutOutlined, SafetyOutlined, ShopOutlined, ShoppingOutlined, TeamOutlined, UserOutlined, UsergroupAddOutlined, WalletOutlined } from '@ant-design/icons'
 import { App, Breadcrumb, Button, Dropdown, Flex, Layout, Menu, Typography, theme } from 'antd'
 import type { MenuProps } from 'antd'
 import type { ReactNode } from 'react'
@@ -27,6 +27,7 @@ interface MenuEntry {
 }
 
 const MENU_ITEMS: MenuEntry[] = [
+  { key: '/dashboard', icon: <DashboardOutlined />, label: 'Tổng quan' },
   { key: '/products', icon: <AppstoreOutlined />, label: 'Sản phẩm' },
   { key: '/warehouses', icon: <HomeOutlined />, label: 'Kho hàng' },
   { key: '/suppliers', icon: <ShopOutlined />, label: 'Nhà cung cấp', permission: 'suppliers' },
@@ -37,6 +38,7 @@ const MENU_ITEMS: MenuEntry[] = [
   // Cùng quyền với phiếu nhập: quản lý kho trả tiền NCC (BR-SPAY-06)
   { key: '/supplier-debts', icon: <WalletOutlined />, label: 'Công nợ NCC', permission: 'inbound' },
   { key: '/stock-transactions', icon: <HistoryOutlined />, label: 'Lịch sử kho' },
+  { key: '/reports', icon: <BarChartOutlined />, label: 'Báo cáo tồn kho' },
   { key: '/stock-counts', icon: <AuditOutlined />, label: 'Kiểm kê', permission: 'stockcount' },
   { key: '/employees', icon: <IdcardOutlined />, label: 'Nhân viên', permission: 'employees' },
   { key: '/attendance', icon: <CalendarOutlined />, label: 'Chấm công', permission: 'attendance' },
