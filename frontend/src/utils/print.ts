@@ -25,13 +25,36 @@ hr { border: 0; border-top: 1px dashed #000; margin: 6px 0; }
 `
 
 /**
+ * Khổ A4 ngang cho báo cáo bảng nhiều cột (BR-RPT-06). Dòng tiêu đề bảng lặp lại ở mỗi trang (thead),
+ * không cắt đôi một dòng giữa hai trang.
+ */
+const A4_CSS = `
+@page { size: A4 landscape; margin: 10mm 12mm; }
+* { box-sizing: border-box; }
+body { margin: 0; color: #000; font-family: Arial, Helvetica, sans-serif; font-size: 11px; line-height: 1.3; }
+.header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px; }
+.store { font-weight: 700; font-size: 12px; text-transform: uppercase; }
+.title { text-align: center; font-size: 16px; font-weight: 700; margin: 4px 0 2px; }
+.subtitle { text-align: center; margin-bottom: 8px; }
+table { width: 100%; border-collapse: collapse; }
+thead { display: table-header-group; }
+tr { page-break-inside: avoid; }
+th, td { border: 1px solid #000; padding: 3px 5px; vertical-align: top; }
+th { background: #eee; font-weight: 700; text-align: center; }
+td.num { text-align: right; white-space: nowrap; }
+tfoot td { font-weight: 700; }
+.muted { color: #555; }
+.footer { margin-top: 8px; display: flex; justify-content: space-between; }
+`
+
+/**
  * In một mẫu React qua iframe ẩn bằng hộp thoại in của trình duyệt (BR-PRT-04) — không cần thư viện, máy in nào
  * cài driver trên máy tính đều in được. Tách khỏi trang chính để CSS in không lẫn với giao diện antd.
  * renderToStaticMarkup tự escape chữ (tên khách, ghi chú...) nên không chèn được HTML lạ.
  */
-export function printK80(title: string, content: ReactElement): void {
+function printDocument(title: string, content: ReactElement, css: string): void {
   const html = `<!doctype html><html lang="vi"><head><meta charset="utf-8"><title>${escapeHtml(title)}</title>
-<style>${K80_CSS}</style></head><body>${renderToStaticMarkup(content)}</body></html>`
+<style>${css}</style></head><body>${renderToStaticMarkup(content)}</body></html>`
 
   const frame = document.createElement('iframe')
   frame.setAttribute('aria-hidden', 'true')
@@ -48,6 +71,16 @@ export function printK80(title: string, content: ReactElement): void {
   }
   frame.srcdoc = html
   document.body.appendChild(frame)
+}
+
+/** Phiếu bán khổ K80 (máy in nhiệt). */
+export function printK80(title: string, content: ReactElement): void {
+  printDocument(title, content, K80_CSS)
+}
+
+/** Báo cáo khổ A4 ngang (máy in văn phòng). */
+export function printA4Landscape(title: string, content: ReactElement): void {
+  printDocument(title, content, A4_CSS)
 }
 
 function escapeHtml(text: string): string {

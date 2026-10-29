@@ -138,6 +138,14 @@ public final class CommonSpecifications {
         return typed;
     }
 
+    /**
+     * Mẫu LIKE "chứa từ khóa" đã escape, cho truy vấn SQL thuần (báo cáo) — dùng kèm
+     * {@code lower(immutable_unaccent(cột)) LIKE lower(immutable_unaccent(:pattern)) ESCAPE ''}.
+     */
+    public static String containsPattern(String keyword) {
+        return "%" + escapeLike(keyword.trim()) + "%";
+    }
+
     // Người dùng gõ "%" hay "_" phải được hiểu là ký tự thường, không phải ký tự đại diện của LIKE
     private static String escapeLike(String value) {
         return value

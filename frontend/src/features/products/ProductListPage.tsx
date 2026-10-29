@@ -9,7 +9,7 @@ import {
 import { App, Button, Flex, Typography } from 'antd'
 import type { TableProps } from 'antd'
 import { useCallback, useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { ApiError } from '../../api/client'
 import { PageHeader } from '../../components/layout/PageHeader'
 import { CodeLink, CodeText } from '../../components/ui/CodeLink'
@@ -49,6 +49,18 @@ const STOCK_STATUS_OPTIONS = (Object.keys(STOCK_STATUS_LABELS) as StockStatus[])
   label: STOCK_STATUS_LABELS[status],
 }))
 
+/**
+ * ?stockStatus=LOW&active=true (thẻ cảnh báo ở trang Tổng quan dẫn sang) → bộ lọc ban đầu. Giá trị lạ bị bỏ qua.
+ */
+function filtersFromUrl(params: URLSearchParams): ProductStockFilters {
+  const status = params.get('stockStatus')
+  const active = params.get('active')
+  return {
+    stockStatus: status && status in STOCK_STATUS_LABELS ? (status as StockStatus) : undefined,
+    active: active === 'true' ? true : active === 'false' ? false : undefined,
+  }
+}
+
 /** "Bao" → "bao" để ghép sau số: "120 bao". */
 const unitText = (product: Pick<Product, 'unitName'>) => product.unitName.toLowerCase()
 /**
@@ -61,8 +73,11 @@ export function ProductListPage() {
   // Chỉ quản lý hệ thống sửa danh mục SP; NCC của SP chỉ quản lý kho + quản lý hệ thống xem được (ADR-0003)
   const canWrite = useCan('catalog.write')
   const canSeeSuppliers = useCan('suppliers')
+  const [searchParams] = useSearchParams()
   const { page, loading, error, changePage, reload, filters, applyFilters, filtering } = useFilteredList(
     productStockApi.list,
+    20,
+    filtersFromUrl(searchParams),
   )
   const [categories, setCategories] = useState<Category[]>([])
   const [warehouses, setWarehouses] = useState<Warehouse[]>([])
