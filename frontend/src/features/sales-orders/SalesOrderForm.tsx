@@ -1,7 +1,9 @@
-import { DeleteOutlined, PlusOutlined } from '@ant-design/icons'
+import { DeleteOutlined } from '@ant-design/icons'
 import { App, Button, Col, Form, Input, InputNumber, Row, Select, Table, Tooltip, Typography } from 'antd'
-import type { FormInstance, FormListFieldData, FormRule as Rule, TableProps } from 'antd'
-import { useEffect, useState } from 'react'
+import type { FormInstance, FormListFieldData, RefSelectProps, FormRule as Rule, TableProps } from 'antd'
+import { useEffect, useRef, useState } from 'react'
+import { focusLineField, resolveQuickAdd } from '../../components/ui/product-quick-add'
+import { ProductLabel, ProductQuickAdd } from '../../components/ui/ProductQuickAdd'
 import { EMPTY_TEXT, todayIso } from '../../utils/format'
 import { formatPriceInput, formatVnd, hasAtMostTwoDecimals, parsePriceInput } from '../../utils/money'
 import { productStockApi } from '../products/product-stock-api'
@@ -48,6 +50,7 @@ interface ProductInfo {
 
 /**
  * Form phiếu bán (thông tin chung + bảng dòng hàng động). Dùng cho tạo mới và sửa phiếu Nháp.
+ * - Thêm SP bằng ô thêm nhanh trên bảng; Enter ở ô SL → sang ô giá nếu còn trống, không thì về ô thêm nhanh.
  * - Chọn SP → đơn giá điền sẵn từ bảng giá riêng của khách (BR-SAL-07); sửa tay được. Ô giá có dấu "Giá riêng"
  *   khi đúng bằng bảng giá.
  * - Cột "Tồn kho" theo kho đã chọn: chỉ để tham khảo, phiếu nháp không giữ chỗ tồn (BR-SAL-02); vượt tồn thì
@@ -59,6 +62,7 @@ export function SalesOrderForm({ form, initialValues, references, order, disable
   const customerId = Form.useWatch('customerId', form)
   const warehouseId = Form.useWatch('warehouseId', form)
   const lines = Form.useWatch('lines', form) as SalesLineFormValues[] | undefined
+  const quickAddRef = useRef<RefSelectProps>(null)
 
   // Kết quả kèm khóa (kho / khách) đã tải: "đang tải" suy ra từ việc khóa có khớp hay chưa
   const [products, setProducts] = useState<{ warehouseId?: number; items: ProductStock[] } | null>(null)
@@ -129,21 +133,27 @@ export function SalesOrderForm({ form, initialValues, references, order, disable
     })
   }
 
-  const chosenProductIds = (lines ?? []).map((line) => line?.productId)
-  const productOptions = (rowIndex: number) =>
-    [...productInfo].map(([productId, info]) => ({
-      value: productId,
-      label: info.label,
-      disabled: chosenProductIds.some((chosen, index) => chosen === productId && index !== rowIndex),
-    }))
+  const productLabels = new Map([...productInfo].map(([productId, info]) => [productId, info.label]))
+  const quickAddOptions = [...productInfo].map(([productId, info]) => ({ value: productId, label: info.label }))
 
-  // BR-SAL-07: chọn SP → điền giá riêng nếu khách có; không có thì để người bán nhập tay
-  const handleProductChange = (rowIndex: number, productId: number) => {
+  // Mỗi SP một dòng: SP đã có thì chỉ đưa con trỏ về dòng đó. BR-SAL-07: điền giá riêng nếu khách có
+  const pickProduct = (productId: number, add: (line: SalesLineFormValues) => void) => {
+    const target = resolveQuickAdd(form.getFieldValue('lines'), productId)
     const price = priceMap.get(productId)
-    if (price !== undefined) form.setFieldValue(['lines', rowIndex, 'unitPrice'], price)
+    if (target.action === 'focus') {
+      message.info(`Sản phẩm đã có ở dòng ${target.index + 1}`)
+    } else if (target.action === 'append') {
+      add({ productId, unitPrice: price })
+    } else {
+      form.setFieldValue(['lines', target.index, 'productId'], productId)
+      if (price !== undefined) form.setFieldValue(['lines', target.index, 'unitPrice'], price)
+    }
+    focusLineField(form, ['lines', target.index, 'quantity'])
   }
 
-  const lineColumns = (remove: (index: number) => void, count: number): TableProps<FormListFieldData>['columns'] => [
+  const focusQuickAdd = () => quickAddRef.current?.focus()
+
+  const lineColumns = (remove: (index: number) => void): TableProps<FormListFieldData>['columns'] => [
     { title: '#', key: 'index', width: 40, align: 'center', render: (_, __, index) => index + 1 },
     {
       title: 'Sản phẩm',
@@ -151,15 +161,7 @@ export function SalesOrderForm({ form, initialValues, references, order, disable
       width: 300,
       render: (_, field) => (
         <Form.Item name={[field.name, 'productId']} rules={[{ required: true, message: 'Chọn sản phẩm' }]} style={NO_MARGIN}>
-          <Select<number>
-            placeholder="Chọn sản phẩm"
-            aria-label={`Sản phẩm dòng ${field.name + 1}`}
-            loading={loadingProducts}
-            options={productOptions(field.name)}
-            showSearch={{ optionFilterProp: 'label' }}
-            onChange={(productId) => handleProductChange(field.name, productId)}
-            notFoundContent={loadingProducts ? 'Đang tải…' : 'Không có sản phẩm đang kinh doanh'}
-          />
+          <ProductLabel labels={productLabels} />
         </Form.Item>
       ),
     },
@@ -201,7 +203,16 @@ export function SalesOrderForm({ form, initialValues, references, order, disable
             style={NO_MARGIN}
             extra={overStock && <Typography.Text type="warning">Vượt tồn</Typography.Text>}
           >
-            <InputNumber min={1} style={{ width: '100%' }} aria-label={`Số lượng dòng ${field.name + 1}`} />
+            <InputNumber
+              min={1}
+              style={{ width: '100%' }}
+              aria-label={`Số lượng dòng ${field.name + 1}`}
+              onPressEnter={() =>
+                form.getFieldValue(['lines', field.name, 'unitPrice']) == null
+                  ? focusLineField(form, ['lines', field.name, 'unitPrice'])
+                  : focusQuickAdd()
+              }
+            />
           </Form.Item>
         )
       },
@@ -232,6 +243,7 @@ export function SalesOrderForm({ form, initialValues, references, order, disable
               formatter={formatPriceInput}
               parser={(text) => Number(parsePriceInput(text))}
               aria-label={`Đơn giá dòng ${field.name + 1}`}
+              onPressEnter={focusQuickAdd}
             />
           </Form.Item>
         )
@@ -257,7 +269,6 @@ export function SalesOrderForm({ form, initialValues, references, order, disable
           type="text"
           danger
           icon={<DeleteOutlined />}
-          disabled={count === 1}
           onClick={() => remove(field.name)}
           aria-label={`Xóa dòng ${field.name + 1}`}
         />
@@ -316,10 +327,17 @@ export function SalesOrderForm({ form, initialValues, references, order, disable
       >
         {(fields, { add, remove }, { errors }) => (
           <>
+            <ProductQuickAdd
+              selectRef={quickAddRef}
+              options={quickAddOptions}
+              loading={loadingProducts}
+              notFoundContent="Không có sản phẩm đang kinh doanh phù hợp"
+              onPick={(productId) => pickProduct(productId, add)}
+            />
             <Table<FormListFieldData>
               size="small"
               rowKey="key"
-              columns={lineColumns(remove, fields.length)}
+              columns={lineColumns(remove)}
               dataSource={fields}
               pagination={false}
               scroll={{ x: 'max-content' }}
@@ -336,9 +354,6 @@ export function SalesOrderForm({ form, initialValues, references, order, disable
               )}
             />
             <Form.ErrorList errors={errors} />
-            <Button type="dashed" block icon={<PlusOutlined />} onClick={() => add({})} style={{ marginTop: 12 }}>
-              Thêm dòng hàng
-            </Button>
           </>
         )}
       </Form.List>

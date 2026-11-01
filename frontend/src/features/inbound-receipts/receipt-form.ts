@@ -18,9 +18,9 @@ export interface ReceiptFormValues {
   lines?: LineFormValues[]
 }
 
-/** Phiếu mới: ngày hôm nay (giờ VN, BR-IMP-08), sẵn một dòng trống. */
+/** Phiếu mới: ngày hôm nay (giờ VN, BR-IMP-08), chưa có dòng — SP thêm qua ô thêm nhanh. */
 export function emptyReceiptForm(): ReceiptFormValues {
-  return { documentDate: todayIso(), lines: [{}] }
+  return { documentDate: todayIso(), lines: [] }
 }
 
 /** Phiếu nháp đã lưu → giá trị form để sửa tiếp. */

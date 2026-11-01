@@ -1,7 +1,9 @@
-import { DeleteOutlined, PlusOutlined } from '@ant-design/icons'
-import { Alert, Button, Col, Form, Input, InputNumber, Row, Select, Table, Typography } from 'antd'
-import type { FormInstance, FormListFieldData, FormRule as Rule, TableProps } from 'antd'
-import { useEffect, useState } from 'react'
+import { DeleteOutlined } from '@ant-design/icons'
+import { Alert, App, Button, Col, Form, Input, InputNumber, Row, Select, Table, Typography } from 'antd'
+import type { FormInstance, FormListFieldData, RefSelectProps, FormRule as Rule, TableProps } from 'antd'
+import { useEffect, useRef, useState } from 'react'
+import { focusLineField, resolveQuickAdd } from '../../components/ui/product-quick-add'
+import { ProductLabel, ProductQuickAdd } from '../../components/ui/ProductQuickAdd'
 import { EMPTY_TEXT, formatQuantity, todayIso } from '../../utils/format'
 import { formatPriceInput, formatVnd, hasAtMostTwoDecimals, lineAmount, parsePriceInput } from '../../utils/money'
 import type { Product } from '../products/product-api'
@@ -39,10 +41,13 @@ const priceRule: Rule = {
 /**
  * Form phiếu tồn đầu kỳ: kho, ngày, bảng dòng (SP, SL, đơn giá tùy chọn). Dùng cho tạo mới và sửa phiếu Nháp.
  * - SP đã có nhập/xuất tại kho đang chọn bị làm mờ kèm lý do (BR-OPN-05) — backend vẫn kiểm lại lúc xác nhận.
- * - Mỗi SP một dòng: SP đã chọn ở dòng khác bị làm mờ.
+ * - Mỗi SP một dòng: chọn lại SP đã có ở ô thêm nhanh thì chỉ đưa con trỏ về dòng đó.
+ * - Enter ở ô SL → về ô thêm nhanh để nhập SP tiếp (đơn giá tùy chọn, bấm Tab nếu cần nhập).
  */
 export function OpeningStockForm({ form, initialValues, warehouses, products, document, disabled }: OpeningStockFormProps) {
+  const { message } = App.useApp()
   const warehouseId = Form.useWatch('warehouseId', form)
+  const quickAddRef = useRef<RefSelectProps>(null)
   const lines = Form.useWatch('lines', form) as OpeningLineFormValues[] | undefined
   // Ghi kèm kho của kết quả: "đang tải" suy ra từ đây, không cần setState trong effect
   const [movement, setMovement] = useState<{ warehouseId: number; productIds: Set<number> } | null>(null)
@@ -79,20 +84,29 @@ export function OpeningStockForm({ form, initialValues, warehouses, products, do
     productInfo.set(product.id, { label: `${product.code} · ${product.name}`, unit: product.unitName })
   }
 
-  const chosenProductIds = (lines ?? []).map((line) => line?.productId)
   const blockedLines = (lines ?? []).filter((line) => line?.productId !== undefined && movedIds.has(line.productId))
 
-  const productOptions = (rowIndex: number) =>
-    [...productInfo].map(([productId, info]) => {
-      const moved = movedIds.has(productId)
-      return {
-        value: productId,
-        label: moved ? `${info.label} — đã có nhập/xuất tại kho` : info.label,
-        disabled: moved || chosenProductIds.some((chosen, index) => chosen === productId && index !== rowIndex),
-      }
-    })
+  const productLabels = new Map([...productInfo].map(([productId, info]) => [productId, info.label]))
+  const quickAddOptions = [...productInfo].map(([productId, info]) => {
+    const moved = movedIds.has(productId)
+    return {
+      value: productId,
+      label: moved ? `${info.label} — đã có nhập/xuất tại kho` : info.label,
+      disabled: moved,
+    }
+  })
 
-  const lineColumns = (remove: (index: number) => void, count: number): TableProps<FormListFieldData>['columns'] => [
+  const pickProduct = (productId: number, add: (line: OpeningLineFormValues) => void) => {
+    const target = resolveQuickAdd(form.getFieldValue('lines'), productId)
+    if (target.action === 'focus') message.info(`Sản phẩm đã có ở dòng ${target.index + 1}`)
+    else if (target.action === 'append') add({ productId })
+    else form.setFieldValue(['lines', target.index, 'productId'], productId)
+    focusLineField(form, ['lines', target.index, 'quantity'])
+  }
+
+  const focusQuickAdd = () => quickAddRef.current?.focus()
+
+  const lineColumns = (remove: (index: number) => void): TableProps<FormListFieldData>['columns'] => [
     { title: '#', key: 'index', width: 40, align: 'center', render: (_, __, index) => index + 1 },
     {
       title: 'Sản phẩm',
@@ -100,14 +114,7 @@ export function OpeningStockForm({ form, initialValues, warehouses, products, do
       width: 360,
       render: (_, field) => (
         <Form.Item name={[field.name, 'productId']} rules={[{ required: true, message: 'Chọn sản phẩm' }]} style={NO_MARGIN}>
-          <Select<number>
-            placeholder={warehouseId ? 'Chọn sản phẩm' : 'Chọn kho trước'}
-            aria-label={`Sản phẩm dòng ${field.name + 1}`}
-            disabled={!warehouseId}
-            loading={loadingMovement}
-            options={productOptions(field.name)}
-            showSearch={{ optionFilterProp: 'label' }}
-          />
+          <ProductLabel labels={productLabels} />
         </Form.Item>
       ),
     },
@@ -131,7 +138,12 @@ export function OpeningStockForm({ form, initialValues, warehouses, products, do
           rules={[{ required: true, message: 'Nhập SL' }, { type: 'number', min: 1, message: 'Tối thiểu 1' }, integerRule]}
           style={NO_MARGIN}
         >
-          <InputNumber min={1} style={{ width: '100%' }} aria-label={`Số lượng dòng ${field.name + 1}`} />
+          <InputNumber
+            min={1}
+            style={{ width: '100%' }}
+            aria-label={`Số lượng dòng ${field.name + 1}`}
+            onPressEnter={focusQuickAdd}
+          />
         </Form.Item>
       ),
     },
@@ -152,6 +164,7 @@ export function OpeningStockForm({ form, initialValues, warehouses, products, do
             parser={(text) => Number(parsePriceInput(text))}
             placeholder="Không bắt buộc"
             aria-label={`Đơn giá dòng ${field.name + 1}`}
+            onPressEnter={focusQuickAdd}
           />
         </Form.Item>
       ),
@@ -178,7 +191,6 @@ export function OpeningStockForm({ form, initialValues, warehouses, products, do
           type="text"
           danger
           icon={<DeleteOutlined />}
-          disabled={count === 1}
           onClick={() => remove(field.name)}
           aria-label={`Xóa dòng ${field.name + 1}`}
         />
@@ -248,10 +260,19 @@ export function OpeningStockForm({ form, initialValues, warehouses, products, do
       >
         {(fields, { add, remove }, { errors }) => (
           <>
+            <ProductQuickAdd
+              selectRef={quickAddRef}
+              options={quickAddOptions}
+              disabled={!warehouseId}
+              loading={loadingMovement}
+              placeholder={warehouseId ? undefined : 'Chọn kho trước để thêm sản phẩm'}
+              notFoundContent="Không có sản phẩm đang kinh doanh phù hợp"
+              onPick={(productId) => pickProduct(productId, add)}
+            />
             <Table<FormListFieldData>
               size="small"
               rowKey="key"
-              columns={lineColumns(remove, fields.length)}
+              columns={lineColumns(remove)}
               dataSource={fields}
               pagination={false}
               scroll={{ x: 'max-content' }}
@@ -272,9 +293,6 @@ export function OpeningStockForm({ form, initialValues, warehouses, products, do
               )}
             />
             <Form.ErrorList errors={errors} />
-            <Button type="dashed" block icon={<PlusOutlined />} onClick={() => add({})} style={{ marginTop: 12 }}>
-              Thêm dòng hàng
-            </Button>
           </>
         )}
       </Form.List>

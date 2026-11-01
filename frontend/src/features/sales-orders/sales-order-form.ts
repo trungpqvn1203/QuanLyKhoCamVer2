@@ -16,9 +16,9 @@ export interface SalesOrderFormValues {
   lines?: SalesLineFormValues[]
 }
 
-/** Phiếu mới: ngày hôm nay (giờ VN), sẵn một dòng trống. */
+/** Phiếu mới: ngày hôm nay (giờ VN), chưa có dòng — SP thêm qua ô thêm nhanh. */
 export function emptySalesOrderForm(): SalesOrderFormValues {
-  return { documentDate: todayIso(), lines: [{}] }
+  return { documentDate: todayIso(), lines: [] }
 }
 
 export function toSalesFormValues(order: SalesOrder): SalesOrderFormValues {

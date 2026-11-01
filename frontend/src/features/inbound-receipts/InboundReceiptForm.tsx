@@ -1,7 +1,9 @@
-import { DeleteOutlined, PlusOutlined } from '@ant-design/icons'
+import { DeleteOutlined } from '@ant-design/icons'
 import { App, Button, Col, Form, Input, InputNumber, Row, Select, Table, Typography } from 'antd'
-import type { FormInstance, FormListFieldData, FormRule as Rule, TableProps } from 'antd'
-import { useEffect, useState } from 'react'
+import type { FormInstance, FormListFieldData, RefSelectProps, FormRule as Rule, TableProps } from 'antd'
+import { useEffect, useRef, useState } from 'react'
+import { focusLineField, resolveQuickAdd } from '../../components/ui/product-quick-add'
+import { ProductLabel, ProductQuickAdd } from '../../components/ui/ProductQuickAdd'
 import { EMPTY_TEXT, todayIso } from '../../utils/format'
 import { formatPriceInput, formatVnd, parsePriceInput } from '../../utils/money'
 import { supplierApi } from '../suppliers/supplier-api'
@@ -43,8 +45,9 @@ const priceRule: Rule = {
 
 /**
  * Form phiếu nhập (thông tin chung + bảng dòng hàng động). Dùng cho tạo mới và sửa phiếu Nháp.
- * - Ô sản phẩm chỉ gồm SP đang gán cho NCC đã chọn (BR-SUP-08) — chọn NCC trước.
- * - Mỗi SP một dòng (BR-IMP-A05): SP đã chọn ở dòng khác bị làm mờ.
+ * - Ô thêm nhanh chỉ gồm SP đang gán cho NCC đã chọn (BR-SUP-08) — chọn NCC trước.
+ * - Mỗi SP một dòng (BR-IMP-A05): chọn lại SP đã có thì chỉ đưa con trỏ về dòng đó.
+ * - Enter ở ô SL đặt → sang ô giá nếu còn trống, không thì về ô thêm nhanh.
  * - SL thực nhận để trống = bằng SL đặt (BR-IMP-03); lệch thì hiện "Thiếu/Thừa" ngay dưới ô.
  * - Thành tiền / tổng chỉ là số tạm (cùng quy tắc HALF_UP); số chính thức do backend tính khi lưu.
  */
@@ -52,6 +55,7 @@ export function InboundReceiptForm({ form, initialValues, references, receipt, d
   const { message } = App.useApp()
   const supplierId = Form.useWatch('supplierId', form)
   const lines = Form.useWatch('lines', form) as LineFormValues[] | undefined
+  const quickAddRef = useRef<RefSelectProps>(null)
   // Ghi kèm NCC của kết quả: "đang tải" và "danh sách SP" đều suy ra từ đây, không cần setState trong effect
   const [linked, setLinked] = useState<{ supplierId: number; items: SupplierProduct[] } | null>(null)
   const linkedProducts = supplierId && linked?.supplierId === supplierId ? linked.items : []
@@ -96,14 +100,18 @@ export function InboundReceiptForm({ form, initialValues, references, receipt, d
     productInfo.set(item.productId, { label: `${item.productCode} · ${item.productName}`, unit: item.unitName })
   }
 
-  const chosenProductIds = (lines ?? []).map((line) => line?.productId)
+  const productLabels = new Map([...productInfo].map(([productId, info]) => [productId, info.label]))
+  const quickAddOptions = [...productInfo].map(([productId, info]) => ({ value: productId, label: info.label }))
 
-  const productOptions = (rowIndex: number) =>
-    [...productInfo].map(([productId, info]) => ({
-      value: productId,
-      label: info.label,
-      disabled: chosenProductIds.some((chosen, index) => chosen === productId && index !== rowIndex),
-    }))
+  const pickProduct = (productId: number, add: (line: LineFormValues) => void) => {
+    const target = resolveQuickAdd(form.getFieldValue('lines'), productId)
+    if (target.action === 'focus') message.info(`Sản phẩm đã có ở dòng ${target.index + 1}`)
+    else if (target.action === 'append') add({ productId })
+    else form.setFieldValue(['lines', target.index, 'productId'], productId)
+    focusLineField(form, ['lines', target.index, 'orderedQuantity'])
+  }
+
+  const focusQuickAdd = () => quickAddRef.current?.focus()
 
   // Đổi NCC: SP của NCC cũ không còn hợp lệ (BR-SUP-08) → bỏ chọn SP ở mọi dòng, giữ số lượng/đơn giá
   const handleSupplierChange = () => {
@@ -113,10 +121,10 @@ export function InboundReceiptForm({ form, initialValues, references, receipt, d
       'lines',
       current.map((line) => ({ ...line, productId: undefined })),
     )
-    message.info('Đã đổi nhà cung cấp — hãy chọn lại sản phẩm cho các dòng')
+    message.info('Đã đổi nhà cung cấp — hãy tìm lại sản phẩm cho các dòng ở ô thêm nhanh')
   }
 
-  const lineColumns = (remove: (index: number) => void, count: number): TableProps<FormListFieldData>['columns'] => [
+  const lineColumns = (remove: (index: number) => void): TableProps<FormListFieldData>['columns'] => [
     { title: '#', key: 'index', width: 40, align: 'center', render: (_, __, index) => index + 1 },
     {
       title: 'Sản phẩm',
@@ -124,15 +132,7 @@ export function InboundReceiptForm({ form, initialValues, references, receipt, d
       width: 300,
       render: (_, field) => (
         <Form.Item name={[field.name, 'productId']} rules={[{ required: true, message: 'Chọn sản phẩm' }]} style={NO_MARGIN}>
-          <Select<number>
-            placeholder={supplierId ? 'Chọn sản phẩm' : 'Chọn nhà cung cấp trước'}
-            aria-label={`Sản phẩm dòng ${field.name + 1}`}
-            disabled={!supplierId}
-            loading={loadingProducts}
-            options={productOptions(field.name)}
-            showSearch={{ optionFilterProp: 'label' }}
-            notFoundContent={loadingProducts ? 'Đang tải…' : 'Nhà cung cấp chưa được gán sản phẩm nào đang kinh doanh'}
-          />
+          <ProductLabel labels={productLabels} />
         </Form.Item>
       ),
     },
@@ -156,7 +156,16 @@ export function InboundReceiptForm({ form, initialValues, references, receipt, d
           rules={[{ required: true, message: 'Nhập SL' }, { type: 'number', min: 1, message: 'Tối thiểu 1' }, integerRule]}
           style={NO_MARGIN}
         >
-          <InputNumber min={1} style={{ width: '100%' }} aria-label={`SL đặt dòng ${field.name + 1}`} />
+          <InputNumber
+            min={1}
+            style={{ width: '100%' }}
+            aria-label={`SL đặt dòng ${field.name + 1}`}
+            onPressEnter={() =>
+              form.getFieldValue(['lines', field.name, 'unitPrice']) == null
+                ? focusLineField(form, ['lines', field.name, 'unitPrice'])
+                : focusQuickAdd()
+            }
+          />
         </Form.Item>
       ),
     },
@@ -189,6 +198,7 @@ export function InboundReceiptForm({ form, initialValues, references, receipt, d
               // Để trống = bằng SL đặt (BR-IMP-03) → gợi ý ngay trong ô
               placeholder={line?.orderedQuantity !== undefined ? String(line.orderedQuantity) : '= SL đặt'}
               aria-label={`SL thực nhận dòng ${field.name + 1}`}
+              onPressEnter={focusQuickAdd}
             />
           </Form.Item>
         )
@@ -210,6 +220,7 @@ export function InboundReceiptForm({ form, initialValues, references, receipt, d
             formatter={formatPriceInput}
             parser={(text) => Number(parsePriceInput(text))}
             aria-label={`Đơn giá dòng ${field.name + 1}`}
+            onPressEnter={focusQuickAdd}
           />
         </Form.Item>
       ),
@@ -234,7 +245,6 @@ export function InboundReceiptForm({ form, initialValues, references, receipt, d
           type="text"
           danger
           icon={<DeleteOutlined />}
-          disabled={count === 1}
           onClick={() => remove(field.name)}
           aria-label={`Xóa dòng ${field.name + 1}`}
         />
@@ -298,10 +308,19 @@ export function InboundReceiptForm({ form, initialValues, references, receipt, d
       >
         {(fields, { add, remove }, { errors }) => (
           <>
+            <ProductQuickAdd
+              selectRef={quickAddRef}
+              options={quickAddOptions}
+              disabled={!supplierId}
+              loading={loadingProducts}
+              placeholder={supplierId ? undefined : 'Chọn nhà cung cấp trước để thêm sản phẩm'}
+              notFoundContent="Nhà cung cấp chưa được gán sản phẩm đang kinh doanh phù hợp"
+              onPick={(productId) => pickProduct(productId, add)}
+            />
             <Table<FormListFieldData>
               size="small"
               rowKey="key"
-              columns={lineColumns(remove, fields.length)}
+              columns={lineColumns(remove)}
               dataSource={fields}
               pagination={false}
               scroll={{ x: 'max-content' }}
@@ -320,9 +339,6 @@ export function InboundReceiptForm({ form, initialValues, references, receipt, d
               )}
             />
             <Form.ErrorList errors={errors} />
-            <Button type="dashed" block icon={<PlusOutlined />} onClick={() => add({})} style={{ marginTop: 12 }}>
-              Thêm dòng hàng
-            </Button>
           </>
         )}
       </Form.List>
