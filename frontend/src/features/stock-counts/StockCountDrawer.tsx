@@ -1,10 +1,12 @@
-import { CheckOutlined, DeleteOutlined, PlusOutlined, ReloadOutlined, RollbackOutlined, SaveOutlined, StopOutlined } from '@ant-design/icons'
+import { CheckOutlined, DeleteOutlined, ReloadOutlined, RollbackOutlined, SaveOutlined, StopOutlined } from '@ant-design/icons'
 import { Alert, App, Button, Descriptions, Drawer, Flex, Form, Input, InputNumber, Select, Skeleton, Table, Typography } from 'antd'
-import type { FormListFieldData, FormRule as Rule, TableProps } from 'antd'
-import { useEffect, useMemo, useState } from 'react'
+import type { FormListFieldData, RefSelectProps, FormRule as Rule, TableProps } from 'antd'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { ApiError } from '../../api/client'
 import { toFormFieldErrors } from '../../api/form-errors'
 import { CodeText } from '../../components/ui/CodeLink'
+import { focusLineField, resolveQuickAdd } from '../../components/ui/product-quick-add'
+import { ProductLabel, ProductQuickAdd } from '../../components/ui/ProductQuickAdd'
 import { ReasonModal } from '../../components/ui/ReasonModal'
 import { EMPTY_TEXT, formatDate, formatDateTime, formatQuantity, orEmpty, todayIso } from '../../utils/format'
 import type { Product } from '../products/product-api'
@@ -58,7 +60,7 @@ function toFormValues(count: StockCount): CountFormValues {
 
 /**
  * Khung phiếu kiểm kê (BR-CNT-01..10). Đang kiểm: nhập SL đếm từng dòng, chênh lệch hiện ngay; dòng lệch chọn lý do;
- * thêm SP chưa có tồn, bỏ SP không kiểm; Lấy lại số sổ sách khi có cảnh báo phát sinh. Xác nhận ghi phần chênh vào tồn.
+ * ô thêm nhanh vừa để nhảy tới dòng cần nhập số đếm, vừa để thêm SP chưa có tồn; bỏ SP không kiểm; Lấy lại số sổ sách khi có cảnh báo phát sinh. Xác nhận ghi phần chênh vào tồn.
  */
 export function StockCountDrawer({ countId, products, reasons, onClose, onChanged }: StockCountDrawerProps) {
   const { modal, notification } = App.useApp()
@@ -72,6 +74,7 @@ export function StockCountDrawer({ countId, products, reasons, onClose, onChange
   const [busy, setBusy] = useState<'save' | 'complete' | 'refresh' | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [reasonAction, setReasonAction] = useState<'cancel' | 'reverse' | null>(null)
+  const quickAddRef = useRef<RefSelectProps>(null)
 
   useEffect(() => {
     let ignore = false
@@ -103,7 +106,7 @@ export function StockCountDrawer({ countId, products, reasons, onClose, onChange
   const productLabel = new Map<number, string>()
   for (const product of products) productLabel.set(product.id, `${product.code} · ${product.name}`)
   for (const line of count?.lines ?? []) productLabel.set(line.productId, `${line.productCode} · ${line.productName}`)
-  const chosen = (lines ?? []).map((line) => line?.productId)
+  const quickAddOptions = [...productLabel].map(([id, label]) => ({ value: id, label }))
   const reasonOptions = reasons
     .filter((reason) => reason.active)
     .map((reason) => ({ value: reason.id, label: reason.name }))
@@ -246,6 +249,16 @@ export function StockCountDrawer({ countId, products, reasons, onClose, onChange
     })
   }
 
+  // SP đã có trên phiếu (thường gặp: dòng chụp từ sổ sách) → chỉ nhảy tới ô số đếm; chưa có → thêm dòng mới
+  const pickProduct = (productId: number, add: (line: LineValues) => void) => {
+    const target = resolveQuickAdd(form.getFieldValue('lines'), productId)
+    if (target.action === 'append') add({ productId })
+    else if (target.action === 'fill') form.setFieldValue(['lines', target.index, 'productId'], productId)
+    focusLineField(form, ['lines', target.index, 'countedQuantity'])
+  }
+
+  const focusQuickAdd = () => quickAddRef.current?.focus()
+
   const editColumns = (remove: (index: number) => void): TableProps<FormListFieldData>['columns'] => [
     { title: '#', key: 'index', width: 40, align: 'center', render: (_, __, index) => index + 1 },
     {
@@ -268,16 +281,7 @@ export function StockCountDrawer({ countId, products, reasons, onClose, onChange
         }
         return (
           <Form.Item name={[field.name, 'productId']} rules={[{ required: true, message: 'Chọn sản phẩm' }]} style={NO_MARGIN}>
-            <Select<number>
-              placeholder="Chọn sản phẩm"
-              showSearch={{ optionFilterProp: 'label' }}
-              aria-label={`Sản phẩm dòng ${field.name + 1}`}
-              options={[...productLabel].map(([id, label]) => ({
-                value: id,
-                label,
-                disabled: chosen.some((other, index) => other === id && index !== field.name),
-              }))}
-            />
+            <ProductLabel labels={productLabel} />
           </Form.Item>
         )
       },
@@ -303,7 +307,13 @@ export function StockCountDrawer({ countId, products, reasons, onClose, onChange
           rules={[{ type: 'number', min: 0, message: 'Không âm' }, integerRule]}
           style={NO_MARGIN}
         >
-          <InputNumber min={0} placeholder="Chưa đếm" style={{ width: '100%' }} aria-label={`SL đếm dòng ${field.name + 1}`} />
+          <InputNumber
+            min={0}
+            placeholder="Chưa đếm"
+            style={{ width: '100%' }}
+            aria-label={`SL đếm dòng ${field.name + 1}`}
+            onPressEnter={focusQuickAdd}
+          />
         </Form.Item>
       ),
     },
@@ -498,6 +508,13 @@ export function StockCountDrawer({ countId, products, reasons, onClose, onChange
               <Form.List name="lines">
                 {(fields, { add, remove }) => (
                   <>
+                    <ProductQuickAdd
+                      selectRef={quickAddRef}
+                      options={quickAddOptions}
+                      placeholder="Gõ mã hoặc tên sản phẩm để nhập số đếm, hoặc thêm SP chưa có tồn (F2)"
+                      notFoundContent="Không có sản phẩm đang kinh doanh phù hợp"
+                      onPick={(productId) => pickProduct(productId, add)}
+                    />
                     <Table<FormListFieldData>
                       size="small"
                       rowKey="key"
@@ -506,9 +523,6 @@ export function StockCountDrawer({ countId, products, reasons, onClose, onChange
                       pagination={false}
                       scroll={{ x: 'max-content', y: 'calc(100vh - 460px)' }}
                     />
-                    <Button type="dashed" block icon={<PlusOutlined />} onClick={() => add({})} style={{ marginTop: 12 }}>
-                      Thêm sản phẩm (chưa có trong danh sách)
-                    </Button>
                   </>
                 )}
               </Form.List>

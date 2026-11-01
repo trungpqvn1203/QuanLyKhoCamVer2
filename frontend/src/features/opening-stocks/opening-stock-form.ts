@@ -17,7 +17,7 @@ export interface OpeningStockFormValues {
 }
 
 export function emptyOpeningStockForm(): OpeningStockFormValues {
-  return { documentDate: todayIso(), lines: [{}] }
+  return { documentDate: todayIso(), lines: [] }
 }
 
 /** Đơn giá 0 trên phiếu đã lưu = chưa khai (BR-OPN-10) → để trống ô cho rõ. */

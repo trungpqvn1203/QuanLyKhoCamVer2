@@ -52,6 +52,7 @@ lỗi đã gặp và câu hỏi ôn tập. Do AI ghi sau mỗi module (CLAUDE.md
 | [Bộ lọc dùng chung và giao diện danh sách](4-nen-tang-he-thong/02-bo-loc-dung-chung-va-ui.md) | SearchCriteria + Specification, chuẩn UI |
 | [Mã tự sinh](4-nen-tang-he-thong/03-ma-tu-sinh.md) | Sequence, lỗi mã bị cắt cụt |
 | [In phiếu (K80)](4-nen-tang-he-thong/04-in-phieu.md) | Phiếu bán K80, in qua iframe, số tiền bằng chữ, `tsc -b` |
+| [Ô thêm nhanh sản phẩm trên phiếu](4-nen-tang-he-thong/05-them-nhanh-san-pham.md) | Đếm thao tác chuột/phím, focus sau render, tìm không dấu (NFD) |
 
 ### Vận hành: đóng gói và triển khai
 
@@ -218,6 +219,13 @@ lỗi đã gặp và câu hỏi ôn tập. Do AI ghi sau mỗi module (CLAUDE.md
 3. Đọc thành chữ: 1.000.005, 2.000.001.000, 21, 11, 105. Giải thích "không trăm", "linh", "mốt".
 4. Vì sao dùng iframe chứ không `window.print()` thẳng trên trang?
 5. `tsc --noEmit -p .` báo thành công mà không kiểm tra gì: vì sao? Làm sao biết một lệnh kiểm tra có thực sự hoạt động?
+
+**[Ô thêm nhanh sản phẩm trên phiếu](4-nen-tang-he-thong/05-them-nhanh-san-pham.md)**
+
+1. Nếu gọi `form.focusField` ngay sau `add()` (không có `setTimeout`) thì chuyện gì xảy ra? Vì sao?
+2. Vì sao cột SP vẫn phải nằm trong `Form.Item name=productId` dù chỉ hiện chữ? Bỏ đi thì phiếu nhập sau khi đổi NCC bị lỗi gì?
+3. `'đ'.normalize('NFD')` cho ra gì? Vì sao `foldVietnamese` phải đổi `đ` riêng?
+4. Khi nào nên chọn "trùng thì cộng +1 SL" thay vì "trùng thì nhảy về dòng cũ"?
 
 **[Bản chất deploy](5-van-hanh/01-ban-chat-deploy.md)**
 
