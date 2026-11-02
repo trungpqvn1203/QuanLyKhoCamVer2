@@ -54,6 +54,7 @@ public class ReportService {
                 period(reportRepository.salesTotals(today, today)),
                 period(reportRepository.salesTotals(today.withDayOfMonth(1), today)),
                 reportRepository.draftSalesCount(),
+                reportRepository.pendingSalesCount(),
                 fillDays(reportRepository.dailySales(chartFrom, today), chartFrom, today));
         return new DashboardResponse(today, stock, sales);
     }

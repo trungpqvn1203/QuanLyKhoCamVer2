@@ -32,6 +32,7 @@ Ràng buộc đổi: `ck_employee_has_rate` (ít nhất một trong ba đơn gi�
 | `stock_transaction` | Lịch sử biến động tồn kho (bất biến) | ✅ Đã duyệt 2026-10-19 (V6) |
 | `customer_product_price` | Giá bán riêng hiện hành theo (khách, SP) — chỉ để điền sẵn | ✅ Đã duyệt 2026-10-20 (V13) |
 | `sale_payment` | Lịch sử thanh toán của phiếu bán (bất biến) | ✅ Đã duyệt 2026-10-20 (V13) |
+| `sale_request_item` | Phần **khách đặt** (SP + SL) của phiếu bán — giữ nguyên sau khi xác nhận để đối chiếu | ✅ Đã duyệt 2026-11-02 (V25) |
 | `supplier_payment` | Lịch sử trả tiền NCC trên phiếu nhập (bất biến) | ✅ Đã duyệt 2026-10-25 (V16) |
 | `cash_book`, `cash_book_change`, `cash_category`, `cash_voucher` + VIEW `cash_flow_entry` | Sổ quỹ: đầu kỳ (1 dòng) + lịch sử sửa, danh mục thu/chi, phiếu thu/chi khác (bất biến); VIEW gộp mọi biến động tiền | ✅ Đã duyệt 2026-10-26 (V19) |
 | `store_info` | Thông tin cửa hàng in trên phiếu — đúng một dòng (`CHECK id = 1`), là cấu hình nên ghi đè được | ✅ Đã duyệt 2026-10-28 (V24) |
@@ -289,6 +290,16 @@ erDiagram
 - `total_amount NUMERIC(18,0)` = tổng `line_amount`, tính lại mỗi lần lưu.
 - Nội dung chỉ đổi khi `DRAFT`, luôn sau khi khóa dòng phiếu `SELECT … FOR UPDATE` (BR-IMP-14). Không xóa ở mọi trạng thái (BR-IMP-13).
 
+### Đơn khách đặt: stock_document OUTBOUND status PENDING + sale_request_item (✅ đã duyệt 2026-11-02 — migration V25)
+
+- `status` thêm `PENDING` (Chờ xác nhận) — chỉ phiếu bán (`ck_stock_document_pending`). Bước chuyển thêm: `PENDING → DRAFT` (xác nhận), `PENDING → CANCELLED` (BR-SAL-16).
+- `ck_stock_document_warehouse` nới: phiếu bán `PENDING`, hoặc `CANCELLED` mà **chưa từng xác nhận** (`confirmed_at IS NULL`), được không có kho. Từ `DRAFT` trở đi bắt buộc kho như cũ.
+- Cột mới (chỉ phiếu bán): `order_channel VARCHAR(20)` (`DIRECT`/`PHONE`/`ZALO`/`APP`; phiếu bán cũ = `DIRECT`; `ck_stock_document_order_channel`: phiếu bán bắt buộc có kênh, loại khác NULL), `requested_delivery_date DATE` (ngày muốn giao, được ở tương lai), `confirmed_at TIMESTAMPTZ`, `confirmed_by VARCHAR(50)` (`ck_stock_document_confirmed`: hai cột đi cùng nhau). `created_by` (có từ V20) nay ghi cả cho phiếu bán mới.
+- Phiếu `PENDING` **không có dòng `stock_document_item`** (service bảo đảm): nhờ vậy không phải nới `unit_price NOT NULL` hay CHECK nào của dòng phiếu.
+- **`sale_request_item`**: `document_id` FK, `product_id` FK, `quantity INTEGER > 0`, `UNIQUE (document_id, product_id)`. Sửa được khi phiếu `PENDING`, khóa từ lúc xác nhận (BR-SAL-20) — service kiểm tra sau khi khóa phiếu `FOR UPDATE`.
+- **Vì sao bảng riêng, không dùng `ordered_quantity` của dòng phiếu:** kho được **đổi SP** khi xác nhận (BR-SAL-19). `ordered_quantity` gắn với dòng của SP *mới* nên mất dấu SP khách đặt ban đầu.
+- **Vì sao không làm bảng đơn đặt riêng:** quy trình chỉ có một đường đi (đơn → phiếu), một đơn giao một lần. Bảng `customer_order` riêng chỉ đáng làm khi một đơn giao nhiều chuyến hoặc cần lịch sử từng lần sửa.
+
 ### stock_document_item (Dòng chứng từ) (✅ đã duyệt — migration V6)
 
 - `UNIQUE (document_id, product_id)`: mỗi SP một dòng (BR-IMP-A05); index này cũng phục vụ "các dòng của phiếu X".
@@ -467,6 +478,7 @@ Cả hai transaction đều lock theo thứ tự ID tăng dần → không deadl
 | UK | `customer_product_price` | `(customer_id, product_id)` | Bảng giá của khách; chặn trùng (V13) |
 | IDX | `sale_payment` | `document_id` | Lịch sử thanh toán của phiếu (V13) |
 | UK | `sale_payment` | `reversal_of_id` | Chặn hoàn hai lần (V13) |
+| UK | `sale_request_item` | `(document_id, product_id)` | Phần khách đặt của một phiếu; chặn SP lặp (V25) |
 | IDX | `stock_document` | `(type, document_date)` | Lọc chứng từ theo loại + ngày chứng từ (V6 — đổi từ `created_at` vì danh sách lọc theo ngày chứng từ) |
 
 > ⚠️ Index đã tạo nhưng chưa kiểm chứng bằng EXPLAIN ANALYZE với dữ liệu thực tế (việc của Tuần 3).
@@ -477,7 +489,7 @@ Cả hai transaction đều lock theo thứ tự ID tăng dần → không deadl
 - ✅ ~~Số lượng có cần thập phân không?~~ → Không, `INTEGER` (BR-INV-07)
 - ✅ ~~Quy tắc làm tròn thành tiền?~~ → `HALF_UP` về đồng (BR-MON-05)
 - ⚠️ Cần quản lý lô hàng (batch) không? → Tạm **không** trong MVP (BR-IMP-A08)
-- ✅ ~~Chứng từ có cần trạng thái?~~ → Có: DRAFT / COMPLETED / CANCELLED / REVERSED (BR-IMP-02, 11, 12)
+- ✅ ~~Chứng từ có cần trạng thái?~~ → Có: DRAFT / COMPLETED / CANCELLED / REVERSED (BR-IMP-02, 11, 12); phiếu bán thêm PENDING (V25, BR-SAL-16)
 - ✅ ~~Mã chứng từ tự sinh hay người dùng nhập?~~ → Tự sinh `PN000001` (BR-IMP-07)
 - ✅ ~~Cần bảng `category` riêng?~~ → Có (BR-CAT-01)
 - ✅ ~~Cần bảng `unit_of_measure` riêng?~~ → Ban đầu không (chuỗi có CHECK); **từ V23 (2026-10-28) có** bảng `product_unit` để người dùng tự thêm đơn vị (BR-UNIT-01..04)

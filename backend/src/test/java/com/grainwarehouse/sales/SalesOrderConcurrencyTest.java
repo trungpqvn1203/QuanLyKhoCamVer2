@@ -9,9 +9,12 @@ import com.grainwarehouse.product.entity.Product;
 import com.grainwarehouse.product.repository.CategoryRepository;
 import com.grainwarehouse.product.repository.ProductRepository;
 import com.grainwarehouse.product.repository.ProductUnitRepository;
+import com.grainwarehouse.sales.dto.PendingOrderRequest;
 import com.grainwarehouse.sales.dto.RecordPaymentRequest;
+import com.grainwarehouse.sales.dto.SaleRequestLineRequest;
 import com.grainwarehouse.sales.dto.SalesOrderLineRequest;
 import com.grainwarehouse.sales.dto.SalesOrderRequest;
+import com.grainwarehouse.sales.entity.OrderChannel;
 import com.grainwarehouse.sales.service.SalesOrderService;
 import com.grainwarehouse.warehouse.entity.Warehouse;
 import com.grainwarehouse.warehouse.entity.WarehouseType;
@@ -117,9 +120,12 @@ class SalesOrderConcurrencyTest {
             jdbcTemplate.update("DELETE FROM stock_transaction WHERE warehouse_id = ?", warehouse.getId());
             jdbcTemplate.execute("ALTER TABLE stock_transaction ENABLE TRIGGER trg_stock_transaction_immutable");
             jdbcTemplate.update("DELETE FROM inventory WHERE warehouse_id = ?", warehouse.getId());
+            // Mọi phiếu trong lớp này đều của một khách; đơn Chờ xác nhận / bị hủy khi chưa xác nhận không có kho
+            jdbcTemplate.update("DELETE FROM sale_request_item WHERE document_id IN"
+                    + " (SELECT id FROM stock_document WHERE customer_id = ?)", customer.getId());
             jdbcTemplate.update("DELETE FROM stock_document_item WHERE document_id IN"
-                    + " (SELECT id FROM stock_document WHERE warehouse_id = ?)", warehouse.getId());
-            jdbcTemplate.update("DELETE FROM stock_document WHERE warehouse_id = ?", warehouse.getId());
+                    + " (SELECT id FROM stock_document WHERE customer_id = ?)", customer.getId());
+            jdbcTemplate.update("DELETE FROM stock_document WHERE customer_id = ?", customer.getId());
             jdbcTemplate.update("DELETE FROM product WHERE category_id = ?", category.getId());
             jdbcTemplate.update("DELETE FROM category WHERE id = ?", category.getId());
             jdbcTemplate.update("DELETE FROM customer WHERE id = ?", customer.getId());
@@ -196,7 +202,63 @@ class SalesOrderConcurrencyTest {
                 Integer.class, id)).isEqualTo(2);
     }
 
+    // ===== Đơn khách đặt (BR-SAL-21) =====
+
+    @Test
+    @DisplayName("BR-SAL-21: " + THREADS + " luồng cùng xác nhận một đơn khách đặt - đúng 1 thành công, đơn thành Nháp")
+    void concurrentConfirmShouldApplyOnce() throws Exception {
+        long id = createPending(new SaleRequestLineRequest(pigFeed.getId(), 50));
+        SalesOrderRequest confirmation = new SalesOrderRequest(
+                customer.getId(), warehouse.getId(), null, null, List.of(line(chickenFeed, 40)));
+
+        List<Throwable> results = runConcurrently(() -> salesOrderService.confirm(id, confirmation, "test"));
+
+        assertThat(successes(results)).isEqualTo(1);
+        assertThat(failures(results)).allSatisfy(error -> assertThat(error)
+                .isInstanceOf(BusinessException.class).hasMessageContaining("Chờ xác nhận"));
+        assertThat(jdbcTemplate.queryForObject("SELECT status FROM stock_document WHERE id = ?", String.class, id))
+                .isEqualTo("DRAFT");
+        // Không có luồng nào chép dòng hàng lần hai
+        assertThat(jdbcTemplate.queryForObject("SELECT count(*) FROM stock_document_item WHERE document_id = ?",
+                Integer.class, id)).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("BR-SAL-21: xác nhận và hủy cùng lúc - hủy luôn thắng; xác nhận chỉ thành công nếu chạy trước hủy")
+    void confirmAndCancelShouldSerialize() throws Exception {
+        long id = createPending(new SaleRequestLineRequest(pigFeed.getId(), 50));
+        SalesOrderRequest confirmation = new SalesOrderRequest(
+                customer.getId(), warehouse.getId(), null, null, List.of(line(pigFeed, 50)));
+
+        List<Throwable> results = runConcurrently(List.of(
+                () -> salesOrderService.confirm(id, confirmation, "test"),
+                () -> salesOrderService.cancel(id, "Khách đổi ý")));
+
+        // Hủy được cả Chờ xác nhận lẫn Nháp → luôn thành công. Hai kết cục hợp lệ, không có kết cục lửng lơ:
+        // hủy trước → xác nhận bị từ chối, phiếu không có dòng; xác nhận trước → hủy áp lên phiếu Nháp đủ dòng
+        assertThat(results.get(1)).isNull();
+        assertThat(jdbcTemplate.queryForObject("SELECT status FROM stock_document WHERE id = ?", String.class, id))
+                .isEqualTo("CANCELLED");
+        int lines = jdbcTemplate.queryForObject("SELECT count(*) FROM stock_document_item WHERE document_id = ?",
+                Integer.class, id);
+        Integer confirmed = jdbcTemplate.queryForObject(
+                "SELECT count(*) FROM stock_document WHERE id = ? AND confirmed_at IS NOT NULL", Integer.class, id);
+        if (results.get(0) == null) {
+            assertThat(lines).isEqualTo(1);
+            assertThat(confirmed).isEqualTo(1);
+        } else {
+            assertThat(results.get(0)).isInstanceOf(BusinessException.class).hasMessageContaining("Đã hủy");
+            assertThat(lines).isZero();
+            assertThat(confirmed).isZero();
+        }
+    }
+
     // ===== Helpers =====
+
+    private long createPending(SaleRequestLineRequest... lines) {
+        return salesOrderService.createPending(new PendingOrderRequest(
+                customer.getId(), OrderChannel.PHONE, null, null, Arrays.asList(lines)), "test").id();
+    }
 
     private List<Throwable> runConcurrently(Callable<Object> action) throws Exception {
         List<Callable<Object>> actions = new ArrayList<>();
@@ -247,7 +309,7 @@ class SalesOrderConcurrencyTest {
 
     private long createDraft(SalesOrderLineRequest... lines) {
         return salesOrderService.create(new SalesOrderRequest(
-                customer.getId(), warehouse.getId(), null, null, Arrays.asList(lines))).id();
+                customer.getId(), warehouse.getId(), null, null, Arrays.asList(lines)), "test").id();
     }
 
     private static SalesOrderLineRequest line(Product product, int quantity) {

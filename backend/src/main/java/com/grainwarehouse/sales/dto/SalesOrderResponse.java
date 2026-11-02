@@ -2,7 +2,10 @@ package com.grainwarehouse.sales.dto;
 
 import com.grainwarehouse.inventory.entity.StockDocument;
 import com.grainwarehouse.inventory.entity.StockDocumentStatus;
+import com.grainwarehouse.sales.entity.OrderChannel;
 import com.grainwarehouse.sales.entity.SalePayment;
+import com.grainwarehouse.sales.entity.SaleRequestItem;
+import com.grainwarehouse.warehouse.entity.Warehouse;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -12,12 +15,17 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-/** Chi tiết phiếu bán kèm dòng hàng và lịch sử thanh toán. Trường null bị bỏ khỏi JSON. */
+/**
+ * Chi tiết phiếu bán kèm dòng hàng, phần khách đặt và lịch sử thanh toán. Trường null bị bỏ khỏi JSON —
+ * phiếu Chờ xác nhận chưa có kho nên không có warehouseId/Code/Name (BR-SAL-17).
+ */
 public record SalesOrderResponse(
         Long id,
         String code,
         StockDocumentStatus status,
+        OrderChannel orderChannel,
         LocalDate documentDate,
+        LocalDate requestedDeliveryDate,
         Long warehouseId,
         String warehouseCode,
         String warehouseName,
@@ -32,16 +40,23 @@ public record SalesOrderResponse(
         // Tổng tấn = cộng tấn từng dòng (đã làm tròn) → khớp với số in trên từng dòng
         BigDecimal totalTons,
         String reason,
+        String createdBy,
+        Instant confirmedAt,
+        String confirmedBy,
         Instant completedAt,
         Instant cancelledAt,
         Instant reversedAt,
         Instant createdAt,
         Instant updatedAt,
         List<SalesOrderLineResponse> lines,
+        // BR-SAL-20: khách đặt gì — rỗng với phiếu kho lập trực tiếp
+        List<SaleRequestLineResponse> requestLines,
         List<SalePaymentResponse> payments) {
 
-    public static SalesOrderResponse from(StockDocument document, List<SalePayment> payments) {
+    public static SalesOrderResponse from(StockDocument document, List<SaleRequestItem> requestItems,
+                                          List<SalePayment> payments) {
         List<SalesOrderLineResponse> lines = document.getItems().stream().map(SalesOrderLineResponse::from).toList();
+        Warehouse warehouse = document.getWarehouse();
         Set<Long> reversedIds = payments.stream()
                 .map(SalePayment::getReversalOf)
                 .filter(Objects::nonNull)
@@ -51,10 +66,12 @@ public record SalesOrderResponse(
                 document.getId(),
                 document.getCode(),
                 document.getStatus(),
+                document.getOrderChannel(),
                 document.getDocumentDate(),
-                document.getWarehouse().getId(),
-                document.getWarehouse().getCode(),
-                document.getWarehouse().getName(),
+                document.getRequestedDeliveryDate(),
+                warehouse == null ? null : warehouse.getId(),
+                warehouse == null ? null : warehouse.getCode(),
+                warehouse == null ? null : warehouse.getName(),
                 document.getCustomer().getId(),
                 document.getCustomer().getCode(),
                 document.getCustomer().getName(),
@@ -65,12 +82,16 @@ public record SalesOrderResponse(
                 document.getOutstandingAmount(),
                 lines.stream().map(SalesOrderLineResponse::tons).reduce(BigDecimal.ZERO, BigDecimal::add),
                 document.getReason(),
+                document.getCreatedBy(),
+                document.getConfirmedAt(),
+                document.getConfirmedBy(),
                 document.getCompletedAt(),
                 document.getCancelledAt(),
                 document.getReversedAt(),
                 document.getCreatedAt(),
                 document.getUpdatedAt(),
                 lines,
+                requestItems.stream().map(SaleRequestLineResponse::from).toList(),
                 payments.stream().map(payment -> SalePaymentResponse.from(payment, reversedIds)).toList());
     }
 }

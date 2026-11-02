@@ -21,6 +21,8 @@ interface SalesOrderFormProps {
   /** Phiếu nháp đang sửa (null = tạo mới) — để vẫn hiện tên khách/kho/SP đã chọn dù nay đã ngừng */
   order: SalesOrder | null
   disabled: boolean
+  /** Phiếu từ đơn khách đặt (đang xác nhận / đã xác nhận): không đổi khách — BR-SAL-18, 19 */
+  lockCustomer?: boolean
 }
 
 /** Tối đa 100 SP đang kinh doanh (giới hạn size backend) — đủ cho MVP. */
@@ -57,7 +59,7 @@ interface ProductInfo {
  *   cảnh báo, việc chặn thật do backend làm lúc hoàn tất.
  * - Thành tiền / tổng là số tạm (cùng quy tắc HALF_UP); số chính thức do backend tính khi lưu.
  */
-export function SalesOrderForm({ form, initialValues, references, order, disabled }: SalesOrderFormProps) {
+export function SalesOrderForm({ form, initialValues, references, order, disabled, lockCustomer }: SalesOrderFormProps) {
   const { message } = App.useApp()
   const customerId = Form.useWatch('customerId', form)
   const warehouseId = Form.useWatch('warehouseId', form)
@@ -280,11 +282,17 @@ export function SalesOrderForm({ form, initialValues, references, order, disable
     <Form form={form} layout="vertical" initialValues={initialValues} disabled={disabled}>
       <Row gutter={16}>
         <Col xs={24} md={9}>
-          <Form.Item name="customerId" label="Khách hàng" rules={[{ required: true, message: 'Chọn khách hàng' }]}>
+          <Form.Item
+            name="customerId"
+            label="Khách hàng"
+            rules={[{ required: true, message: 'Chọn khách hàng' }]}
+            tooltip={lockCustomer ? 'Phiếu từ đơn khách đặt giữ nguyên khách — ghi nhầm khách thì hủy đơn và ghi lại' : undefined}
+          >
             <Select<number>
               placeholder="Tìm theo mã, tên hoặc SĐT"
               options={customerOptions}
               showSearch={{ optionFilterProp: 'label' }}
+              disabled={lockCustomer}
             />
           </Form.Item>
         </Col>

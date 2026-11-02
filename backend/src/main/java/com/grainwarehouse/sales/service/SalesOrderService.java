@@ -16,16 +16,21 @@ import com.grainwarehouse.inventory.repository.StockTransactionRepository;
 import com.grainwarehouse.inventory.service.InventoryService;
 import com.grainwarehouse.product.entity.Product;
 import com.grainwarehouse.product.repository.ProductRepository;
+import com.grainwarehouse.sales.dto.PendingOrderRequest;
 import com.grainwarehouse.sales.dto.RecordPaymentRequest;
+import com.grainwarehouse.sales.dto.SaleRequestLineRequest;
 import com.grainwarehouse.sales.dto.SalesOrderLineRequest;
 import com.grainwarehouse.sales.dto.SalesOrderRequest;
 import com.grainwarehouse.sales.dto.SalesOrderResponse;
 import com.grainwarehouse.sales.dto.SalesOrderSearchCriteria;
 import com.grainwarehouse.sales.dto.SalesOrderSummaryResponse;
+import com.grainwarehouse.sales.entity.OrderChannel;
 import com.grainwarehouse.sales.entity.PaymentMethod;
 import com.grainwarehouse.sales.entity.SalePayment;
 import com.grainwarehouse.sales.entity.SalePaymentType;
+import com.grainwarehouse.sales.entity.SaleRequestItem;
 import com.grainwarehouse.sales.repository.SalePaymentRepository;
+import com.grainwarehouse.sales.repository.SaleRequestItemRepository;
 import com.grainwarehouse.sales.repository.SalesOrderSpecifications;
 import com.grainwarehouse.warehouse.entity.Warehouse;
 import com.grainwarehouse.warehouse.repository.WarehouseRepository;
@@ -50,10 +55,11 @@ import java.util.stream.Collectors;
 
 import static com.grainwarehouse.inventory.entity.StockDocumentStatus.COMPLETED;
 import static com.grainwarehouse.inventory.entity.StockDocumentStatus.DRAFT;
+import static com.grainwarehouse.inventory.entity.StockDocumentStatus.PENDING;
 import static com.grainwarehouse.inventory.entity.StockDocumentStatus.REVERSED;
 
 /**
- * Phiếu bán / xuất kho và thanh toán của phiếu (BR-SAL-01..15).
+ * Phiếu bán / xuất kho và thanh toán của phiếu (BR-SAL-01..15), kể cả đơn khách đặt Chờ xác nhận (BR-SAL-16..22).
  *
  * <p>Cùng quy trình bảo vệ trạng thái với phiếu nhập (BR-SAL-04 → BR-IMP-14): mọi thao tác làm thay đổi
  * phiếu — sửa, hoàn tất, hủy, đảo, thu tiền, hoàn khoản thu — đều bắt đầu bằng {@link #lockForChange}.
@@ -73,6 +79,7 @@ public class SalesOrderService {
     private final StockDocumentRepository stockDocumentRepository;
     private final StockTransactionRepository stockTransactionRepository;
     private final SalePaymentRepository salePaymentRepository;
+    private final SaleRequestItemRepository saleRequestItemRepository;
     private final WarehouseRepository warehouseRepository;
     private final CustomerRepository customerRepository;
     private final ProductRepository productRepository;
@@ -89,12 +96,12 @@ public class SalesOrderService {
                 .orElseThrow(() -> notFound(id)));
     }
 
-    /** BR-SAL-02: tạo phiếu Nháp — chưa ảnh hưởng tồn, không giữ chỗ tồn. */
+    /** BR-SAL-02: kho lập phiếu Nháp trực tiếp — chưa ảnh hưởng tồn, không giữ chỗ tồn. */
     @Transactional
-    public SalesOrderResponse create(SalesOrderRequest request) {
+    public SalesOrderResponse create(SalesOrderRequest request, String username) {
         References refs = resolve(request);
-        String code = CODE_FORMAT.formatted(stockDocumentRepository.nextOutboundCodeNumber());
-        StockDocument document = new StockDocument(TYPE, code);
+        StockDocument document = new StockDocument(TYPE, nextCode(), username);
+        document.setOrderChannel(OrderChannel.DIRECT);
         apply(document, request, refs);
         return toResponse(stockDocumentRepository.save(document));
     }
@@ -102,8 +109,54 @@ public class SalesOrderService {
     @Transactional
     public SalesOrderResponse update(Long id, SalesOrderRequest request) {
         StockDocument document = lockForChange(id, DRAFT, "sửa");
+        // Phiếu lập từ đơn khách đặt giữ nguyên khách — phần khách đặt (BR-SAL-20) phải khớp người mua
+        if (document.getConfirmedAt() != null) {
+            requireSameCustomer(document, request.customerId());
+        }
         References refs = resolve(request);
         apply(document, request, refs);
+        return toResponse(stockDocumentRepository.saveAndFlush(document));
+    }
+
+    /**
+     * BR-SAL-17: ghi đơn khách đặt — phiếu bán Chờ xác nhận, chỉ có khách và SP + SL khách đặt.
+     * Chưa có kho, giá, dòng phiếu; không ảnh hưởng tồn. Có mã PX ngay để báo khách.
+     */
+    @Transactional
+    public SalesOrderResponse createPending(PendingOrderRequest request, String username) {
+        RequestReferences refs = resolve(request);
+        StockDocument document = StockDocument.pendingSale(nextCode(), username);
+        document.setDocumentDate(today());
+        applyHeader(document, request, refs.customer());
+        stockDocumentRepository.save(document);
+        replaceRequestLines(document, request.lines(), refs.products());
+        return toResponse(document);
+    }
+
+    /** BR-SAL-18: chỉ đơn Chờ xác nhận được sửa phần khách đặt; không đổi khách. */
+    @Transactional
+    public SalesOrderResponse updatePending(Long id, PendingOrderRequest request) {
+        StockDocument document = lockForChange(id, PENDING, "sửa phần khách đặt");
+        requireSameCustomer(document, request.customerId());
+        RequestReferences refs = resolve(request);
+        applyHeader(document, request, refs.customer());
+        replaceRequestLines(document, request.lines(), refs.products());
+        return toResponse(stockDocumentRepository.saveAndFlush(document));
+    }
+
+    /**
+     * BR-SAL-19: xác nhận đơn khách đặt — Chờ xác nhận → Nháp. Kho gửi kho xuất, ngày bán và dòng hàng có giá
+     * (được đổi SL, đổi SP so với khách đặt). Áp dụng đủ kiểm tra của phiếu nháp (BR-SAL-01, 04, 15).
+     * Phần khách đặt giữ nguyên (BR-SAL-20). Chưa trừ tồn — trừ khi Hoàn tất (BR-SAL-02).
+     * Khóa phiếu trước: hai người cùng xác nhận thì người sau thấy trạng thái Nháp và bị từ chối (BR-SAL-21).
+     */
+    @Transactional
+    public SalesOrderResponse confirm(Long id, SalesOrderRequest request, String username) {
+        StockDocument document = lockForChange(id, PENDING, "xác nhận");
+        requireSameCustomer(document, request.customerId());
+        References refs = resolve(request);
+        apply(document, request, refs);
+        document.markConfirmed(Instant.now(), username);
         return toResponse(stockDocumentRepository.saveAndFlush(document));
     }
 
@@ -127,10 +180,15 @@ public class SalesOrderService {
         return toResponse(stockDocumentRepository.saveAndFlush(document));
     }
 
+    /** Hủy phiếu Nháp (lý do tùy chọn) hoặc đơn Chờ xác nhận (lý do bắt buộc — BR-SAL-21). */
     @Transactional
     public SalesOrderResponse cancel(Long id, String reason) {
-        StockDocument document = lockForChange(id, DRAFT, "hủy");
-        document.markCancelled(blankToNull(reason), Instant.now());
+        StockDocument document = lockForChange(id, Set.of(PENDING, DRAFT), "hủy");
+        String cleanReason = blankToNull(reason);
+        if (document.getStatus() == PENDING && cleanReason == null) {
+            throw new InvalidRequestException("reason", "Hủy đơn khách đặt phải ghi lý do");
+        }
+        document.markCancelled(cleanReason, Instant.now());
         return toResponse(stockDocumentRepository.saveAndFlush(document));
     }
 
@@ -212,39 +270,69 @@ public class SalesOrderService {
      * Phải là lần đọc phiếu ĐẦU TIÊN trong transaction (xem InboundReceiptService.lockForChange).
      */
     private StockDocument lockForChange(Long id, StockDocumentStatus required, String action) {
+        return lockForChange(id, Set.of(required), action);
+    }
+
+    private StockDocument lockForChange(Long id, Set<StockDocumentStatus> allowed, String action) {
         StockDocument document = stockDocumentRepository.findForUpdate(id, TYPE).orElseThrow(() -> notFound(id));
-        if (document.getStatus() != required) {
-            throw new BusinessException(statusViolation(document, required, action));
+        if (!allowed.contains(document.getStatus())) {
+            throw new BusinessException(statusViolation(document, allowed, action));
         }
         return document;
     }
 
-    private static String statusViolation(StockDocument document, StockDocumentStatus required, String action) {
-        if (required == COMPLETED && document.getStatus() == REVERSED && action.equals("đảo")) {
+    private static String statusViolation(StockDocument document, Set<StockDocumentStatus> allowed, String action) {
+        if (allowed.contains(COMPLETED) && document.getStatus() == REVERSED && action.equals("đảo")) {
             return label(document) + " đã được đảo. Mỗi phiếu chỉ được đảo một lần";
         }
+        // Thứ tự theo vòng đời (Chờ xác nhận, Nháp…) để thông báo đọc tự nhiên
+        String allowedLabels = allowed.stream().sorted().map(StockDocumentStatus::label)
+                .collect(Collectors.joining(" hoặc "));
         return label(document) + " đang ở trạng thái " + document.getStatus().label()
-                + ". Chỉ phiếu " + required.label() + " mới được " + action;
+                + ". Chỉ phiếu " + allowedLabels + " mới được " + action;
+    }
+
+    // BR-SAL-18, 19: đơn khách đặt không đổi người mua — ghi nhầm khách thì hủy đơn và ghi lại
+    private static void requireSameCustomer(StockDocument document, Long customerId) {
+        if (!document.getCustomer().getId().equals(customerId)) {
+            throw new InvalidRequestException("customerId",
+                    "Không đổi được khách của đơn khách đặt. Ghi nhầm khách thì hủy đơn và ghi lại");
+        }
     }
 
     /** Đọc và kiểm tra mọi thứ request tham chiếu tới, TRƯỚC khi đổi phiếu. Thứ tự: 400 → 404 → 409. */
     private References resolve(SalesOrderRequest request) {
         LocalDate documentDate = resolveDocumentDate(request.documentDate());
-        List<Long> productIds = distinctProductIds(request.lines());
+        List<Long> productIds = distinctProductIds(
+                request.lines().stream().map(SalesOrderLineRequest::productId).toList());
 
         Warehouse warehouse = warehouseRepository.findById(request.warehouseId())
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy kho id=" + request.warehouseId()));
         Customer customer = customerRepository.findById(request.customerId())
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Không tìm thấy khách hàng id=" + request.customerId()));
-        Map<Long, Product> products = productRepository.findAllById(productIds).stream()
-                .collect(Collectors.toMap(Product::getId, Function.identity()));
-        productIds.stream().filter(productId -> !products.containsKey(productId)).findFirst().ifPresent(productId -> {
-            throw new ResourceNotFoundException("Không tìm thấy sản phẩm id=" + productId);
-        });
+        Map<Long, Product> products = findProducts(productIds);
 
         checkUsable(warehouse, customer, products.values());
         return new References(warehouse, customer, products, documentDate);
+    }
+
+    /** Phần khách đặt: khách + SP (không có kho). Thứ tự: 400 → 404 → 409, như phiếu nháp. */
+    private RequestReferences resolve(PendingOrderRequest request) {
+        // App khách sẽ có API riêng; kho ghi hộ chỉ chọn Trực tiếp / Điện thoại / Zalo
+        if (request.orderChannel() == OrderChannel.APP) {
+            throw new InvalidRequestException("orderChannel", "Kênh App chỉ dành cho đơn khách tự đặt qua app");
+        }
+        List<Long> productIds = distinctProductIds(
+                request.lines().stream().map(SaleRequestLineRequest::productId).toList());
+
+        Customer customer = customerRepository.findById(request.customerId())
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Không tìm thấy khách hàng id=" + request.customerId()));
+        Map<Long, Product> products = findProducts(productIds);
+
+        checkUsable(null, customer, products.values());
+        return new RequestReferences(customer, products);
     }
 
     // BR-SAL-04 (như BR-IMP-08): mặc định hôm nay theo giờ VN, lùi ngày được, không ở tương lai
@@ -260,20 +348,32 @@ public class SalesOrderService {
     }
 
     // Mỗi SP một dòng (như BR-IMP-A05)
-    private static List<Long> distinctProductIds(List<SalesOrderLineRequest> lines) {
+    private static List<Long> distinctProductIds(List<Long> productIds) {
         Set<Long> seen = new HashSet<>();
-        for (int i = 0; i < lines.size(); i++) {
-            if (!seen.add(lines.get(i).productId())) {
+        for (int i = 0; i < productIds.size(); i++) {
+            if (!seen.add(productIds.get(i))) {
                 throw new InvalidRequestException("lines[" + i + "].productId",
                         "Sản phẩm này đã có ở một dòng khác của phiếu");
             }
         }
-        return lines.stream().map(SalesOrderLineRequest::productId).toList();
+        return productIds;
     }
 
-    /** BR-SAL-15: kho, khách, SP phải đang hoạt động — cả khi lưu nháp lẫn khi hoàn tất. */
+    private Map<Long, Product> findProducts(List<Long> productIds) {
+        Map<Long, Product> products = productRepository.findAllById(productIds).stream()
+                .collect(Collectors.toMap(Product::getId, Function.identity()));
+        productIds.stream().filter(productId -> !products.containsKey(productId)).findFirst().ifPresent(productId -> {
+            throw new ResourceNotFoundException("Không tìm thấy sản phẩm id=" + productId);
+        });
+        return products;
+    }
+
+    /**
+     * BR-SAL-15: kho, khách, SP phải đang hoạt động — cả khi lưu nháp lẫn khi hoàn tất.
+     * warehouse = null: đơn Chờ xác nhận chưa có kho (BR-SAL-17).
+     */
     private static void checkUsable(Warehouse warehouse, Customer customer, Collection<Product> products) {
-        if (!warehouse.isActive()) {
+        if (warehouse != null && !warehouse.isActive()) {
             throw new BusinessException("Kho '" + warehouse.getName() + "' (" + warehouse.getCode()
                     + ") đang ngừng hoạt động, không thể xuất kho");
         }
@@ -312,10 +412,47 @@ public class SalesOrderService {
         document.recalculateTotal();
     }
 
+    private static void applyHeader(StockDocument document, PendingOrderRequest request, Customer customer) {
+        document.setCustomer(customer);
+        document.setOrderChannel(request.orderChannel());
+        document.setRequestedDeliveryDate(request.requestedDeliveryDate());
+        document.setNote(blankToNull(request.note()));
+    }
+
+    /**
+     * Ghi phần khách đặt TẠI CHỖ theo productId (cùng lý do với apply): SP còn giữ → sửa SL, SP bỏ → xóa,
+     * SP mới → thêm. Không xóa-hết-thêm-lại vì Hibernate có thể INSERT trước DELETE → vi phạm UNIQUE.
+     */
+    private void replaceRequestLines(StockDocument document, List<SaleRequestLineRequest> lines,
+                                     Map<Long, Product> products) {
+        Map<Long, SaleRequestItem> existing = saleRequestItemRepository.findByDocumentId(document.getId()).stream()
+                .collect(Collectors.toMap(item -> item.getProduct().getId(), Function.identity()));
+        saleRequestItemRepository.deleteAll(existing.values().stream()
+                .filter(item -> !products.containsKey(item.getProduct().getId())).toList());
+
+        List<SaleRequestItem> kept = new ArrayList<>();
+        for (SaleRequestLineRequest line : lines) {
+            SaleRequestItem item = existing.get(line.productId());
+            if (item == null) {
+                item = new SaleRequestItem(document, products.get(line.productId()), line.quantity());
+            } else {
+                item.setQuantity(line.quantity());
+            }
+            kept.add(item);
+        }
+        saleRequestItemRepository.saveAll(kept);
+    }
+
     private SalesOrderResponse toResponse(StockDocument document) {
-        List<SalePayment> payments = document.getId() == null
-                ? List.of() : salePaymentRepository.findByDocumentId(document.getId());
-        return SalesOrderResponse.from(document, payments);
+        if (document.getId() == null) {
+            return SalesOrderResponse.from(document, List.of(), List.of());
+        }
+        return SalesOrderResponse.from(document, saleRequestItemRepository.findByDocumentId(document.getId()),
+                salePaymentRepository.findByDocumentId(document.getId()));
+    }
+
+    private String nextCode() {
+        return CODE_FORMAT.formatted(stockDocumentRepository.nextOutboundCodeNumber());
     }
 
     private static LocalDate today() {
@@ -345,5 +482,8 @@ public class SalesOrderService {
 
     private record References(Warehouse warehouse, Customer customer, Map<Long, Product> products,
                               LocalDate documentDate) {
+    }
+
+    private record RequestReferences(Customer customer, Map<Long, Product> products) {
     }
 }

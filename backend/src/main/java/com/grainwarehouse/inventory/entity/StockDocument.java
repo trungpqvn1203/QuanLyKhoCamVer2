@@ -2,6 +2,7 @@ package com.grainwarehouse.inventory.entity;
 
 import com.grainwarehouse.common.entity.AuditableEntity;
 import com.grainwarehouse.customer.entity.Customer;
+import com.grainwarehouse.sales.entity.OrderChannel;
 import com.grainwarehouse.supplier.entity.Supplier;
 import com.grainwarehouse.warehouse.entity.Warehouse;
 import jakarta.persistence.CascadeType;
@@ -52,7 +53,7 @@ public class StockDocument extends AuditableEntity {
     @Column(nullable = false, length = 20)
     private StockDocumentStatus status = StockDocumentStatus.DRAFT;
 
-    // NULL chỉ với công nợ đầu kỳ (V21); CHECK ck_stock_document_warehouse bắt buộc mọi chứng từ kho có kho
+    // NULL với công nợ đầu kỳ (V21) và phiếu bán chưa xác nhận (V25); CHECK ck_stock_document_warehouse
     @Setter
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "warehouse_id")
@@ -91,12 +92,29 @@ public class StockDocument extends AuditableEntity {
     @Column(name = "tracks_debt", nullable = false)
     private boolean tracksDebt = true;
 
-    // Tên đăng nhập người lập / người xác nhận (V20). Hiện chỉ phiếu tồn đầu kỳ ghi
+    // Tên đăng nhập người lập / người xác nhận (V20). Phiếu tồn đầu kỳ và phiếu bán (từ V25) ghi
     @Column(name = "created_by", length = 50, updatable = false)
     private String createdBy;
 
     @Column(name = "completed_by", length = 50)
     private String completedBy;
+
+    // Chỉ phiếu bán (V25, BR-SAL-17): kênh nhận đơn và ngày khách muốn giao (được ở tương lai)
+    @Setter
+    @Enumerated(EnumType.STRING)
+    @Column(name = "order_channel", length = 20)
+    private OrderChannel orderChannel;
+
+    @Setter
+    @Column(name = "requested_delivery_date")
+    private LocalDate requestedDeliveryDate;
+
+    // BR-SAL-19: xác nhận đơn khách đặt (Chờ xác nhận → Nháp)
+    @Column(name = "confirmed_at")
+    private Instant confirmedAt;
+
+    @Column(name = "confirmed_by", length = 50)
+    private String confirmedBy;
 
     // Kiểm kê (V22): lúc chụp SL sổ sách — giao dịch sau mốc này được cảnh báo khi xác nhận (BR-CNT-03)
     @Setter
@@ -127,10 +145,17 @@ public class StockDocument extends AuditableEntity {
         this.tracksDebt = type != StockDocumentType.OPENING_STOCK && type != StockDocumentType.STOCK_COUNT;
     }
 
-    /** Phiếu có ghi người lập (tồn đầu kỳ). */
+    /** Phiếu có ghi người lập (tồn đầu kỳ, phiếu bán). */
     public StockDocument(StockDocumentType type, String code, String createdBy) {
         this(type, code);
         this.createdBy = createdBy;
+    }
+
+    /** BR-SAL-16: đơn khách đặt — phiếu bán bắt đầu ở Chờ xác nhận thay vì Nháp. */
+    public static StockDocument pendingSale(String code, String createdBy) {
+        StockDocument document = new StockDocument(StockDocumentType.OUTBOUND, code, createdBy);
+        document.status = StockDocumentStatus.PENDING;
+        return document;
     }
 
     /** Chỉ đọc: thêm/bớt dòng qua addItem/removeItemsIf để giữ quan hệ hai chiều đúng. */
@@ -176,6 +201,13 @@ public class StockDocument extends AuditableEntity {
      */
     public void addPaidAmount(BigDecimal delta) {
         paidAmount = paidAmount.add(delta);
+    }
+
+    /** BR-SAL-19: Chờ xác nhận → Nháp. Kho, ngày bán và dòng hàng service đã ghi trước đó. */
+    public void markConfirmed(Instant at, String by) {
+        status = StockDocumentStatus.DRAFT;
+        confirmedAt = at;
+        confirmedBy = by;
     }
 
     public void markCompleted(Instant at) {

@@ -17,6 +17,7 @@ function order(overrides: Partial<SalesOrder> = {}): SalesOrder {
     id: 8,
     code: 'PX000008',
     status: 'COMPLETED',
+    orderChannel: 'DIRECT',
     documentDate: '2026-10-22',
     warehouseId: 1,
     warehouseCode: 'KHO001',
@@ -38,6 +39,7 @@ function order(overrides: Partial<SalesOrder> = {}): SalesOrder {
       { id: 2, productId: 7, productCode: 'SP000007', productName: 'Cám cá xá', unitName: 'Kg',
         quantity: 40, unitPrice: 10_250, lineAmount: 410_000, tons: 0.04 },
     ],
+    requestLines: [],
     payments: [],
     ...overrides,
   }
