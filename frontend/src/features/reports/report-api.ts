@@ -29,6 +29,8 @@ export interface Dashboard {
     today: SalesPeriod
     thisMonth: SalesPeriod
     draftCount: number
+    /** Đơn khách đặt Chờ xác nhận (BR-SAL-22) — không tính vào draftCount */
+    pendingCount: number
     /** Đủ 30 ngày, cũ → mới, ngày không bán = 0 */
     last30Days: DailySales[]
   }

@@ -336,8 +336,8 @@ class CashBookApiTest {
         long customer = id("INSERT INTO customer (name, type, phone) VALUES ('Đại lý Sổ Quỹ', 'DEALER', '0909111222') RETURNING id");
         long supplier = id("INSERT INTO supplier (name) VALUES ('NCC Sổ Quỹ') RETURNING id");
         long employee = id("INSERT INTO employee (name, daily_wage) VALUES ('NV Sổ Quỹ', 300000) RETURNING id");
-        long sale = id("INSERT INTO stock_document (code, type, status, warehouse_id, customer_id, document_date,"
-                + " total_amount, completed_at) VALUES ('TXPX1', 'OUTBOUND', 'COMPLETED', ?, ?, DATE '2026-01-05',"
+        long sale = id("INSERT INTO stock_document (code, type, order_channel, status, warehouse_id, customer_id, document_date,"
+                + " total_amount, completed_at) VALUES ('TXPX1', 'OUTBOUND', 'DIRECT', 'COMPLETED', ?, ?, DATE '2026-01-05',"
                 + " 100000000, now()) RETURNING id", warehouse, customer);
         long inbound = id("INSERT INTO stock_document (code, type, status, warehouse_id, supplier_id, document_date,"
                 + " total_amount, completed_at) VALUES ('TXPN1', 'INBOUND', 'COMPLETED', ?, ?, DATE '2026-01-05',"

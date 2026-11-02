@@ -2,10 +2,32 @@ import { apiRequest, withQuery } from '../../api/client'
 import type { PageQuery, PageResponse } from '../../api/types'
 import { toFilterParams } from '../../utils/filters'
 import type { CustomerType } from '../customers/customer-api'
+import { RECEIPT_STATUS_LABELS } from '../inbound-receipts/inbound-receipt-api'
 import type { ReceiptStatus } from '../inbound-receipts/inbound-receipt-api'
 
-/** Cùng vòng đời với phiếu nhập (BR-SAL-04): Nháp → Hoàn tất / Đã hủy; Hoàn tất → Đã đảo. */
-export type SalesOrderStatus = ReceiptStatus
+/**
+ * Cùng vòng đời với phiếu nhập (BR-SAL-04): Nháp → Hoàn tất / Đã hủy; Hoàn tất → Đã đảo.
+ * Thêm bước đầu cho đơn khách đặt (BR-SAL-16): Chờ xác nhận → Nháp / Đã hủy.
+ */
+export type SalesOrderStatus = 'PENDING' | ReceiptStatus
+
+export const SALES_STATUS_LABELS: Record<SalesOrderStatus, string> = {
+  PENDING: 'Chờ xác nhận',
+  ...RECEIPT_STATUS_LABELS,
+}
+
+/** Kênh nhận đơn (BR-SAL-17). APP để dành cho app khách — kho không chọn được. */
+export type OrderChannel = 'DIRECT' | 'PHONE' | 'ZALO' | 'APP'
+
+export const ORDER_CHANNEL_LABELS: Record<OrderChannel, string> = {
+  DIRECT: 'Trực tiếp',
+  PHONE: 'Điện thoại',
+  ZALO: 'Zalo',
+  APP: 'App khách',
+}
+
+/** Kênh kho được chọn khi ghi hộ đơn khách đặt */
+export const STAFF_ORDER_CHANNELS: OrderChannel[] = ['PHONE', 'ZALO', 'DIRECT']
 
 /** BR-SAL-12 */
 export type PaymentMethod = 'CASH' | 'BANK_TRANSFER'
@@ -33,6 +55,16 @@ export interface SalesOrderLine {
   tons: number
 }
 
+/** Một dòng khách đặt (BR-SAL-20): SP + SL theo ĐVT của SP, không có giá. Giữ nguyên sau khi xác nhận. */
+export interface SaleRequestLine {
+  id: number
+  productId: number
+  productCode: string
+  productName: string
+  unitName: string
+  quantity: number
+}
+
 /** Một dòng lịch sử thanh toán. REVERSAL = hoàn một khoản thu ghi nhầm (BR-SAL-13). */
 export interface SalePayment {
   id: number
@@ -53,10 +85,14 @@ export interface SalesOrder {
   id: number
   code: string
   status: SalesOrderStatus
+  orderChannel: OrderChannel
   documentDate: string
-  warehouseId: number
-  warehouseCode: string
-  warehouseName: string
+  /** Ngày khách muốn giao — được ở tương lai (BR-SAL-17) */
+  requestedDeliveryDate?: string
+  /** Đơn Chờ xác nhận (hoặc hủy khi chưa xác nhận) chưa có kho */
+  warehouseId?: number
+  warehouseCode?: string
+  warehouseName?: string
   customerId: number
   customerCode: string
   customerName: string
@@ -69,18 +105,36 @@ export interface SalesOrder {
   /** Tổng tấn = cộng tấn các dòng */
   totalTons: number
   reason?: string
+  /** Tên đăng nhập người lập / người xác nhận đơn khách đặt */
+  createdBy?: string
+  confirmedAt?: string
+  confirmedBy?: string
   completedAt?: string
   cancelledAt?: string
   reversedAt?: string
   createdAt: string
   updatedAt: string
   lines: SalesOrderLine[]
+  /** Khách đặt gì — rỗng với phiếu kho lập trực tiếp */
+  requestLines: SaleRequestLine[]
   payments: SalePayment[]
 }
 
 export type SalesOrderSummary = Omit<
   SalesOrder,
-  'lines' | 'payments' | 'note' | 'reason' | 'customerPhone' | 'cancelledAt' | 'reversedAt' | 'updatedAt' | 'totalTons'
+  | 'lines'
+  | 'requestLines'
+  | 'payments'
+  | 'note'
+  | 'reason'
+  | 'customerPhone'
+  | 'cancelledAt'
+  | 'reversedAt'
+  | 'updatedAt'
+  | 'totalTons'
+  | 'createdBy'
+  | 'confirmedAt'
+  | 'confirmedBy'
 >
 
 export interface SalesOrderLineInput {
@@ -95,6 +149,15 @@ export interface SalesOrderInput {
   documentDate?: string
   note?: string
   lines: SalesOrderLineInput[]
+}
+
+/** Ghi / sửa đơn khách đặt (BR-SAL-17, 18): chưa có kho và giá. Khi sửa, customerId phải giữ nguyên. */
+export interface PendingOrderInput {
+  customerId: number
+  orderChannel: OrderChannel
+  requestedDeliveryDate?: string
+  note?: string
+  lines: { productId: number; quantity: number }[]
 }
 
 /** Một lần thu: tiền mặt và/hoặc chuyển khoản (BR-SAL-12). */
@@ -116,6 +179,10 @@ export type SalesOrderFilters = {
   documentDateFrom?: string
   documentDateTo?: string
   unpaidOnly?: 'true'
+  orderChannel?: OrderChannel
+  /** Theo ngày khách muốn giao */
+  deliveryDateFrom?: string
+  deliveryDateTo?: string
 }
 
 /** Giá riêng của một SP cho một khách (BR-SAL-06). */
@@ -157,6 +224,18 @@ export const salesOrderApi = {
 
   update: (id: number, input: SalesOrderInput) =>
     apiRequest<SalesOrder>(`${BASE}/${id}`, { method: 'PUT', body: JSON.stringify(input) }),
+
+  /** Ghi đơn khách đặt → phiếu Chờ xác nhận (BR-SAL-17). */
+  createPending: (input: PendingOrderInput) =>
+    apiRequest<SalesOrder>(`${BASE}/pending`, { method: 'POST', body: JSON.stringify(input) }),
+
+  /** Sửa phần khách đặt — chỉ khi Chờ xác nhận (BR-SAL-18). */
+  updatePending: (id: number, input: PendingOrderInput) =>
+    apiRequest<SalesOrder>(`${BASE}/${id}/request`, { method: 'PUT', body: JSON.stringify(input) }),
+
+  /** Chờ xác nhận → Nháp: kho, ngày bán, dòng hàng có giá; chưa trừ tồn (BR-SAL-19). */
+  confirm: (id: number, input: SalesOrderInput) =>
+    apiRequest<SalesOrder>(`${BASE}/${id}/confirm`, { method: 'POST', body: JSON.stringify(input) }),
 
   /** Nháp → Hoàn tất: trừ tồn mọi dòng; thiếu tồn một dòng thì không trừ dòng nào (BR-SAL-02). */
   complete: (id: number) => apiRequest<SalesOrder>(`${BASE}/${id}/complete`, { method: 'POST' }),

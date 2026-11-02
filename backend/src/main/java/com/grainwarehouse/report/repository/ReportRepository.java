@@ -70,8 +70,17 @@ public class ReportRepository {
     }
 
     public long draftSalesCount() {
-        return jdbc.queryForObject("SELECT count(*) FROM stock_document WHERE type = 'OUTBOUND' AND status = 'DRAFT'",
-                new MapSqlParameterSource(), Long.class);
+        return salesCount("DRAFT");
+    }
+
+    // BR-SAL-22: đơn khách đặt chưa ai xác nhận — số này khác 0 là còn đơn chưa xử lý
+    public long pendingSalesCount() {
+        return salesCount("PENDING");
+    }
+
+    private long salesCount(String status) {
+        return jdbc.queryForObject("SELECT count(*) FROM stock_document WHERE type = 'OUTBOUND' AND status = :status",
+                new MapSqlParameterSource("status", status), Long.class);
     }
 
     public record SalesTotals(BigDecimal revenue, long orderCount, BigDecimal tons) {

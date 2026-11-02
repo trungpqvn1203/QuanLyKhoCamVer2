@@ -142,15 +142,20 @@ export function DashboardPage() {
             />
           </Col>
           <Col xs={24} sm={12} xl={6}>
+            {/* BR-SAL-22: số này khác 0 là còn đơn khách đặt chưa ai xử lý → bấm mở đúng danh sách đó */}
             <StatCard
-              title="Phiếu chờ xử lý"
-              value={`${sales.draftCount} phiếu bán nháp`}
+              title="Đơn khách đặt chờ xác nhận"
+              value={
+                <Typography.Text type={sales.pendingCount > 0 ? 'warning' : undefined} style={{ fontSize: 'inherit' }}>
+                  {sales.pendingCount} đơn
+                </Typography.Text>
+              }
               footer={
                 canSeeSupplierDebts
-                  ? `${stock.draftInboundCount} phiếu nhập nháp · hàng đang về ${formatTons(stock.incomingTons)}`
-                  : `Hàng đang về ${formatTons(stock.incomingTons)}`
+                  ? `${sales.draftCount} phiếu bán nháp · ${stock.draftInboundCount} phiếu nhập nháp · hàng đang về ${formatTons(stock.incomingTons)}`
+                  : `${sales.draftCount} phiếu bán nháp · hàng đang về ${formatTons(stock.incomingTons)}`
               }
-              to="/sales-orders"
+              to="/sales-orders?status=PENDING"
             />
           </Col>
         </Row>

@@ -28,7 +28,10 @@ public final class SalesOrderSpecifications {
                 CommonSpecifications.equal("customer.id", criteria.customerId()),
                 CommonSpecifications.<StockDocument, LocalDate>between(
                         "documentDate", criteria.documentDateFrom(), criteria.documentDateTo()),
-                Boolean.TRUE.equals(criteria.unpaidOnly()) ? unpaid() : null);
+                Boolean.TRUE.equals(criteria.unpaidOnly()) ? unpaid() : null,
+                CommonSpecifications.equal("orderChannel", criteria.orderChannel()),
+                CommonSpecifications.<StockDocument, LocalDate>between(
+                        "requestedDeliveryDate", criteria.deliveryDateFrom(), criteria.deliveryDateTo()));
     }
 
     // BR-SAL-10: phiếu Hoàn tất còn nợ (đã thu < tổng phiếu). Phiếu tổng 0 đ (hàng tặng) không bao giờ nợ.

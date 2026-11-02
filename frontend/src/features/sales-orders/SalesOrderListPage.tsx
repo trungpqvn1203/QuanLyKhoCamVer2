@@ -1,7 +1,8 @@
-import { PlusOutlined } from '@ant-design/icons'
-import { Button, Typography } from 'antd'
+import { PhoneOutlined, PlusOutlined } from '@ant-design/icons'
+import { Button, Flex, Tag, Typography } from 'antd'
 import type { TableProps } from 'antd'
 import { useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { PageHeader } from '../../components/layout/PageHeader'
 import { CodeLink } from '../../components/ui/CodeLink'
 import { DataTable } from '../../components/ui/DataTable'
@@ -14,32 +15,50 @@ import { useFilteredList } from '../../hooks/use-filtered-list'
 import { EMPTY_TEXT, formatDate } from '../../utils/format'
 import { formatVnd } from '../../utils/money'
 import { useCan } from '../auth/auth-context'
-import { RECEIPT_STATUS_LABELS } from '../inbound-receipts/inbound-receipt-api'
-import { ReceiptStatusTag } from '../inbound-receipts/ReceiptStatusTag'
-import { salesOrderApi } from './sales-order-api'
-import type { SalesOrderFilters, SalesOrderStatus, SalesOrderSummary } from './sales-order-api'
+import { ORDER_CHANNEL_LABELS, SALES_STATUS_LABELS, salesOrderApi } from './sales-order-api'
+import type { OrderChannel, SalesOrderFilters, SalesOrderStatus, SalesOrderSummary } from './sales-order-api'
 import { SalesOrderDrawer } from './SalesOrderDrawer'
+import { SalesStatusTag } from './SalesStatusTag'
 import { useSalesReferences } from './use-sales-references'
 
-const STATUS_OPTIONS = (Object.keys(RECEIPT_STATUS_LABELS) as SalesOrderStatus[]).map((status) => ({
+const STATUS_OPTIONS = (Object.keys(SALES_STATUS_LABELS) as SalesOrderStatus[]).map((status) => ({
   value: status,
-  label: RECEIPT_STATUS_LABELS[status],
+  label: SALES_STATUS_LABELS[status],
 }))
 
+const CHANNEL_OPTIONS = (Object.keys(ORDER_CHANNEL_LABELS) as OrderChannel[]).map((channel) => ({
+  value: channel,
+  label: ORDER_CHANNEL_LABELS[channel],
+}))
+
+/** Tổng quan dẫn sang bằng ?status=PENDING ("Đơn chờ xác nhận", BR-SAL-22). */
+function filtersFromUrl(params: URLSearchParams): SalesOrderFilters {
+  const status = params.get('status')
+  return { status: status && status in SALES_STATUS_LABELS ? (status as SalesOrderStatus) : undefined }
+}
+
 /**
- * Danh sách phiếu bán (BR-SAL-01..15). Mọi thao tác — sửa nháp, hoàn tất, thu tiền, đảo — nằm trong SalesOrderDrawer.
- * Cột "Còn nợ" chỉ có nghĩa với phiếu Hoàn tất; phiếu nháp / đã hủy / đã đảo hiện "—".
+ * Danh sách phiếu bán (BR-SAL-01..22), gồm cả đơn khách đặt Chờ xác nhận. Mọi thao tác — ghi / xác nhận đơn,
+ * sửa nháp, hoàn tất, thu tiền, đảo — nằm trong SalesOrderDrawer.
+ * Cột "Còn nợ" chỉ có nghĩa với phiếu Hoàn tất; phiếu khác hiện "—". Đơn chờ xác nhận chưa có kho, chưa có tiền.
  */
 export function SalesOrderListPage() {
   const references = useSalesReferences()
   const canWrite = useCan('sales.write')
-  const { page, loading, error, changePage, reload, filters, applyFilters, filtering } = useFilteredList(salesOrderApi.list)
+  const [searchParams] = useSearchParams()
+  const { page, loading, error, changePage, reload, filters, applyFilters, filtering } = useFilteredList(
+    salesOrderApi.list,
+    20,
+    filtersFromUrl(searchParams),
+  )
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [openedId, setOpenedId] = useState<number | null>(null)
+  const [createMode, setCreateMode] = useState<'sale' | 'pending'>('sale')
   const [drawerKey, setDrawerKey] = useState(0)
 
-  const openOrder = (id: number | null) => {
+  const openOrder = (id: number | null, mode: 'sale' | 'pending' = 'sale') => {
     setOpenedId(id)
+    setCreateMode(mode)
     setDrawerKey((key) => key + 1)
     setDrawerOpen(true)
   }
@@ -47,6 +66,7 @@ export function SalesOrderListPage() {
   const filterFields: FilterField<SalesOrderFilters>[] = [
     { type: 'keyword', name: 'keyword', placeholder: 'Tìm theo mã phiếu' },
     { type: 'select', name: 'status', placeholder: 'Tất cả trạng thái', options: STATUS_OPTIONS, width: 160 },
+    { type: 'select', name: 'orderChannel', placeholder: 'Kênh đặt', options: CHANNEL_OPTIONS, width: 130 },
     {
       type: 'select',
       name: 'unpaidOnly',
@@ -69,6 +89,7 @@ export function SalesOrderListPage() {
       width: 180,
     },
     { type: 'dateRange', from: 'documentDateFrom', to: 'documentDateTo', placeholder: ['Từ ngày bán', 'đến ngày'] },
+    { type: 'dateRange', from: 'deliveryDateFrom', to: 'deliveryDateTo', placeholder: ['Giao từ ngày', 'đến ngày'] },
   ]
 
   const columns: TableProps<SalesOrderSummary>['columns'] = [
@@ -80,12 +101,30 @@ export function SalesOrderListPage() {
     },
     { title: 'Ngày bán', dataIndex: 'documentDate', width: 110, render: (date: string) => formatDate(date) },
     {
+      title: 'Ngày giao',
+      dataIndex: 'requestedDeliveryDate',
+      width: 110,
+      render: (date?: string) => (date ? formatDate(date) : EMPTY_TEXT),
+    },
+    {
       title: 'Khách hàng',
       dataIndex: 'customerName',
-      render: (name: string) => <Typography.Text strong>{name}</Typography.Text>,
+      render: (name: string, order) => (
+        <Flex gap={6} align="center" wrap>
+          <Typography.Text strong>{name}</Typography.Text>
+          {order.orderChannel !== 'DIRECT' && <Tag variant="outlined">{ORDER_CHANNEL_LABELS[order.orderChannel]}</Tag>}
+        </Flex>
+      ),
     },
-    { title: 'Kho xuất', dataIndex: 'warehouseName' },
-    { title: 'Tổng tiền', dataIndex: 'totalAmount', width: 140, align: 'right', render: (amount: number) => formatVnd(amount) },
+    { title: 'Kho xuất', dataIndex: 'warehouseName', render: (name?: string) => name ?? EMPTY_TEXT },
+    {
+      title: 'Tổng tiền',
+      dataIndex: 'totalAmount',
+      width: 140,
+      align: 'right',
+      // Đơn chờ xác nhận chưa có giá — hiện 0 đ dễ hiểu nhầm là hàng tặng
+      render: (amount: number, order) => (order.status === 'PENDING' ? EMPTY_TEXT : formatVnd(amount)),
+    },
     {
       title: 'Còn nợ',
       dataIndex: 'outstandingAmount',
@@ -104,7 +143,7 @@ export function SalesOrderListPage() {
       title: 'Trạng thái',
       dataIndex: 'status',
       width: STATUS_COLUMN_WIDTH,
-      render: (status: SalesOrderStatus) => <ReceiptStatusTag status={status} />,
+      render: (status: SalesOrderStatus) => <SalesStatusTag status={status} />,
     },
     {
       title: '',
@@ -116,7 +155,7 @@ export function SalesOrderListPage() {
         <RowActions
           recordLabel={order.code}
           onView={() => openOrder(order.id)}
-          onEdit={canWrite && order.status === 'DRAFT' ? () => openOrder(order.id) : undefined}
+          onEdit={canWrite && (order.status === 'DRAFT' || order.status === 'PENDING') ? () => openOrder(order.id) : undefined}
         />
       ),
     },
@@ -126,12 +165,17 @@ export function SalesOrderListPage() {
     <>
       <PageHeader
         title="Phiếu bán hàng"
-        description="Lập phiếu nháp, hoàn tất khi giao hàng để trừ tồn kho, thu tiền sau khi khách nhận hàng"
+        description="Ghi đơn khách đặt ngay khi nghe máy, xác nhận rồi hoàn tất khi giao hàng để trừ tồn kho, thu tiền sau khi khách nhận hàng"
         actions={
           canWrite && (
-            <Button type="primary" icon={<PlusOutlined />} onClick={() => openOrder(null)}>
-              Tạo phiếu bán
-            </Button>
+            <Flex gap={8}>
+              <Button icon={<PhoneOutlined />} onClick={() => openOrder(null, 'pending')}>
+                Ghi đơn khách đặt
+              </Button>
+              <Button type="primary" icon={<PlusOutlined />} onClick={() => openOrder(null)}>
+                Tạo phiếu bán
+              </Button>
+            </Flex>
           )
         }
       />
@@ -159,6 +203,7 @@ export function SalesOrderListPage() {
         key={drawerKey}
         open={drawerOpen}
         orderId={openedId}
+        createMode={createMode}
         references={references}
         onClose={() => setDrawerOpen(false)}
         onChanged={reload}

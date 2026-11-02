@@ -108,6 +108,19 @@ _(Trả lời BR-SAL-Q01: có công nợ, chỉ ở mức phiếu bán + lịch 
 - **BR-SAL-05:** Giao sai hoặc hàng không đạt → **đảo toàn phiếu** (lý do bắt buộc): Đã đảo, mỗi OUT gốc có một IN trỏ về nó, hàng về lại đúng kho đã xuất. Mỗi phiếu đảo một lần. **Chưa hỗ trợ trả một phần.**
 - **BR-SAL-15:** Kho, khách, SP phải đang hoạt động, kiểm tra cả khi lưu nháp lẫn khi hoàn tất.
 
+**Đơn khách đặt — Chờ xác nhận** _(✅ duyệt 2026-11-02, migration V25)_
+
+> Mục tiêu: không sót đơn khi khách gọi điện / nhắn Zalo nhiều; sau này app khách tạo đơn ở cùng trạng thái này.
+> Đơn đặt **là phiếu bán** ở trạng thái mới, không phải module riêng (đã cân nhắc bảng đơn đặt riêng — chỉ cần khi một đơn giao nhiều chuyến hoặc phải lưu lịch sử từng lần sửa).
+
+- **BR-SAL-16:** Phiếu bán có thêm trạng thái **Chờ xác nhận** (trước Nháp). Bước chuyển: **Chờ xác nhận → Nháp** (xác nhận), **Chờ xác nhận → Đã hủy**. Kho lập phiếu trực tiếp vẫn bắt đầu từ Nháp như cũ. BR-SAL-01 (bắt buộc kho, đơn giá) áp dụng **từ Nháp trở đi**.
+- **BR-SAL-17:** Đơn chờ xác nhận ghi: khách (đang hoạt động), **SP + SL khách đặt** (SL nguyên > 0, theo **đơn vị tính của SP**, mỗi SP một dòng, SP đang kinh doanh), **ngày muốn giao** (tùy chọn, được ở tương lai — khác ngày bán BR-SAL-04), **kênh** (Trực tiếp / Điện thoại / Zalo; "App" để dành cho app khách), ghi chú, người ghi. **Không có giá, không có kho, không ảnh hưởng tồn.** Có mã `PX` ngay để báo khách. Ngày bán mặc định = ngày ghi đơn.
+- **BR-SAL-18:** Chỉ đơn **Chờ xác nhận** được sửa phần khách đặt (SP, SL, ngày muốn giao, kênh, ghi chú). Không đổi khách — ghi nhầm khách thì hủy và ghi lại.
+- **BR-SAL-19:** **Xác nhận** (khóa phiếu `FOR UPDATE` như BR-SAL-04): kho chọn kho xuất, ngày bán, dòng hàng có giá — điền sẵn từ phần khách đặt + bảng giá riêng (BR-SAL-07), **được đổi SL, đổi SP** (hết loại này tư vấn loại khác), thêm / bớt dòng. Áp dụng BR-SAL-01, 04, 15. Phiếu thành **Nháp**, ghi người và lúc xác nhận. **Chưa trừ tồn** — trừ tồn khi Hoàn tất như BR-SAL-02.
+- **BR-SAL-20:** Phần **khách đặt được giữ nguyên** sau khi xác nhận (không sửa được nữa) để đối chiếu "khách đặt" với "thực giao" — kể cả khi phiếu bị hủy hoặc đảo.
+- **BR-SAL-21:** Hủy đơn chờ xác nhận **bắt buộc lý do** (vd. "khách đổi ý", "hết hàng, khách không lấy loại khác") — khác hủy phiếu nháp (lý do tùy chọn). Hai người cùng xác nhận / hủy một đơn → khóa phiếu, người sau bị từ chối vì trạng thái đã đổi.
+- **BR-SAL-22:** Đơn chờ xác nhận **không tính** vào doanh số (BR-RPT-02), công nợ, "số phiếu bán nháp"; Tổng quan có thẻ riêng **"Đơn chờ xác nhận"**.
+
 **Giá bán**
 
 - **BR-SAL-06:** Mỗi khách có thể có **bảng giá riêng**: một giá hiện hành cho mỗi SP (≥ 0, 2 chữ số lẻ). Không lưu lịch sử giá trong bảng giá.
@@ -394,7 +407,7 @@ _(Trả lời BR-SAL-Q01: có công nợ, chỉ ở mức phiếu bán + lịch 
 ### ✅ Đã xác nhận (2026-10-29) — mô phỏng báo cáo của KiotViet / MISA
 
 - **BR-RPT-01:** **Tổng quan** là trang đầu sau đăng nhập. Thẻ tồn kho (mọi vai trò): tổng tấn đang tồn (mọi SP, mọi kho, kể cả đã ngừng — BR-STK-01), số SP **đang kinh doanh** hết hàng / sắp hết (theo BR-STK-04, bấm vào mở danh sách SP đã lọc), hàng đang về (tấn, BR-STK-06), số phiếu nhập nháp.
-- **BR-RPT-02:** **Doanh số** = tổng tiền phiếu bán **Hoàn tất** theo **ngày bán**; phiếu **đã đảo không tính**. Thẻ bán hàng (mọi vai trò): hôm nay, tháng này (doanh số, số phiếu, số tấn), số phiếu bán nháp.
+- **BR-RPT-02:** **Doanh số** = tổng tiền phiếu bán **Hoàn tất** theo **ngày bán**; phiếu **đã đảo không tính**. Thẻ bán hàng (mọi vai trò): hôm nay, tháng này (doanh số, số phiếu, số tấn), số phiếu bán nháp, số đơn khách đặt **chờ xác nhận** (BR-SAL-22).
 - **BR-RPT-03:** Biểu đồ doanh số **30 ngày gần nhất** (kể cả hôm nay, ngày không bán = 0). Thẻ tiền chỉ hiện với vai trò có quyền: khách còn nợ (quyền công nợ khách), còn nợ NCC (quyền nhập kho), tiền mặt / tài khoản (quyền sổ quỹ).
 - **BR-RPT-04:** **Tồn theo kho**: bảng SP × kho (cột mỗi kho đang hoạt động hoặc đã ngừng mà còn hàng), tổng SL + tấn mỗi SP, dòng tổng **chỉ tính tấn** (cộng bao với kg là vô nghĩa). Lọc danh mục, từ khóa (không dấu); mặc định ẩn SP hết hàng; SP đã ngừng kinh doanh chỉ hiện khi còn hàng. Không phân trang.
 - **BR-RPT-05:** **Nhập – xuất – tồn theo kỳ** (chọn nhanh hôm nay / hôm qua / 7 ngày / tháng này / tháng trước, hoặc tự chọn; lọc kho, danh mục): mỗi SP có tồn đầu, nhập, xuất, tồn cuối (SL + tấn), **theo ngày ghi sổ** (thời điểm hoàn tất / đảo phiếu, giờ Việt Nam). Giao dịch **đảo** bù trừ vào cột của giao dịch gốc (đảo phiếu nhập làm giảm cột Nhập, không cộng vào Xuất). Tồn cuối = tồn đầu + nhập − xuất; kỳ kết thúc hôm nay thì tồn cuối = tồn hiện tại. Không có cột giá trị tiền (hệ thống chưa tính giá vốn).

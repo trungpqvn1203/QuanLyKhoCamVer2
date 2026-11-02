@@ -25,6 +25,8 @@ public record DashboardResponse(LocalDate today, StockSummary stock, SalesSummar
             SalesPeriod today,
             SalesPeriod thisMonth,
             long draftCount,
+            // Đơn khách đặt Chờ xác nhận (BR-SAL-22) — không tính vào doanh số hay số phiếu nháp
+            long pendingCount,
             // Đủ 30 ngày gần nhất (kể cả hôm nay), ngày không bán = 0 → biểu đồ không bị hụt cột
             List<DailySales> last30Days) {
     }
