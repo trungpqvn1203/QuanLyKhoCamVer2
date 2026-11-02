@@ -169,6 +169,7 @@ DELETE /api/products/:id          # Xóa (soft delete)
 | NCC của SP | `GET /api/products/{id}/suppliers` | Chiều ngược: NCC đang liên kết với SP (phân trang, mặc định sort `supplier.code`), item gồm `supplierId`, `supplierCode`, `supplierName`, `taxCode?`, `phone?`, `supplierActive`. Chỉ đọc — gán/gỡ dùng API của NCC ở dòng trên. Code đặt trong module supplier để tránh phụ thuộc vòng |
 | Phiếu nhập | `GET/POST /api/inbound-receipts`, `GET/PUT /api/inbound-receipts/{id}`, `POST /api/inbound-receipts/{id}/complete`, `…/cancel`, `…/reverse` | Xem mục **Phiếu nhập kho** bên dưới. Không có DELETE → 405 |
 | Phiếu bán | `GET/POST /api/sales-orders`, `GET/PUT /api/sales-orders/{id}`, `POST …/{id}/complete`, `…/cancel`, `…/reverse`, `POST …/{id}/payments`, `POST …/{id}/payments/{paymentId}/reverse`, `POST /api/sales-orders/pending`, `PUT …/{id}/request`, `POST …/{id}/confirm`, `POST …/{id}/price-adjustments` | Xem mục **Phiếu bán, thanh toán, công nợ** bên dưới. Không có DELETE → 405 |
+| App khách hàng | `/api/portal/auth/{login,refresh,logout}`, `GET /api/portal/me`, `PUT /api/portal/me/password`, `GET /api/portal/products`, `GET/POST /api/portal/orders`, `GET/PUT /api/portal/orders/{id}`, `POST …/{id}/cancel`; cửa hàng: `/api/customers/{id}/portal-account` (+ `/password`, `/lock`, `/unlock`) | Vùng đăng nhập riêng (ADR-0005). Xem mục **App khách hàng** bên dưới |
 | Giá riêng của khách | `GET /api/customers/{id}/prices`, `PUT/DELETE /api/customers/{id}/prices/{productId}` | Xem mục **Phiếu bán, thanh toán, công nợ** |
 | Báo cáo | `GET /api/reports/dashboard`, `GET /api/reports/stock-by-warehouse`, `GET /api/reports/stock-movement` | _(Từ 2026-10-29, BR-RPT)_ Chỉ đọc, mọi vai trò. **dashboard**: `{ today, stock: { productCount, outOfStockCount, lowStockCount, totalTons, incomingTons, draftInboundCount }, sales: { today: { revenue, orderCount, tons }, thisMonth: {…}, draftCount, last30Days: [{ date, revenue, orderCount }] (đủ 30 ngày) } }`. **stock-by-warehouse** `?categoryId&keyword&hideZero=true`: `{ warehouses: [{ id, code, name, active }], rows: [{ productId, productCode, productName, categoryName, unitName, productActive, quantities: { "<warehouseId>": SL }, totalQuantity, totalTons }], warehouseTons: { "<warehouseId>": tấn }, totalTons }`, không phân trang. **stock-movement** `?from&to` (bắt buộc, `YYYY-MM-DD`) `&warehouseId&categoryId`: `{ from, to, warehouseId?, rows: [{ productId, productCode, productName, categoryName, unitName, openingQuantity, inboundQuantity, outboundQuantity, closingQuantity, openingTons, inboundTons, outboundTons, closingTons }], totals: { openingTons, inboundTons, outboundTons, closingTons } }`; thiếu ngày → 400 field `from`/`to`, `to` trước `from` → 400 field `to` |
 | Thông tin cửa hàng | `GET/PUT /api/store-info` | _(Từ 2026-10-28, BR-PRT-01)_ GET (mọi vai trò): `{ configured, name?, address?, phone?, receiptFooter?, updatedAt? }` — chưa cấu hình → `{ configured: false }`. PUT (chỉ Quản lý hệ thống) `{ name, address?, phone?, receiptFooter? }` ghi đè toàn bộ; tên trống → 400 field `name`; ô tùy chọn để trống → lưu NULL, bỏ khỏi JSON |
@@ -328,6 +329,33 @@ Response phiếu bán (chi tiết và danh sách) thêm: `orderChannel`, `reques
 | `POST /api/sales-orders/{id}/price-adjustments` | `{ reason, lines: [{ productId, unitPrice }] }` | 200. Chỉ phiếu `COMPLETED` có `paidAmount = 0` (khác trạng thái hoặc đã thu → 409). Chỉ đổi đơn giá; tính lại `lineAmount`, `totalAmount`, `outstandingAmount`; tồn kho không đổi. Dòng trùng giá hiện tại bị bỏ qua; không dòng nào đổi → 400 field `lines`. Thiếu `reason` → 400; SP không có trên phiếu → 400 field `lines[i].productId`; SP lặp → 400 |
 
 Response chi tiết phiếu bán thêm `priceAdjustments: [{ id, productId, productCode, productName, oldUnitPrice, newUnitPrice, oldLineAmount, newLineAmount, reason, adjustedBy, createdAt }]` (cũ trước mới sau, rỗng nếu chưa từng điều chỉnh).
+
+**App khách hàng — `/api/portal/**`** (thêm 2026-11-03, ADR-0005, BR-POR-01..10):
+
+Vùng đăng nhập **riêng**: chuỗi filter riêng, cookie `GW_CAT` (Path=`/api/portal`) / `GW_CRT` (Path=`/api/portal/auth`), JWT ký khóa khác và `iss = grain-warehouse-portal`. Token khách gọi API nhân viên → 401; token nhân viên gọi `/api/portal/**` → 401. CSRF như nhân viên (lấy cookie qua `GET /api/auth/csrf`). Khách lấy từ token — **không có tham số `customerId`** nào.
+
+| Endpoint | Body | Kết quả / lỗi |
+|---|---|---|
+| `POST /api/portal/auth/login` | `{ phone, password }` | 200 `{ customerId, customerCode, customerName, phone, mustChangePassword }` + 2 cookie. Sai SĐT / mật khẩu → 401 cùng thông báo. Sai 5 lần liên tiếp → 401 "thử lại sau N phút" trong 15 phút. Tài khoản bị khóa / khách ngừng hoạt động → 401 (chỉ báo khi mật khẩu đúng) |
+| `POST /api/portal/auth/refresh` · `POST …/logout` | — | Như `/api/auth/*` (rotation, `409 REFRESH_RACE`, dùng lại token cũ → thu hồi cả phiên). Phiên 30 ngày không dùng / tối đa 90 ngày |
+| `GET /api/portal/me` · `PUT /api/portal/me/password` | `{ currentPassword, newPassword }` | Như nhân viên; đổi xong `mustChangePassword = false`, các thiết bị khác bị đăng xuất |
+| `GET /api/portal/products` | — | `[{ id, code, name, unitName, categoryName }]` — SP đang kinh doanh, **không giá, không tồn** |
+| `GET /api/portal/orders?status=&page=&size=` | — | Phân trang, chỉ đơn của khách: `{ id, code, status, orderChannel, orderDate, requestedDeliveryDate?, totalAmount?, createdAt }` |
+| `GET /api/portal/orders/{id}` | — | `{ id, code, status, orderChannel, orderDate, requestedDeliveryDate?, note?, createdAt, editable, requestLines, lines, totalAmount?, cancelReason? }`. `lines` (SL, đơn giá, thành tiền) và `totalAmount` **chỉ khi `DRAFT` / `COMPLETED`**. Không có kho, người lập / xác nhận, đã thu / còn nợ. Đơn của khách khác → **404** |
+| `POST /api/portal/orders` | `{ requestedDeliveryDate?, note?, lines: [{ productId, quantity }] }` | 201, phiếu bán `PENDING` kênh `APP`, `created_by = app:<mã khách>`. Validation như `POST /api/sales-orders/pending` |
+| `PUT /api/portal/orders/{id}` | như trên | Chỉ `PENDING` của chính khách (khác khách → 404, đã xác nhận → 409 "gọi cửa hàng") |
+| `POST /api/portal/orders/{id}/cancel` | `{ note? }` | Chỉ `PENDING` của chính khách; lý do = "Khách hủy qua app" (+ `: note`) |
+
+Lỗi riêng của portal: **403 `PASSWORD_CHANGE_REQUIRED`** (đặt / sửa / hủy đơn khi chưa đổi mật khẩu cửa hàng cấp), **403 `ACCOUNT_DISABLED`** (tài khoản bị khóa hoặc khách ngừng hoạt động trong lúc access token còn hạn — app đăng xuất).
+
+Phía cửa hàng (chuỗi nhân viên, quyền như ghi khách hàng — xem: mọi vai trò, ghi: bán hàng + quản lý hệ thống):
+
+| Endpoint | Body | Kết quả / lỗi |
+|---|---|---|
+| `GET /api/customers/{id}/portal-account` | — | `{ customerId, exists, active?, mustChangePassword?, lockedUntil?, lastLoginAt?, createdBy?, createdAt? }` — `exists = false` khi chưa có tài khoản. Khách không tồn tại → 404 |
+| `POST /api/customers/{id}/portal-account` | `{ password }` | 201. Đã có → 409; khách ngừng hoạt động → 409; mật khẩu < 8 ký tự → 400 field `password` |
+| `PUT /api/customers/{id}/portal-account/password` | `{ password }` | Đặt lại: `mustChangePassword = true`, xóa khóa tạm, **thu hồi mọi phiên** của khách. Chưa có tài khoản → 404 |
+| `POST …/portal-account/lock` · `…/unlock` | — | Khóa → thu hồi mọi phiên; mở → xóa đếm sai mật khẩu |
 
 | Endpoint | Body | Kết quả / lỗi |
 |---|---|---|

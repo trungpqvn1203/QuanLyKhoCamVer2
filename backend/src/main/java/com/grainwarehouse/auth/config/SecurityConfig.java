@@ -160,7 +160,7 @@ public class SecurityConfig {
      * Double-submit cookie: cookie XSRF-TOKEN KHÔNG HttpOnly để JavaScript đọc rồi gửi lại trong header X-XSRF-TOKEN.
      * Trang web khác không đọc được cookie của tên miền này → không tạo được header → CsrfFilter trả 403.
      */
-    private static CookieCsrfTokenRepository csrfTokenRepository(AuthProperties properties) {
+    public static CookieCsrfTokenRepository csrfTokenRepository(AuthProperties properties) {
         CookieCsrfTokenRepository repository = CookieCsrfTokenRepository.withHttpOnlyFalse();
         repository.setCookieCustomizer(cookie -> cookie.path("/").sameSite("Strict").secure(properties.cookieSecure()));
         return repository;
@@ -173,7 +173,7 @@ public class SecurityConfig {
      * - setCsrfRequestAttributeName(null): nạp token ở MỌI request thay vì trì hoãn → cookie XSRF-TOKEN luôn được
      *   đặt ngay từ request GET đầu tiên, frontend có sẵn để gửi kèm request ghi.
      */
-    private static CsrfTokenRequestAttributeHandler spaCsrfRequestHandler() {
+    public static CsrfTokenRequestAttributeHandler spaCsrfRequestHandler() {
         CsrfTokenRequestAttributeHandler handler = new CsrfTokenRequestAttributeHandler();
         handler.setCsrfRequestAttributeName(null);
         return handler;

@@ -411,6 +411,28 @@ _(Trả lời BR-SAL-Q01: có công nợ, chỉ ở mức phiếu bán + lịch 
 
 ---
 
+## App khách hàng (tự đặt hàng)
+
+### ✅ Đã xác nhận (2026-11-03, ADR-0005, migration V27)
+
+- **BR-POR-01:** Khách đăng nhập app bằng **SĐT của mình** + mật khẩu. Tài khoản app tách hẳn khỏi tài khoản nhân viên: token khách không dùng được ở bất kỳ API nào của cửa hàng và ngược lại.
+- **BR-POR-02:** **Cửa hàng tạo tài khoản** cho khách (bán hàng hoặc quản lý hệ thống), đặt mật khẩu ban đầu và báo cho khách. Mỗi khách tối đa một tài khoản. Khách đang ngừng hoạt động không tạo tài khoản và không đăng nhập được.
+- **BR-POR-03:** Mật khẩu do cửa hàng đặt (tạo mới / đặt lại) → khách **phải đổi** trước khi đặt, sửa, hủy đơn. Mật khẩu theo BR-AUTH-03.
+- **BR-POR-04:** Sai mật khẩu **5 lần liên tiếp → khóa tạm 15 phút**; đăng nhập đúng thì đếm lại từ 0. Sai SĐT hay sai mật khẩu cùng một thông báo.
+- **BR-POR-05:** Phiên app hết hạn sau **30 ngày không dùng**, tối đa **90 ngày** từ lúc đăng nhập (khác nhân viên — BR-AUTH-06). Đăng xuất / đổi mật khẩu như BR-AUTH-06, 07.
+- **BR-POR-06:** Khách chỉ thấy **SP đang kinh doanh** (mã, tên, ĐVT, danh mục) — **không thấy giá, không thấy tồn**.
+- **BR-POR-07:** Khách đặt hàng = **đơn Chờ xác nhận kênh App** (BR-SAL-16..22): SP + SL theo ĐVT, ngày muốn giao, ghi chú. Cửa hàng xác nhận / hủy như đơn ghi từ điện thoại.
+- **BR-POR-08:** Khách chỉ thấy **đơn của chính mình**. Trạng thái hiển thị: Chờ cửa hàng xác nhận · Đã nhận đơn · Đã giao · Đã hủy · Đã hủy giao. **Giá chỉ hiện sau khi cửa hàng xác nhận** (dòng chốt: SL, đơn giá, thành tiền, tổng; luôn là giá mới nhất kể cả sau BR-SAL-23). Không hiện công nợ, kho xuất, người lập / xác nhận. Đơn bị hủy hiện lý do.
+- **BR-POR-09:** Khách **sửa / tự hủy** đơn khi còn **Chờ xác nhận** (BR-SAL-18). Tự hủy ghi lý do "Khách hủy qua app" (+ ghi chú của khách nếu có). Đã nhận đơn thì phải gọi cửa hàng.
+- **BR-POR-10:** Cửa hàng **khóa** tài khoản (khách không đăng nhập, không gia hạn, không đặt hàng được ngay — đơn đã có giữ nguyên), **mở khóa** (xóa đếm sai mật khẩu), **đặt lại mật khẩu** (mọi phiên của khách bị thu hồi, BR-POR-03 áp dụng lại).
+
+### ❓ Câu hỏi mở
+
+- **BR-POR-Q01:** Khách tự đăng ký + OTP, quên mật khẩu tự phục vụ — khi nào cần? (Hiện: gọi cửa hàng đặt lại.)
+- **BR-POR-Q02:** Thông báo cho khách khi đơn được xác nhận / giao (cần service worker hoặc Zalo ZNS).
+
+---
+
 ## Báo cáo tồn kho & tổng quan
 
 ### ✅ Đã xác nhận (2026-10-29) — mô phỏng báo cáo của KiotViet / MISA

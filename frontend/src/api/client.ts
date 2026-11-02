@@ -25,10 +25,27 @@ const SERVER_ERROR_MESSAGE = 'Hệ thống gặp lỗi, vui lòng thử lại sa
 const CSRF_COOKIE = 'XSRF-TOKEN'
 const CSRF_HEADER = 'X-XSRF-TOKEN'
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS'])
-const REFRESH_PATH = '/api/auth/refresh'
+
+/**
+ * Hai vùng đăng nhập (ADR-0005): nhân viên (/api/**) và app khách (/api/portal/**). Mỗi vùng gia hạn ở endpoint
+ * riêng, có bộ xử lý "hết phiên" riêng — hết phiên app khách không được đẩy người dùng về trang đăng nhập nhân viên.
+ */
+type Realm = 'staff' | 'portal'
+
+const REFRESH_PATHS: Record<Realm, string> = { staff: '/api/auth/refresh', portal: '/api/portal/auth/refresh' }
 
 /** API đăng nhập/gia hạn: 401 ở đây là kết quả thật (sai mật khẩu, hết phiên), không phải tín hiệu để gia hạn. */
-const NO_REFRESH_PATHS = new Set(['/api/auth/login', REFRESH_PATH, '/api/auth/logout', '/api/auth/csrf'])
+const NO_REFRESH_PATHS = new Set([
+  '/api/auth/login',
+  REFRESH_PATHS.staff,
+  '/api/auth/logout',
+  '/api/auth/csrf',
+  '/api/portal/auth/login',
+  REFRESH_PATHS.portal,
+  '/api/portal/auth/logout',
+])
+
+const realmOf = (path: string): Realm => (path.startsWith('/api/portal/') ? 'portal' : 'staff')
 
 /** Đọc một cookie mà JS được phép đọc. Token đăng nhập (HttpOnly) KHÔNG đọc được bằng cách này — đó là chủ đích. */
 export function readCookie(name: string): string | undefined {
@@ -38,29 +55,34 @@ export function readCookie(name: string): string | undefined {
   return found ? decodeURIComponent(found.slice(prefix.length)) : undefined
 }
 
-let sessionExpiredHandler: (() => void) | null = null
+const sessionExpiredHandlers: Record<Realm, (() => void) | null> = { staff: null, portal: null }
 
 /** AuthProvider đăng ký: gia hạn thất bại → về trang đăng nhập. */
 export function onSessionExpired(handler: (() => void) | null) {
-  sessionExpiredHandler = handler
+  sessionExpiredHandlers.staff = handler
+}
+
+/** App khách (PortalAuthProvider) đăng ký: gia hạn thất bại → về trang đăng nhập của khách. */
+export function onPortalSessionExpired(handler: (() => void) | null) {
+  sessionExpiredHandlers.portal = handler
 }
 
 type RefreshOutcome = 'renewed' | 'race' | 'failed'
-let refreshInFlight: Promise<RefreshOutcome> | null = null
+const refreshInFlight: Record<Realm, Promise<RefreshOutcome> | null> = { staff: null, portal: null }
 
 /**
  * Gia hạn phiên — chỉ MỘT request gia hạn tại một thời điểm (single-flight): 5 API cùng nhận 401 thì cùng chờ
  * chung một lần gia hạn, không gửi 5 lần (gửi 5 lần với cùng refresh token sẽ bị backend coi là dùng lại token).
  * 409 REFRESH_RACE: tab khác vừa gia hạn trước, cookie mới đã có sẵn → chỉ cần gửi lại request gốc.
  */
-function refreshSession(): Promise<RefreshOutcome> {
-  refreshInFlight ??= send(REFRESH_PATH, { method: 'POST' })
+function refreshSession(realm: Realm): Promise<RefreshOutcome> {
+  refreshInFlight[realm] ??= send(REFRESH_PATHS[realm], { method: 'POST' })
     .then((response): RefreshOutcome => (response.ok ? 'renewed' : response.status === 409 ? 'race' : 'failed'))
     .catch((): RefreshOutcome => 'failed')
     .finally(() => {
-      refreshInFlight = null
+      refreshInFlight[realm] = null
     })
-  return refreshInFlight
+  return refreshInFlight[realm]
 }
 
 /**
@@ -96,10 +118,13 @@ async function sendOrThrow(path: string, init: RequestInit): Promise<Response> {
 async function sendWithRefresh(path: string, init: RequestInit): Promise<Response> {
   let response = await sendOrThrow(path, init)
 
-  if (response.status === 401 && !NO_REFRESH_PATHS.has(path)) {
-    const outcome = await refreshSession()
+  // So theo đường dẫn không kèm query (?page=0...) để endpoint công khai luôn khớp
+  const pathOnly = path.split('?')[0]
+  if (response.status === 401 && !NO_REFRESH_PATHS.has(pathOnly)) {
+    const realm = realmOf(pathOnly)
+    const outcome = await refreshSession(realm)
     if (outcome !== 'failed') response = await sendOrThrow(path, init)
-    if (response.status === 401) sessionExpiredHandler?.()
+    if (response.status === 401) sessionExpiredHandlers[realm]?.()
   }
   return response
 }

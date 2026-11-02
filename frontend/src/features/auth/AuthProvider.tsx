@@ -5,13 +5,18 @@ import { authApi } from './auth-api'
 import type { CurrentUser } from './auth-api'
 import { AuthContext } from './auth-context'
 
+const PORTAL_PATH_PREFIX = '/khach'
+
+/** App khách (/khach, ADR-0005) có phiên riêng — không hỏi phiên nhân viên, tránh một vòng 401 + gia hạn vô ích. */
+const isPortalPage = () => window.location.pathname.startsWith(PORTAL_PATH_PREFIX)
+
 /**
  * Giữ "ai đang đăng nhập" cho cả ứng dụng. Không giữ token (token ở cookie HttpOnly):
  * mở trang → hỏi GET /api/auth/me; trả 401 dù đã thử gia hạn → chưa đăng nhập.
  */
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<CurrentUser | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(() => !isPortalPage())
   const [sessionExpired, setSessionExpired] = useState(false)
   // Đọc trong handler hết phiên mà không phải đăng ký lại handler mỗi lần user đổi
   const loggedIn = useRef(false)
@@ -21,6 +26,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [user])
 
   useEffect(() => {
+    if (isPortalPage()) return
     let ignore = false
     authApi
       .me()

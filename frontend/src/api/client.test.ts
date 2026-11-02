@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { ApiError, apiRequest, onSessionExpired, withQuery } from './client'
+import { ApiError, apiRequest, onPortalSessionExpired, onSessionExpired, withQuery } from './client'
 
 function mockFetchResponse(status: number, body?: unknown) {
   const response =
@@ -206,6 +206,45 @@ describe('apiRequest - tự gia hạn khi access token hết hạn', () => {
     const fetchMock = routedFetch({ '/api/auth/login': [json(401, UNAUTHORIZED)] })
 
     await catchApiError(apiRequest('/api/auth/login', { method: 'POST', body: '{}' }))
+    expect(fetchMock).toHaveBeenCalledOnce()
+  })
+})
+
+describe('apiRequest - vùng app khách (ADR-0005)', () => {
+  it('401 ở /api/portal/** → gia hạn ở /api/portal/auth/refresh, không đụng phiên nhân viên', async () => {
+    const fetchMock = routedFetch({
+      '/api/portal/orders': [json(401, UNAUTHORIZED), json(200, OK)],
+      '/api/portal/auth/refresh': [json(200, { success: true, data: {}, timestamp: '' })],
+    })
+
+    await expect(apiRequest('/api/portal/orders')).resolves.toEqual({ id: 1 })
+    expect(fetchMock.mock.calls.map(([path]) => path)).toEqual([
+      '/api/portal/orders',
+      '/api/portal/auth/refresh',
+      '/api/portal/orders',
+    ])
+  })
+
+  it('hết phiên app khách → chỉ báo cho app khách, không báo cho trang nhân viên', async () => {
+    const staffExpired = vi.fn()
+    const portalExpired = vi.fn()
+    onSessionExpired(staffExpired)
+    onPortalSessionExpired(portalExpired)
+    routedFetch({
+      '/api/portal/me': [json(401, UNAUTHORIZED)],
+      '/api/portal/auth/refresh': [json(401, UNAUTHORIZED)],
+    })
+
+    await catchApiError(apiRequest('/api/portal/me'))
+    expect(portalExpired).toHaveBeenCalledOnce()
+    expect(staffExpired).not.toHaveBeenCalled()
+    onPortalSessionExpired(null)
+  })
+
+  it('đăng nhập app sai (401 ở /api/portal/auth/login) → không thử gia hạn', async () => {
+    const fetchMock = routedFetch({ '/api/portal/auth/login': [json(401, UNAUTHORIZED)] })
+
+    await catchApiError(apiRequest('/api/portal/auth/login', { method: 'POST', body: '{}' }))
     expect(fetchMock).toHaveBeenCalledOnce()
   })
 })

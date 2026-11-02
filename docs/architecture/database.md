@@ -32,6 +32,7 @@ Ràng buộc đổi: `ck_employee_has_rate` (ít nhất một trong ba đơn gi�
 | `stock_transaction` | Lịch sử biến động tồn kho (bất biến) | ✅ Đã duyệt 2026-10-19 (V6) |
 | `customer_product_price` | Giá bán riêng hiện hành theo (khách, SP) — chỉ để điền sẵn | ✅ Đã duyệt 2026-10-20 (V13) |
 | `sale_payment` | Lịch sử thanh toán của phiếu bán (bất biến) | ✅ Đã duyệt 2026-10-20 (V13) |
+| `customer_account`, `customer_refresh_token` | Tài khoản app khách hàng + refresh token — vùng đăng nhập riêng với nhân viên (ADR-0005) | ✅ Đã duyệt 2026-11-03 (V27) |
 | `sale_price_adjustment` | Nhật ký điều chỉnh giá phiếu bán đã giao chưa thu tiền (bất biến) | ✅ Đã duyệt 2026-11-03 (V26) |
 | `sale_request_item` | Phần **khách đặt** (SP + SL) của phiếu bán — giữ nguyên sau khi xác nhận để đối chiếu | ✅ Đã duyệt 2026-11-02 (V25) |
 | `supplier_payment` | Lịch sử trả tiền NCC trên phiếu nhập (bất biến) | ✅ Đã duyệt 2026-10-25 (V16) |
@@ -301,6 +302,13 @@ erDiagram
 - **Vì sao bảng riêng, không dùng `ordered_quantity` của dòng phiếu:** kho được **đổi SP** khi xác nhận (BR-SAL-19). `ordered_quantity` gắn với dòng của SP *mới* nên mất dấu SP khách đặt ban đầu.
 - **Vì sao không làm bảng đơn đặt riêng:** quy trình chỉ có một đường đi (đơn → phiếu), một đơn giao một lần. Bảng `customer_order` riêng chỉ đáng làm khi một đơn giao nhiều chuyến hoặc cần lịch sử từng lần sửa.
 
+### customer_account, customer_refresh_token (App khách hàng) (✅ đã duyệt 2026-11-03 — migration V27, ADR-0005)
+
+- `customer_account`: `customer_id` UNIQUE (mỗi khách một tài khoản; đăng nhập bằng `customer.phone`, không có cột tên đăng nhập), `password_hash` BCrypt, `must_change_password` (BR-POR-03), `active` (BR-POR-10), `failed_login_count` + `locked_until` (BR-POR-04), `last_login_at`, `created_by`.
+- `customer_refresh_token`: cấu trúc y hệt `refresh_token` (V14), FK `customer_account_id`. **Bảng riêng** thay vì thêm cột `customer_account_id` nullable vào `refresh_token`: mỗi bảng một FK NOT NULL, và câu thu hồi phiên khách không thể vô tình đụng phiên nhân viên.
+- Đăng nhập khóa dòng tài khoản `FOR UPDATE` trước khi đếm sai mật khẩu: 5 request sai cùng lúc không thể cùng đọc "đã sai 4 lần" rồi cùng ghi 5 (lost update như BR-SAL-11).
+- Đơn khách đặt dùng lại phiếu bán `PENDING` kênh `APP` (V25) — không có bảng đơn riêng. `created_by` = `app:` + mã khách.
+
 ### sale_price_adjustment (Điều chỉnh giá — BẤT BIẾN) (✅ đã duyệt 2026-11-03 — migration V26)
 
 - Mỗi dòng = một dòng phiếu đổi giá trong một lần điều chỉnh (BR-SAL-23..26): `document_id`, `document_item_id`, `product_id`, `old_unit_price → new_unit_price`, `old_line_amount → new_line_amount`, `reason` (NOT NULL), `adjusted_by`, `created_at`. Một lần điều chỉnh nhiều dòng → các dòng chung `reason` và `created_at` (cùng transaction).
@@ -487,6 +495,8 @@ Cả hai transaction đều lock theo thứ tự ID tăng dần → không deadl
 | UK | `customer_product_price` | `(customer_id, product_id)` | Bảng giá của khách; chặn trùng (V13) |
 | IDX | `sale_payment` | `document_id` | Lịch sử thanh toán của phiếu (V13) |
 | UK | `sale_payment` | `reversal_of_id` | Chặn hoàn hai lần (V13) |
+| UK | `customer_account` | `customer_id` | Mỗi khách một tài khoản app; tra tài khoản theo khách (V27) |
+| IDX | `customer_refresh_token` | `customer_account_id`, `family_id` | Thu hồi phiên khách theo tài khoản / theo lần đăng nhập (V27) |
 | IDX | `sale_price_adjustment` | `document_id` | Lịch sử điều chỉnh giá của phiếu (V26) |
 | UK | `sale_request_item` | `(document_id, product_id)` | Phần khách đặt của một phiếu; chặn SP lặp (V25) |
 | IDX | `stock_document` | `(type, document_date)` | Lọc chứng từ theo loại + ngày chứng từ (V6 — đổi từ `created_at` vì danh sách lọc theo ngày chứng từ) |
