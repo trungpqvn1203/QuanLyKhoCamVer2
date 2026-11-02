@@ -2,6 +2,7 @@ import {
   ArrowLeftOutlined,
   CheckOutlined,
   DollarOutlined,
+  EditOutlined,
   PrinterOutlined,
   RollbackOutlined,
   SaveOutlined,
@@ -24,11 +25,12 @@ import {
 } from './pending-order-form'
 import type { PendingOrderFormValues } from './pending-order-form'
 import { PAYMENT_METHOD_LABELS, customerPriceApi, salesOrderApi } from './sales-order-api'
-import type { PaymentInput, SalePayment, SalesOrder } from './sales-order-api'
+import type { PaymentInput, PriceAdjustmentInput, SalePayment, SalesOrder } from './sales-order-api'
 import { emptySalesOrderForm, toSalesFormValues, toSalesOrderInput } from './sales-order-form'
 import type { SalesOrderFormValues } from './sales-order-form'
 import { PaymentModal } from './PaymentModal'
 import { PendingOrderForm } from './PendingOrderForm'
+import { PriceAdjustmentModal } from './PriceAdjustmentModal'
 import { RequestLinesTable } from './RequestLinesTable'
 import { SalesOrderForm } from './SalesOrderForm'
 import { SalesOrderView } from './SalesOrderView'
@@ -83,6 +85,7 @@ export function SalesOrderDrawer({
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [reasonAction, setReasonAction] = useState<ReasonAction | null>(null)
   const [paying, setPaying] = useState(false)
+  const [adjustingPrice, setAdjustingPrice] = useState(false)
 
   useEffect(() => {
     if (orderId === null) return
@@ -317,6 +320,19 @@ export function SalesOrderDrawer({
     }
   }
 
+  // BR-SAL-23..26: ném lỗi ra để FormModal giữ hộp mở và hiện lỗi (ví dụ người khác vừa thu tiền)
+  const submitPriceAdjustment = async (input: PriceAdjustmentInput) => {
+    if (!order) return
+    const updated = await salesOrderApi.adjustPrices(order.id, input)
+    setOrder(updated)
+    setErrorMessage(null)
+    notification.success({
+      title: 'Đã điều chỉnh giá',
+      description: `${updated.code} · tổng phiếu ${formatVnd(order.totalAmount)} → ${formatVnd(updated.totalAmount)}`,
+    })
+    onChanged()
+  }
+
   const submitPayment = async (input: PaymentInput) => {
     if (!order) return
     const updated = await salesOrderApi.recordPayment(order.id, input)
@@ -440,6 +456,12 @@ export function SalesOrderDrawer({
         {printable && (
           <Button icon={<PrinterOutlined />} disabled={busy !== null} onClick={() => void print()}>
             In phiếu
+          </Button>
+        )}
+        {/* BR-SAL-25: chỉ khi khách chưa trả đồng nào — backend kiểm lại sau khi khóa phiếu */}
+        {canWrite && order?.status === 'COMPLETED' && order.paidAmount === 0 && (
+          <Button icon={<EditOutlined />} onClick={() => setAdjustingPrice(true)}>
+            Điều chỉnh giá
           </Button>
         )}
         {canWrite && order?.status === 'COMPLETED' && order.outstandingAmount > 0 && (
@@ -586,6 +608,14 @@ export function SalesOrderDrawer({
           {...reasonTexts(reasonAction, order)}
           onSubmit={submitReason}
           onClose={() => setReasonAction(null)}
+        />
+      )}
+      {order && adjustingPrice && (
+        <PriceAdjustmentModal
+          open
+          order={order}
+          onSubmit={submitPriceAdjustment}
+          onClose={() => setAdjustingPrice(false)}
         />
       )}
       {order && paying && (

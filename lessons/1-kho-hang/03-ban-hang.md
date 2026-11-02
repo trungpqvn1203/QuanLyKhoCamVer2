@@ -55,3 +55,19 @@ Bài toán: mỗi ngày có rất nhiều đơn đến qua điện thoại và Z
 1. Vì sao `ck_stock_document_warehouse` cho phép `CANCELLED` không có kho **chỉ khi** `confirmed_at IS NULL`? Bỏ điều kiện đó thì lỗ hổng nào mở ra?
 2. Nếu sau này một đơn được giao làm hai chuyến, thiết kế "trạng thái trên phiếu bán" vỡ ở đâu, và bảng `customer_order` riêng giải quyết thế nào?
 3. Hai người cùng bấm "Xác nhận đơn" cho PX000123: lần lượt điều gì xảy ra ở DB, và vì sao không có dòng phiếu nào bị chép hai lần?
+
+## Thay đổi: Điều chỉnh giá phiếu đã giao, chưa thu tiền (2026-11-03, V26)
+
+Tình huống: giao 10 bao cám heo giá 300.000 xong, khách kêu đắt, chủ cửa hàng bớt còn 295.000. Trước đây phiếu Hoàn tất bị khóa hẳn, nên phải **đảo phiếu** (trên sổ, 10 bao quay về kho) rồi lập phiếu mới, tức là thêm hai giao dịch kho cho một việc chẳng liên quan gì đến kho.
+
+- **Tách "cái gì được đổi" khỏi "cái gì bị khóa"** — trước đây khóa phiếu Hoàn tất là khóa tất cả. Nhìn kỹ thì **số lượng** gắn với tồn kho và `stock_transaction` (quy tắc cứng: lịch sử bất biến), còn **giá** chỉ gắn với tiền. Điều chỉnh giá chỉ chạm vào giá, nên `stock_transaction` không có thêm dòng nào. Test `shouldAdjustPriceOfDeliveredUnpaidOrder` đếm số giao dịch kho trước và sau để chứng minh.
+- **Giá hiện hành tại chỗ + nhật ký riêng** — cùng khuôn "snapshot + nhật ký" như `inventory` ↔ `stock_transaction`, `paid_amount` ↔ `sale_payment`. Dòng phiếu giữ **giá hiện hành**, vì công nợ, doanh số, bản in và app khách đều đọc từ đó và không phải sửa câu truy vấn nào. `sale_price_adjustment` giữ "300.000 → 295.000, ai sửa, vì sao", bất biến bằng trigger. Phương án khác là chỉ lưu nhật ký rồi lúc đọc mới tính ra giá hiện hành. Cách đó đúng về lý thuyết nhưng mọi báo cáo phải biết đến bảng nhật ký.
+- **Điều kiện "chưa thu đồng nào" phải kiểm SAU khi khóa** — nếu đọc `paid_amount` trước rồi mới khóa, thì giữa hai bước người khác có thể vừa thu tiền xong. Test đồng thời cho điều chỉnh giá (1 triệu → 500.000) và thu đủ 1 triệu chạy cùng lúc. Có hai kết cục hợp lệ: thu trước thì điều chỉnh bị từ chối vì "đã thu"; điều chỉnh trước thì thu 1 triệu bị từ chối vì vượt nợ mới 500.000. Không bao giờ ra kết cục "thu 1 triệu cho phiếu 500.000". CHECK `paid ≤ total` vẫn là chốt cuối nếu code có lỗi.
+- **`compareTo`, không dùng `equals`, khi so tiền** — `new BigDecimal("300000").equals(new BigDecimal("300000.00"))` là **false**, vì `equals` so cả scale (số chữ số lẻ). Gửi lại đúng giá cũ dạng `300000.00` mà dùng `equals` thì sẽ ghi một dòng nhật ký "300.000 → 300.000", và DB chặn bằng `ck_sale_price_adjustment_changed`. Service dùng `compareTo(...) == 0`; test `shouldSkipUnchangedLinesAndRejectNoChange` gửi đúng `300000.00` để bắt lỗi này.
+- **Kiểm "không có dòng nào đổi" ngay ở form** — thay vì để backend trả 400, rule của ô lý do gọi lại đúng hàm thuần `toPriceAdjustmentInput` mà nút gửi dùng. Hai nơi không thể lệch nhau.
+
+### Câu hỏi ôn tập (để cuối dự án)
+
+1. Vì sao điều chỉnh giá không cần ghi `stock_transaction`, còn đảo phiếu thì phải ghi? Quy tắc cứng nào phân định ranh giới đó?
+2. Nếu đọc `paid_amount` rồi mới gọi `findForUpdate`, kịch bản nào khiến khách bị ghi nợ âm (đã trả nhiều hơn tổng phiếu)? Tuyến phòng thủ nào còn lại?
+3. `new BigDecimal("1.0").equals(new BigDecimal("1.00"))` trả gì, vì sao? Trong dự án còn chỗ nào so tiền mà cần `compareTo`?

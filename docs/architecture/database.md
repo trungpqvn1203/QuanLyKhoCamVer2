@@ -32,6 +32,7 @@ Ràng buộc đổi: `ck_employee_has_rate` (ít nhất một trong ba đơn gi�
 | `stock_transaction` | Lịch sử biến động tồn kho (bất biến) | ✅ Đã duyệt 2026-10-19 (V6) |
 | `customer_product_price` | Giá bán riêng hiện hành theo (khách, SP) — chỉ để điền sẵn | ✅ Đã duyệt 2026-10-20 (V13) |
 | `sale_payment` | Lịch sử thanh toán của phiếu bán (bất biến) | ✅ Đã duyệt 2026-10-20 (V13) |
+| `sale_price_adjustment` | Nhật ký điều chỉnh giá phiếu bán đã giao chưa thu tiền (bất biến) | ✅ Đã duyệt 2026-11-03 (V26) |
 | `sale_request_item` | Phần **khách đặt** (SP + SL) của phiếu bán — giữ nguyên sau khi xác nhận để đối chiếu | ✅ Đã duyệt 2026-11-02 (V25) |
 | `supplier_payment` | Lịch sử trả tiền NCC trên phiếu nhập (bất biến) | ✅ Đã duyệt 2026-10-25 (V16) |
 | `cash_book`, `cash_book_change`, `cash_category`, `cash_voucher` + VIEW `cash_flow_entry` | Sổ quỹ: đầu kỳ (1 dòng) + lịch sử sửa, danh mục thu/chi, phiếu thu/chi khác (bất biến); VIEW gộp mọi biến động tiền | ✅ Đã duyệt 2026-10-26 (V19) |
@@ -300,6 +301,14 @@ erDiagram
 - **Vì sao bảng riêng, không dùng `ordered_quantity` của dòng phiếu:** kho được **đổi SP** khi xác nhận (BR-SAL-19). `ordered_quantity` gắn với dòng của SP *mới* nên mất dấu SP khách đặt ban đầu.
 - **Vì sao không làm bảng đơn đặt riêng:** quy trình chỉ có một đường đi (đơn → phiếu), một đơn giao một lần. Bảng `customer_order` riêng chỉ đáng làm khi một đơn giao nhiều chuyến hoặc cần lịch sử từng lần sửa.
 
+### sale_price_adjustment (Điều chỉnh giá — BẤT BIẾN) (✅ đã duyệt 2026-11-03 — migration V26)
+
+- Mỗi dòng = một dòng phiếu đổi giá trong một lần điều chỉnh (BR-SAL-23..26): `document_id`, `document_item_id`, `product_id`, `old_unit_price → new_unit_price`, `old_line_amount → new_line_amount`, `reason` (NOT NULL), `adjusted_by`, `created_at`. Một lần điều chỉnh nhiều dòng → các dòng chung `reason` và `created_at` (cùng transaction).
+- `ck_sale_price_adjustment_changed`: giá cũ ≠ giá mới; `ck_sale_price_adjustment_prices`: cả hai ≥ 0. Trigger `trg_sale_price_adjustment_immutable` / `_no_truncate` chặn UPDATE/DELETE/TRUNCATE như `sale_payment`.
+- Dòng phiếu (`unit_price`, `line_amount`) và `stock_document.total_amount` được **cập nhật tại chỗ** — đó là giá hiện hành mà công nợ, doanh số, bản in đọc. Lịch sử giá nằm ở bảng này; `stock_transaction` chỉ ghi số lượng nên không đổi.
+- Điều kiện "chưa thu đồng nào" kiểm ở service sau khi khóa phiếu `FOR UPDATE`. `ck_stock_document_paid` (`paid ≤ total`) vẫn là chốt cuối: giảm giá dưới số đã thu là không thể.
+- **Vì sao không có bảng "phiếu điều chỉnh" (đầu phiếu + dòng):** chưa có nhu cầu in / duyệt theo từng lần điều chỉnh; thêm bảng khi cần.
+
 ### stock_document_item (Dòng chứng từ) (✅ đã duyệt — migration V6)
 
 - `UNIQUE (document_id, product_id)`: mỗi SP một dòng (BR-IMP-A05); index này cũng phục vụ "các dòng của phiếu X".
@@ -478,6 +487,7 @@ Cả hai transaction đều lock theo thứ tự ID tăng dần → không deadl
 | UK | `customer_product_price` | `(customer_id, product_id)` | Bảng giá của khách; chặn trùng (V13) |
 | IDX | `sale_payment` | `document_id` | Lịch sử thanh toán của phiếu (V13) |
 | UK | `sale_payment` | `reversal_of_id` | Chặn hoàn hai lần (V13) |
+| IDX | `sale_price_adjustment` | `document_id` | Lịch sử điều chỉnh giá của phiếu (V26) |
 | UK | `sale_request_item` | `(document_id, product_id)` | Phần khách đặt của một phiếu; chặn SP lặp (V25) |
 | IDX | `stock_document` | `(type, document_date)` | Lọc chứng từ theo loại + ngày chứng từ (V6 — đổi từ `created_at` vì danh sách lọc theo ngày chứng từ) |
 

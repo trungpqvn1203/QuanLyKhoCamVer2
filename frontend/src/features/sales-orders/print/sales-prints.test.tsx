@@ -40,6 +40,7 @@ function order(overrides: Partial<SalesOrder> = {}): SalesOrder {
         quantity: 40, unitPrice: 10_250, lineAmount: 410_000, tons: 0.04 },
     ],
     requestLines: [],
+    priceAdjustments: [],
     payments: [],
     ...overrides,
   }

@@ -121,6 +121,15 @@ _(Trả lời BR-SAL-Q01: có công nợ, chỉ ở mức phiếu bán + lịch 
 - **BR-SAL-21:** Hủy đơn chờ xác nhận **bắt buộc lý do** (vd. "khách đổi ý", "hết hàng, khách không lấy loại khác") — khác hủy phiếu nháp (lý do tùy chọn). Hai người cùng xác nhận / hủy một đơn → khóa phiếu, người sau bị từ chối vì trạng thái đã đổi.
 - **BR-SAL-22:** Đơn chờ xác nhận **không tính** vào doanh số (BR-RPT-02), công nợ, "số phiếu bán nháp"; Tổng quan có thẻ riêng **"Đơn chờ xác nhận"**.
 
+**Điều chỉnh giá phiếu đã giao, chưa thu tiền** _(✅ duyệt 2026-11-03, migration V26 — ngoại lệ có điều kiện của BR-SAL-04 "phiếu Hoàn tất bị khóa")_
+
+> Tình huống: giao hàng xong khách kêu đắt, chủ cửa hàng bớt giá. Trước đây phải đảo phiếu (hàng về lại kho trên sổ) rồi lập phiếu mới.
+
+- **BR-SAL-23:** Phiếu **Hoàn tất** có **đã thu = 0** được **điều chỉnh giá**: chỉ đổi đơn giá các dòng. Số lượng, SP, kho **không đổi** → tồn kho và `StockTransaction` không bị động tới.
+- **BR-SAL-24:** Bắt buộc **lý do**. Phải có **ít nhất một dòng đổi giá** (gửi giá y như cũ → từ chối). Giá mới ≥ 0, tối đa 2 chữ số lẻ (BR-SAL-06); thành tiền dòng và tổng phiếu tính lại theo BR-MON-05; công nợ khách và doanh số theo ngày bán (BR-RPT-02) đổi theo. Chỉ gửi các dòng cần đổi; SP không có trên phiếu → 400.
+- **BR-SAL-25:** Khách **đã trả từ 1 đồng** → không điều chỉnh được nữa (cùng tinh thần BR-SAL-14). Phiếu Nháp sửa giá bằng cách sửa phiếu như cũ; Đã hủy / Đã đảo → từ chối. Khóa phiếu `FOR UPDATE` trước khi kiểm tra (BR-SAL-04).
+- **BR-SAL-26:** Mỗi dòng đổi giá ghi **nhật ký bất biến**: giá cũ → mới, thành tiền cũ → mới, lý do, người sửa, thời điểm. Màn hình phiếu có mục "Lịch sử điều chỉnh giá"; in lại phiếu và app khách thấy giá mới. Sổ quỹ không đổi (chưa thu đồng nào).
+
 **Giá bán**
 
 - **BR-SAL-06:** Mỗi khách có thể có **bảng giá riêng**: một giá hiện hành cho mỗi SP (≥ 0, 2 chữ số lẻ). Không lưu lịch sử giá trong bảng giá.

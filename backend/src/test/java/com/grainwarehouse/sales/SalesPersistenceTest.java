@@ -206,6 +206,45 @@ class SalesPersistenceTest {
                 .hasMessageContaining("uk_sale_request_item_product");
     }
 
+    // ===== V26: điều chỉnh giá (bất biến) =====
+
+    @Test
+    @DisplayName("BR-SAL-26: DB chặn sửa dòng điều chỉnh giá")
+    void dbShouldRejectUpdatingPriceAdjustment() {
+        Long adjustmentId = insertPriceAdjustment("300000", "295000");
+
+        assertThatThrownBy(() -> jdbcTemplate.update(
+                "UPDATE sale_price_adjustment SET new_unit_price = 1 WHERE id = ?", adjustmentId))
+                .hasMessageContaining("sale_price_adjustment là bất biến");
+    }
+
+    @Test
+    @DisplayName("BR-SAL-26: DB chặn xóa dòng điều chỉnh giá")
+    void dbShouldRejectDeletingPriceAdjustment() {
+        Long adjustmentId = insertPriceAdjustment("300000", "295000");
+
+        assertThatThrownBy(() -> jdbcTemplate.update("DELETE FROM sale_price_adjustment WHERE id = ?", adjustmentId))
+                .hasMessageContaining("sale_price_adjustment là bất biến");
+    }
+
+    @Test
+    @DisplayName("BR-SAL-24: DB chặn dòng điều chỉnh mà giá không đổi")
+    void dbShouldRejectUnchangedPriceAdjustment() {
+        assertThatThrownBy(() -> insertPriceAdjustment("300000", "300000.00"))
+                .isInstanceOf(DataIntegrityViolationException.class)
+                .hasMessageContaining("ck_sale_price_adjustment_changed");
+    }
+
+    private Long insertPriceAdjustment(String oldPrice, String newPrice) {
+        Long productId = insertProduct();
+        Long itemId = id("INSERT INTO stock_document_item (document_id, product_id, quantity, unit_price, line_amount)"
+                + " VALUES (?, ?, 1, " + newPrice + ", " + newPrice + ") RETURNING id", documentId, productId);
+        return id("INSERT INTO sale_price_adjustment (document_id, document_item_id, product_id, old_unit_price,"
+                + " new_unit_price, old_line_amount, new_line_amount, reason, adjusted_by)"
+                + " VALUES (?, ?, ?, " + oldPrice + ", " + newPrice + ", " + oldPrice + ", " + newPrice
+                + ", 'Bớt giá', 'test') RETURNING id", documentId, itemId, productId);
+    }
+
     private void insertRequestItem(Long documentId, Long productId, int quantity) {
         jdbcTemplate.update("INSERT INTO sale_request_item (document_id, product_id, quantity) VALUES (?, ?, ?)",
                 documentId, productId, quantity);

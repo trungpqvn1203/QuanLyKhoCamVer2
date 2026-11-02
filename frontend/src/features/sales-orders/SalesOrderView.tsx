@@ -4,6 +4,7 @@ import { CodeText } from '../../components/ui/CodeLink'
 import { EMPTY_TEXT, formatDate, formatDateTime, orEmpty } from '../../utils/format'
 import { formatVnd } from '../../utils/money'
 import { PaymentSection } from './PaymentSection'
+import { PriceAdjustmentHistory } from './PriceAdjustmentHistory'
 import { RequestLinesTable } from './RequestLinesTable'
 import { ORDER_CHANNEL_LABELS } from './sales-order-api'
 import type { SalePayment, SalesOrder, SalesOrderLine } from './sales-order-api'
@@ -25,7 +26,11 @@ function StatusNotice({ order }: { order: SalesOrder }) {
           type="success"
           showIcon
           title={`Hoàn tất lúc ${formatDateTime(order.completedAt!)} — tồn kho ${order.warehouseName} đã được trừ`}
-          description="Phiếu đã khóa. Giao sai hoặc hàng không đạt: dùng Đảo phiếu (phiếu đã thu tiền phải hoàn các khoản thu trước)."
+          description={
+            order.paidAmount > 0
+              ? 'Phiếu đã khóa. Giao sai hoặc hàng không đạt: dùng Đảo phiếu (phiếu đã thu tiền phải hoàn các khoản thu trước).'
+              : 'Số lượng đã khóa. Khách chưa trả đồng nào nên vẫn điều chỉnh được giá; giao sai hoặc hàng không đạt thì dùng Đảo phiếu.'
+          }
         />
       )
     case 'REVERSED':
@@ -133,6 +138,7 @@ export function SalesOrderView({ order, onReversePayment }: SalesOrderViewProps)
           )}
         />
       )}
+      {order.priceAdjustments.length > 0 && <PriceAdjustmentHistory adjustments={order.priceAdjustments} />}
 
       {showPayments && (
         <PaymentSection
