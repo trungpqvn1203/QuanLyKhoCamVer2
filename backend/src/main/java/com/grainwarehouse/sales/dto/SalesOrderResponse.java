@@ -4,6 +4,7 @@ import com.grainwarehouse.inventory.entity.StockDocument;
 import com.grainwarehouse.inventory.entity.StockDocumentStatus;
 import com.grainwarehouse.sales.entity.OrderChannel;
 import com.grainwarehouse.sales.entity.SalePayment;
+import com.grainwarehouse.sales.entity.SalePriceAdjustment;
 import com.grainwarehouse.sales.entity.SaleRequestItem;
 import com.grainwarehouse.warehouse.entity.Warehouse;
 
@@ -51,10 +52,12 @@ public record SalesOrderResponse(
         List<SalesOrderLineResponse> lines,
         // BR-SAL-20: khách đặt gì — rỗng với phiếu kho lập trực tiếp
         List<SaleRequestLineResponse> requestLines,
-        List<SalePaymentResponse> payments) {
+        List<SalePaymentResponse> payments,
+        // BR-SAL-26: lịch sử điều chỉnh giá sau khi giao — rỗng nếu chưa từng điều chỉnh
+        List<SalePriceAdjustmentResponse> priceAdjustments) {
 
     public static SalesOrderResponse from(StockDocument document, List<SaleRequestItem> requestItems,
-                                          List<SalePayment> payments) {
+                                          List<SalePayment> payments, List<SalePriceAdjustment> adjustments) {
         List<SalesOrderLineResponse> lines = document.getItems().stream().map(SalesOrderLineResponse::from).toList();
         Warehouse warehouse = document.getWarehouse();
         Set<Long> reversedIds = payments.stream()
@@ -92,6 +95,7 @@ public record SalesOrderResponse(
                 document.getUpdatedAt(),
                 lines,
                 requestItems.stream().map(SaleRequestLineResponse::from).toList(),
-                payments.stream().map(payment -> SalePaymentResponse.from(payment, reversedIds)).toList());
+                payments.stream().map(payment -> SalePaymentResponse.from(payment, reversedIds)).toList(),
+                adjustments.stream().map(SalePriceAdjustmentResponse::from).toList());
     }
 }

@@ -26,6 +26,7 @@ const pendingOrder: SalesOrder = {
     { id: 2, productId: 11, productCode: 'SP011', productName: 'Cám gà thịt', unitName: 'Bao', quantity: 20 },
   ],
   payments: [],
+  priceAdjustments: [],
 }
 
 describe('toPendingOrderInput (BR-SAL-17)', () => {

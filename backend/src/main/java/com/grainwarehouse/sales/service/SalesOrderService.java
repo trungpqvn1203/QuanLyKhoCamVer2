@@ -17,6 +17,7 @@ import com.grainwarehouse.inventory.service.InventoryService;
 import com.grainwarehouse.product.entity.Product;
 import com.grainwarehouse.product.repository.ProductRepository;
 import com.grainwarehouse.sales.dto.PendingOrderRequest;
+import com.grainwarehouse.sales.dto.PriceAdjustmentRequest;
 import com.grainwarehouse.sales.dto.RecordPaymentRequest;
 import com.grainwarehouse.sales.dto.SaleRequestLineRequest;
 import com.grainwarehouse.sales.dto.SalesOrderLineRequest;
@@ -28,8 +29,10 @@ import com.grainwarehouse.sales.entity.OrderChannel;
 import com.grainwarehouse.sales.entity.PaymentMethod;
 import com.grainwarehouse.sales.entity.SalePayment;
 import com.grainwarehouse.sales.entity.SalePaymentType;
+import com.grainwarehouse.sales.entity.SalePriceAdjustment;
 import com.grainwarehouse.sales.entity.SaleRequestItem;
 import com.grainwarehouse.sales.repository.SalePaymentRepository;
+import com.grainwarehouse.sales.repository.SalePriceAdjustmentRepository;
 import com.grainwarehouse.sales.repository.SaleRequestItemRepository;
 import com.grainwarehouse.sales.repository.SalesOrderSpecifications;
 import com.grainwarehouse.warehouse.entity.Warehouse;
@@ -80,6 +83,7 @@ public class SalesOrderService {
     private final StockTransactionRepository stockTransactionRepository;
     private final SalePaymentRepository salePaymentRepository;
     private final SaleRequestItemRepository saleRequestItemRepository;
+    private final SalePriceAdjustmentRepository salePriceAdjustmentRepository;
     private final WarehouseRepository warehouseRepository;
     private final CustomerRepository customerRepository;
     private final ProductRepository productRepository;
@@ -206,6 +210,50 @@ public class SalesOrderService {
         stockTransactionRepository.findOriginalsOfDocument(document.getId()).forEach(inventoryService::reverse);
         document.markReversed(reason.trim(), Instant.now());
         return toResponse(stockDocumentRepository.saveAndFlush(document));
+    }
+
+    /**
+     * BR-SAL-23..26: điều chỉnh giá phiếu đã giao (Hoàn tất) mà khách chưa trả đồng nào. Chỉ đổi đơn giá —
+     * số lượng không đổi nên không động tới tồn kho / StockTransaction. Mỗi dòng đổi giá ghi một dòng nhật ký
+     * bất biến. Dòng gửi lên trùng giá hiện tại thì bỏ qua; không dòng nào đổi → 400.
+     * Khóa phiếu trước rồi mới đọc "đã thu": người khác đang thu tiền cùng lúc thì một trong hai phải chờ.
+     */
+    @Transactional
+    public SalesOrderResponse adjustPrices(Long id, PriceAdjustmentRequest request, String username) {
+        StockDocument document = lockForChange(id, COMPLETED, "điều chỉnh giá");
+        if (document.getPaidAmount().signum() > 0) {
+            throw new BusinessException(label(document) + " đã thu " + money(document.getPaidAmount())
+                    + ". Chỉ điều chỉnh giá được khi khách chưa trả đồng nào");
+        }
+        distinctProductIds(request.lines().stream().map(PriceAdjustmentRequest.Line::productId).toList());
+        Map<Long, StockDocumentItem> items = document.getItems().stream()
+                .collect(Collectors.toMap(item -> item.getProduct().getId(), Function.identity()));
+
+        String reason = request.reason().trim();
+        List<SalePriceAdjustment> adjustments = new ArrayList<>();
+        for (int i = 0; i < request.lines().size(); i++) {
+            PriceAdjustmentRequest.Line line = request.lines().get(i);
+            StockDocumentItem item = items.get(line.productId());
+            if (item == null) {
+                throw new InvalidRequestException("lines[" + i + "].productId", "Sản phẩm này không có trên phiếu");
+            }
+            // compareTo: 300000 và 300000.00 là cùng một giá
+            if (item.getUnitPrice().compareTo(line.unitPrice()) == 0) {
+                continue;
+            }
+            BigDecimal oldPrice = item.getUnitPrice();
+            BigDecimal oldAmount = item.getLineAmount();
+            item.changeUnitPrice(line.unitPrice());
+            adjustments.add(SalePriceAdjustment.of(item, oldPrice, oldAmount, reason, username));
+        }
+        if (adjustments.isEmpty()) {
+            throw new InvalidRequestException("lines", "Giá mới trùng giá hiện tại — không có dòng nào thay đổi");
+        }
+
+        document.recalculateTotal();
+        stockDocumentRepository.saveAndFlush(document);
+        salePriceAdjustmentRepository.saveAll(adjustments);
+        return toResponse(document);
     }
 
     /**
@@ -445,10 +493,11 @@ public class SalesOrderService {
 
     private SalesOrderResponse toResponse(StockDocument document) {
         if (document.getId() == null) {
-            return SalesOrderResponse.from(document, List.of(), List.of());
+            return SalesOrderResponse.from(document, List.of(), List.of(), List.of());
         }
         return SalesOrderResponse.from(document, saleRequestItemRepository.findByDocumentId(document.getId()),
-                salePaymentRepository.findByDocumentId(document.getId()));
+                salePaymentRepository.findByDocumentId(document.getId()),
+                salePriceAdjustmentRepository.findByDocumentId(document.getId()));
     }
 
     private String nextCode() {

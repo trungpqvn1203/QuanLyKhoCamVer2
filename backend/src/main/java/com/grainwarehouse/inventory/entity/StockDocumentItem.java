@@ -94,6 +94,12 @@ public class StockDocumentItem extends AuditableEntity {
         this.lineAmount = lineAmount(quantity, unitPrice);
     }
 
+    /** BR-SAL-23: chỉ đổi đơn giá (điều chỉnh giá phiếu đã giao) — giữ số lượng, tính lại thành tiền. */
+    public void changeUnitPrice(BigDecimal unitPrice) {
+        this.unitPrice = unitPrice;
+        this.lineAmount = lineAmount(quantity, unitPrice);
+    }
+
     /**
      * BR-MON-05: thành tiền = số lượng × đơn giá, làm tròn HALF_UP về đồng.
      * Ví dụ 3 bao × 12.345,50 đ = 37.036,50 → 37.037 đ.

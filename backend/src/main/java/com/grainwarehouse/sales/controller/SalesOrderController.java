@@ -4,6 +4,7 @@ import com.grainwarehouse.common.response.ApiResponse;
 import com.grainwarehouse.common.response.PageResponse;
 import com.grainwarehouse.sales.dto.CancelSalesOrderRequest;
 import com.grainwarehouse.sales.dto.PendingOrderRequest;
+import com.grainwarehouse.sales.dto.PriceAdjustmentRequest;
 import com.grainwarehouse.sales.dto.ReasonRequest;
 import com.grainwarehouse.sales.dto.RecordPaymentRequest;
 import com.grainwarehouse.sales.dto.SalesOrderRequest;
@@ -106,6 +107,14 @@ public class SalesOrderController {
             @PathVariable Long id, @Valid @RequestBody ReasonRequest request) {
         return ResponseEntity.ok(ApiResponse.ok(salesOrderService.reverse(id, request.reason()),
                 "Đảo phiếu bán thành công"));
+    }
+
+    /** BR-SAL-23..26: đổi đơn giá phiếu Hoàn tất chưa thu đồng nào; lý do bắt buộc, ghi nhật ký bất biến. */
+    @PostMapping("/{id}/price-adjustments")
+    public ResponseEntity<ApiResponse<SalesOrderResponse>> adjustPrices(
+            @PathVariable Long id, @Valid @RequestBody PriceAdjustmentRequest request, Authentication authentication) {
+        return ResponseEntity.ok(ApiResponse.ok(salesOrderService.adjustPrices(id, request, authentication.getName()),
+                "Điều chỉnh giá thành công"));
     }
 
     @PostMapping("/{id}/payments")

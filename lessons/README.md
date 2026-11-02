@@ -19,7 +19,7 @@ lỗi đã gặp và câu hỏi ôn tập. Do AI ghi sau mỗi module (CLAUDE.md
 |---|---|
 | [Nhập kho](1-kho-hang/01-nhap-kho.md) | Chứng từ, trạng thái, khóa FOR UPDATE, giao dịch kho bất biến |
 | [Tồn kho trên trang Sản phẩm](1-kho-hang/02-ton-kho-tren-san-pham.md) | Tổng tồn, tình trạng tồn, hàng đang về |
-| [Bán hàng, bảng giá theo khách, công nợ khách](1-kho-hang/03-ban-hang.md) | Trừ tồn có điều kiện, thanh toán bất biến; đơn khách đặt Chờ xác nhận (nới CHECK có điều kiện) |
+| [Bán hàng, bảng giá theo khách, công nợ khách](1-kho-hang/03-ban-hang.md) | Trừ tồn có điều kiện, thanh toán bất biến; đơn khách đặt Chờ xác nhận (nới CHECK có điều kiện); điều chỉnh giá sau giao (giá tại chỗ + nhật ký, `compareTo`) |
 | [Lịch sử biến động tồn kho](1-kho-hang/04-lich-su-ton-kho.md) | Đọc lại stock_transaction để dò tồn từng bước |
 | [Tồn kho đầu kỳ](1-kho-hang/05-ton-dau-ky.md) | Khởi tạo tồn bằng chứng từ, chặn trùng hai lớp |
 | [Kiểm kê kho](1-kho-hang/06-kiem-ke.md) | Chụp sổ sách, ghi phần chênh, không khóa kho |
@@ -100,6 +100,9 @@ lỗi đã gặp và câu hỏi ôn tập. Do AI ghi sau mỗi module (CLAUDE.md
 4. Vì sao `ck_stock_document_warehouse` cho phép `CANCELLED` không có kho **chỉ khi** `confirmed_at IS NULL`? Bỏ điều kiện đó thì lỗ hổng nào mở ra?
 5. Nếu sau này một đơn khách đặt được giao làm hai chuyến, thiết kế "trạng thái Chờ xác nhận trên phiếu bán" vỡ ở đâu, và bảng `customer_order` riêng giải quyết thế nào?
 6. Hai người cùng bấm "Xác nhận đơn" cho một đơn: lần lượt điều gì xảy ra ở DB, và vì sao không có dòng phiếu nào bị chép hai lần?
+7. Vì sao điều chỉnh giá phiếu đã giao không cần ghi `stock_transaction`, còn đảo phiếu thì phải ghi?
+8. Nếu đọc `paid_amount` rồi mới khóa phiếu khi điều chỉnh giá, kịch bản nào khiến số đã thu vượt tổng phiếu? Tuyến phòng thủ nào còn lại?
+9. `new BigDecimal("1.0").equals(new BigDecimal("1.00"))` trả gì, vì sao? Chỗ nào trong dự án so tiền phải dùng `compareTo`?
 
 **[Lịch sử biến động tồn kho](1-kho-hang/04-lich-su-ton-kho.md)**
 

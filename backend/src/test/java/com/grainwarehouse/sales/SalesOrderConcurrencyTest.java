@@ -10,6 +10,7 @@ import com.grainwarehouse.product.repository.CategoryRepository;
 import com.grainwarehouse.product.repository.ProductRepository;
 import com.grainwarehouse.product.repository.ProductUnitRepository;
 import com.grainwarehouse.sales.dto.PendingOrderRequest;
+import com.grainwarehouse.sales.dto.PriceAdjustmentRequest;
 import com.grainwarehouse.sales.dto.RecordPaymentRequest;
 import com.grainwarehouse.sales.dto.SaleRequestLineRequest;
 import com.grainwarehouse.sales.dto.SalesOrderLineRequest;
@@ -251,6 +252,34 @@ class SalesOrderConcurrencyTest {
             assertThat(lines).isZero();
             assertThat(confirmed).isZero();
         }
+    }
+
+    // ===== Điều chỉnh giá (BR-SAL-25) =====
+
+    @Test
+    @DisplayName("BR-SAL-25: điều chỉnh giá và thu đủ tiền cùng lúc - đúng 1 thành công, không bao giờ thu vượt tổng mới")
+    void adjustPriceAndPayShouldSerialize() throws Exception {
+        setStock(pigFeed, 100);
+        // 10 bao × 100.000 = 1.000.000; bớt còn 50.000/bao = 500.000
+        long id = createDraft(new SalesOrderLineRequest(pigFeed.getId(), 10, new BigDecimal("100000")));
+        salesOrderService.complete(id);
+        PriceAdjustmentRequest adjustment = new PriceAdjustmentRequest("Bớt giá",
+                List.of(new PriceAdjustmentRequest.Line(pigFeed.getId(), new BigDecimal("50000"))));
+        RecordPaymentRequest fullPayment = new RecordPaymentRequest(null, new BigDecimal("1000000"), null, null);
+
+        List<Throwable> results = runConcurrently(List.of(
+                () -> salesOrderService.adjustPrices(id, adjustment, "test"),
+                () -> salesOrderService.recordPayment(id, fullPayment)));
+
+        // Thu trước → điều chỉnh bị từ chối vì đã thu. Điều chỉnh trước → thu 1 triệu vượt nợ mới 500.000
+        assertThat(successes(results)).isEqualTo(1);
+        assertThat(failures(results)).allSatisfy(error -> assertThat(error).isInstanceOf(BusinessException.class));
+        BigDecimal total = jdbcTemplate.queryForObject("SELECT total_amount FROM stock_document WHERE id = ?",
+                BigDecimal.class, id);
+        BigDecimal paid = jdbcTemplate.queryForObject("SELECT paid_amount FROM stock_document WHERE id = ?",
+                BigDecimal.class, id);
+        assertThat(paid).isLessThanOrEqualTo(total);
+        assertThat(total.add(paid)).isIn(new BigDecimal("500000"), new BigDecimal("2000000"));
     }
 
     // ===== Helpers =====

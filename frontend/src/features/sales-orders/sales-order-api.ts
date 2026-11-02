@@ -80,6 +80,27 @@ export interface SalePayment {
   createdAt: string
 }
 
+/** Một dòng lịch sử điều chỉnh giá (BR-SAL-26). Các dòng cùng createdAt + reason là cùng một lần điều chỉnh. */
+export interface SalePriceAdjustment {
+  id: number
+  productId: number
+  productCode: string
+  productName: string
+  oldUnitPrice: number
+  newUnitPrice: number
+  oldLineAmount: number
+  newLineAmount: number
+  reason: string
+  adjustedBy: string
+  createdAt: string
+}
+
+/** Chỉ gửi các dòng đổi giá (BR-SAL-23, 24). */
+export interface PriceAdjustmentInput {
+  reason: string
+  lines: { productId: number; unitPrice: number }[]
+}
+
 /** Chi tiết phiếu bán (GET /{id}, kết quả mọi thao tác). Trường null bị bỏ khỏi JSON → tùy chọn. */
 export interface SalesOrder {
   id: number
@@ -118,6 +139,8 @@ export interface SalesOrder {
   /** Khách đặt gì — rỗng với phiếu kho lập trực tiếp */
   requestLines: SaleRequestLine[]
   payments: SalePayment[]
+  /** Lịch sử điều chỉnh giá sau khi giao — rỗng nếu chưa từng điều chỉnh */
+  priceAdjustments: SalePriceAdjustment[]
 }
 
 export type SalesOrderSummary = Omit<
@@ -125,6 +148,7 @@ export type SalesOrderSummary = Omit<
   | 'lines'
   | 'requestLines'
   | 'payments'
+  | 'priceAdjustments'
   | 'note'
   | 'reason'
   | 'customerPhone'
@@ -249,6 +273,10 @@ export const salesOrderApi = {
   /** Hoàn tất → Đã đảo; lý do bắt buộc; phiếu đã thu tiền bị từ chối (BR-SAL-05, 14). */
   reverse: (id: number, reason: string) =>
     apiRequest<SalesOrder>(`${BASE}/${id}/reverse`, { method: 'POST', body: JSON.stringify({ reason }) }),
+
+  /** Phiếu Hoàn tất chưa thu đồng nào: đổi đơn giá, lý do bắt buộc, ghi nhật ký (BR-SAL-23..26). */
+  adjustPrices: (id: number, input: PriceAdjustmentInput) =>
+    apiRequest<SalesOrder>(`${BASE}/${id}/price-adjustments`, { method: 'POST', body: JSON.stringify(input) }),
 
   recordPayment: (id: number, input: PaymentInput) =>
     apiRequest<SalesOrder>(`${BASE}/${id}/payments`, { method: 'POST', body: JSON.stringify(input) }),
