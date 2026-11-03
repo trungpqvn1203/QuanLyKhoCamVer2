@@ -433,6 +433,34 @@ _(Trả lời BR-SAL-Q01: có công nợ, chỉ ở mức phiếu bán + lịch 
 
 ---
 
+## Xe và chuyến giao hàng
+
+> Tình huống: mỗi sáng chủ cửa hàng chia các phiếu bán đã chốt cho từng xe, sắp thứ tự giao theo đường mình biết, in tờ danh sách cho lái xe. Xe chạy thì hàng rời kho — đó là lúc trừ tồn.
+
+### ✅ Đã xác nhận (2026-11-03, migration V28)
+
+- **BR-VEH-01:** Danh mục xe: **biển số** (bắt buộc, tối đa 20 ký tự, lưu viết hoa), tên xe (tùy chọn), tải trọng. Biển số **không trùng**, so sánh bỏ qua hoa thường, khoảng trắng, dấu chấm, gạch ngang (`29H-123.45` = `29h 12345`).
+- **BR-VEH-02:** **Tải trọng** (tấn, > 0, tối đa 3 chữ số lẻ) tùy chọn — để trống thì không cảnh báo quá tải (xe ba gác, xe máy).
+- **BR-VEH-03:** Quyền: ai đăng nhập cũng xem; **Quản lý kho** + Quản lý hệ thống thêm / sửa / ngừng dùng xe.
+- **BR-VEH-04:** Không xóa xe — **ngừng dùng**. Xe ngừng dùng (và nhân viên ngừng hoạt động) không chọn **mới** được cho chuyến; chuyến cũ vẫn giữ. Thêm xe trùng biển số với xe đang ngừng → gợi ý mở lại.
+- **BR-DLV-01:** Chuyến giao: mã tự sinh `CG` + 6 chữ số, **ngày đi giao** (chọn tự do), **xe**, **lái xe** (một nhân viên đang làm), ghi chú, người lập.
+- **BR-DLV-02:** Trạng thái: **Đang xếp** → **Đã xuất**. Không có "Đã hủy" (BR-DLV-09).
+- **BR-DLV-03:** Chỉ xếp **phiếu bán Nháp** (đã có kho + giá). Đơn Chờ xác nhận phải xác nhận trước; phiếu Hoàn tất thì hàng đã đi. **Một phiếu chỉ nằm trên một chuyến** — đơn quá lớn so với xe thì tách thành hai phiếu bán. Một chuyến **được bốc từ nhiều kho** (mỗi phiếu trừ tồn kho của phiếu đó).
+- **BR-DLV-04:** Tổng tấn chuyến = tổng tấn các phiếu (SL × khối lượng SP, BR-STK-02). Vượt tải trọng xe → **cảnh báo, vẫn cho lưu và xuất** (tải trọng giấy tờ và thực tế hay chênh).
+- **BR-DLV-05:** Thứ tự giao do người lập sắp (kéo thả / lên xuống). Lưu chuyến = gửi lại toàn bộ danh sách theo thứ tự; phiếu không còn trong danh sách = bỏ khỏi chuyến.
+- **BR-DLV-06:** **Xuất chuyến** = Hoàn tất **mọi** phiếu trong chuyến (trừ tồn, ghi lịch sử kho, phát sinh công nợ — giống hệt bấm Hoàn tất từng phiếu) + chuyến sang Đã xuất, trong **một transaction**. Thiếu hàng ở bất kỳ phiếu nào → **không phiếu nào bị trừ**, chuyến vẫn Đang xếp, báo thiếu theo **tổng cả chuyến** (vd. "còn 50, chuyến cần 70 (PX…: 30, PX…: 40)"). Chuyến rỗng không xuất được.
+- **BR-DLV-07:** Phiếu trên chuyến Đang xếp mà bị hủy / hoàn tất riêng / đảo → chuyến hiện trạng thái thật của phiếu; **Xuất chuyến báo lỗi** nêu mã phiếu, người dùng bỏ phiếu đó ra rồi xuất lại (hệ thống không tự bỏ để không "mất" điểm giao mà không ai biết). Chuyến **Đã xuất** không sửa, không xóa.
+- **BR-DLV-08:** **Phiếu chuyến** in K80 cho lái xe: mã chuyến, ngày, biển số, lái xe, tổng tấn; từng điểm theo thứ tự — STT, khách, SĐT, **địa chỉ trong hồ sơ khách**, ghi chú phiếu (giao nơi khác ghi ở đây), hàng (SL ĐVT), tấn. **Không in giá** — lái xe cầm phiếu bán của từng khách (BR-PRT-02).
+- **BR-DLV-09:** Chuyến **Đang xếp** xóa được (chưa ảnh hưởng tồn / tiền); các phiếu trở về "chưa xếp chuyến".
+- **BR-DLV-10:** Quyền: ai đăng nhập cũng xem chuyến; **Quản lý kho** + Quản lý hệ thống lập / sửa / xóa / **xuất chuyến**. Xuất chuyến hoàn tất phiếu bán **dù Quản lý kho không có quyền Hoàn tất ở màn phiếu bán** — ngoại lệ có chủ đích (chủ cửa hàng xác nhận 2026-11-03: người xếp xe là người cho xe chạy). Danh sách lái xe (tên + SĐT nhân viên) chỉ người lập chuyến xem.
+
+### ❓ Câu hỏi mở
+
+- **BR-DLV-Q01:** Tấn giao hàng trên bảng công tự lấy từ chuyến đã xuất (BR-ATT-03) — cách chia khi có người đi cùng?
+- **BR-DLV-Q02:** Lái xe tự xem chuyến và bấm "Đã giao" trên điện thoại; sắp thứ tự tự động theo bản đồ (cần tọa độ khách + dịch vụ bản đồ).
+
+---
+
 ## Báo cáo tồn kho & tổng quan
 
 ### ✅ Đã xác nhận (2026-10-29) — mô phỏng báo cáo của KiotViet / MISA

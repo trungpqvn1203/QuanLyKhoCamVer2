@@ -11,6 +11,7 @@ import type { Permission } from './features/auth/permissions'
 import { CustomerPortalEntry } from './features/customer-portal/CustomerPortalEntry'
 import { CustomerDebtPage } from './features/customer-debts/CustomerDebtPage'
 import { DashboardPage } from './features/dashboard/DashboardPage'
+import { DeliveryTripListPage } from './features/delivery-trips/DeliveryTripListPage'
 import { CustomerListPage } from './features/customers/CustomerListPage'
 import { EmployeeDebtPage } from './features/employee-debts/EmployeeDebtPage'
 import { EmployeeListPage } from './features/employees/EmployeeListPage'
@@ -26,6 +27,7 @@ import { StockTransactionPage } from './features/stock-transactions/StockTransac
 import { SupplierDebtPage } from './features/supplier-debts/SupplierDebtPage'
 import { SupplierListPage } from './features/suppliers/SupplierListPage'
 import { UserListPage } from './features/users/UserListPage'
+import { VehicleListPage } from './features/vehicles/VehicleListPage'
 import { WarehouseListPage } from './features/warehouses/WarehouseListPage'
 
 /** Trang chỉ một số vai trò dùng — cùng quyền với menu (AppLayout) và với API (backend). */
@@ -53,6 +55,9 @@ export const router = createBrowserRouter([
       { path: 'customers', element: <CustomerListPage /> },
       { path: 'inbound-receipts', element: guarded('inbound', <InboundReceiptListPage />) },
       { path: 'sales-orders', element: <SalesOrderListPage /> },
+      // Xem: mọi vai trò (như phiếu bán); nút lập / xuất chuyến chỉ hiện với quyền 'delivery'
+      { path: 'delivery-trips', element: <DeliveryTripListPage /> },
+      { path: 'vehicles', element: <VehicleListPage /> },
       { path: 'customer-debts', element: guarded('debts', <CustomerDebtPage />) },
       { path: 'supplier-debts', element: guarded('inbound', <SupplierDebtPage />) },
       { path: 'stock-transactions', element: <StockTransactionPage /> },

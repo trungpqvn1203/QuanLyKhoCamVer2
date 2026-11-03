@@ -1,4 +1,4 @@
-import { AccountBookOutlined, AppstoreOutlined, AuditOutlined, BankOutlined, BarChartOutlined, CalendarOutlined, DashboardOutlined, DollarOutlined, DownOutlined, ExportOutlined, FlagOutlined, HistoryOutlined, HomeOutlined, IdcardOutlined, ImportOutlined, InboxOutlined, KeyOutlined, LogoutOutlined, SafetyOutlined, ShopOutlined, ShoppingOutlined, TeamOutlined, UserOutlined, UsergroupAddOutlined, WalletOutlined } from '@ant-design/icons'
+import { AccountBookOutlined, AppstoreOutlined, CarOutlined, AuditOutlined, BankOutlined, BarChartOutlined, CalendarOutlined, DashboardOutlined, DollarOutlined, DownOutlined, ExportOutlined, FlagOutlined, HistoryOutlined, HomeOutlined, IdcardOutlined, ImportOutlined, InboxOutlined, KeyOutlined, LogoutOutlined, SafetyOutlined, ShopOutlined, ShoppingOutlined, TeamOutlined, TruckOutlined, UserOutlined, UsergroupAddOutlined, WalletOutlined } from '@ant-design/icons'
 import { App, Breadcrumb, Button, Dropdown, Flex, Layout, Menu, Typography, theme } from 'antd'
 import type { MenuProps } from 'antd'
 import type { ReactNode } from 'react'
@@ -30,10 +30,12 @@ const MENU_ITEMS: MenuEntry[] = [
   { key: '/dashboard', icon: <DashboardOutlined />, label: 'Tổng quan' },
   { key: '/products', icon: <AppstoreOutlined />, label: 'Sản phẩm' },
   { key: '/warehouses', icon: <HomeOutlined />, label: 'Kho hàng' },
+  { key: '/vehicles', icon: <CarOutlined />, label: 'Xe giao hàng' },
   { key: '/suppliers', icon: <ShopOutlined />, label: 'Nhà cung cấp', permission: 'suppliers' },
   { key: '/customers', icon: <TeamOutlined />, label: 'Khách hàng' },
   { key: '/inbound-receipts', icon: <ImportOutlined />, label: 'Nhập kho', permission: 'inbound' },
   { key: '/sales-orders', icon: <ExportOutlined />, label: 'Bán hàng' },
+  { key: '/delivery-trips', icon: <TruckOutlined />, label: 'Chuyến giao' },
   { key: '/customer-debts', icon: <AccountBookOutlined />, label: 'Công nợ khách', permission: 'debts' },
   // Cùng quyền với phiếu nhập: quản lý kho trả tiền NCC (BR-SPAY-06)
   { key: '/supplier-debts', icon: <WalletOutlined />, label: 'Công nợ NCC', permission: 'inbound' },

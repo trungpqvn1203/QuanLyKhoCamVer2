@@ -135,6 +135,13 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/api/reports/**").authenticated()
 
                 .requestMatchers("/api/attendance/**").hasAnyRole(WAREHOUSE, ADMIN)
+                // Xe, chuyến giao (BR-VEH-03, BR-DLV-10): ai cũng xem; quản lý kho xếp và xuất chuyến.
+                // Danh sách lái xe có tên + SĐT nhân viên → chỉ người lập chuyến (bán hàng không xem được màn nhân viên)
+                .requestMatchers("/api/delivery-trips/drivers").hasAnyRole(WAREHOUSE, ADMIN)
+                .requestMatchers(HttpMethod.GET, "/api/vehicles", "/api/vehicles/**", "/api/delivery-trips",
+                        "/api/delivery-trips/**").authenticated()
+                .requestMatchers("/api/vehicles", "/api/vehicles/**", "/api/delivery-trips", "/api/delivery-trips/**")
+                .hasAnyRole(WAREHOUSE, ADMIN)
                 // Gồm tạm ứng (/api/employees/{id}/advances), trả lương (/api/payrolls/{tháng}/items/...) và công nợ nhân viên
                 // (BR-EPAY-06): chỉ quản lý hệ thống
                 .requestMatchers("/api/employees/**", "/api/payrolls/**", "/api/employee-debts/**").hasRole(ADMIN)

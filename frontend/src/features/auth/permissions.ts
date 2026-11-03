@@ -13,6 +13,7 @@ export type Permission =
   | 'sales.write' // phiếu bán, thu tiền
   | 'debts' // công nợ
   | 'attendance'
+  | 'delivery' // xe, chuyến giao: lập / sửa / xóa / xuất chuyến (BR-VEH-03, BR-DLV-10)
   | 'employees'
   | 'payroll'
   | 'cashbook' // sổ quỹ, phiếu thu/chi khác (BR-CASH-07)
@@ -29,6 +30,7 @@ const GRANTS: Record<Permission, Role[]> = {
   'sales.write': ['SALES_STAFF', 'SYSTEM_ADMIN'],
   debts: ['SALES_STAFF', 'SYSTEM_ADMIN'],
   attendance: ['WAREHOUSE_MANAGER', 'SYSTEM_ADMIN'],
+  delivery: ['WAREHOUSE_MANAGER', 'SYSTEM_ADMIN'],
   employees: ['SYSTEM_ADMIN'],
   payroll: ['SYSTEM_ADMIN'],
   cashbook: ['SYSTEM_ADMIN'],

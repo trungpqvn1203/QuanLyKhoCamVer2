@@ -24,6 +24,7 @@ lỗi đã gặp và câu hỏi ôn tập. Do AI ghi sau mỗi module (CLAUDE.md
 | [Tồn kho đầu kỳ](1-kho-hang/05-ton-dau-ky.md) | Khởi tạo tồn bằng chứng từ, chặn trùng hai lớp |
 | [Kiểm kê kho](1-kho-hang/06-kiem-ke.md) | Chụp sổ sách, ghi phần chênh, không khóa kho |
 | [Báo cáo tồn kho và tổng quan](1-kho-hang/07-bao-cao-ton-kho.md) | Tính lại từ sổ, đảo bù cột gốc, tải lười biểu đồ |
+| [Xe và chuyến giao hàng](1-kho-hang/08-chuyen-giao-hang.md) | Bảng nối + thứ tự, UNIQUE `DEFERRABLE`, hoàn tất nhiều phiếu một transaction, thứ tự khóa chống deadlock, kéo thả HTML5 |
 
 ### Tiền và công nợ
 
@@ -132,6 +133,14 @@ lỗi đã gặp và câu hỏi ôn tập. Do AI ghi sau mỗi module (CLAUDE.md
 3. Báo cáo tồn dùng ngày ghi sổ, doanh số dùng ngày bán. Cho ví dụ hai cách cho ra số khác nhau.
 4. Vì sao thẻ "Tiền mặt" trên tổng quan gọi API sổ quỹ chứ không nằm trong `/api/reports/dashboard`?
 5. Nêu một lỗi có thể xảy ra khi ghép chuỗi SQL động, và cách test để phát hiện.
+
+**[Xe và chuyến giao hàng](1-kho-hang/08-chuyen-giao-hang.md)**
+
+1. Vì sao `UNIQUE (trip_id, stop_order)` phải `DEFERRABLE` còn `UNIQUE (document_id)` thì không? Nếu service đổi sang "xóa hết điểm giao rồi thêm lại" thì ràng buộc nào vỡ, vì sao?
+2. Xuất chuyến đã trừ premix rồi mới thiếu cám heo: lần lượt điều gì xảy ra trong DB? Nếu `completeForDelivery` dùng `REQUIRES_NEW` cho từng phiếu thì kết quả khác thế nào?
+3. Vẽ thứ tự khóa của Xuất chuyến và của Hoàn tất một phiếu. Cho một ví dụ deadlock xảy ra nếu Xuất chuyến khóa dòng tồn theo thứ tự phiếu thay vì theo (SP, kho).
+4. `requireEnoughStock` đọc tồn không khóa. Vì sao vậy vẫn không thể bán âm? Nó có thể báo sai theo hướng nào?
+5. Quản lý kho không bấm được Hoàn tất ở màn phiếu bán nhưng Xuất chuyến được. Quyền nên gắn với dữ liệu hay với hành động? Viết test nào để ngoại lệ này không bị "sửa nhầm" sau này?
 
 **[Công nợ nhân viên: lương theo tấn, trả lương, tạm ứng](2-tien-va-cong-no/02-cong-no-nhan-vien.md)**
 

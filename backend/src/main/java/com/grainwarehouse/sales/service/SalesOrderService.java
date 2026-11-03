@@ -11,6 +11,7 @@ import com.grainwarehouse.inventory.entity.StockDocument;
 import com.grainwarehouse.inventory.entity.StockDocumentItem;
 import com.grainwarehouse.inventory.entity.StockDocumentStatus;
 import com.grainwarehouse.inventory.entity.StockDocumentType;
+import com.grainwarehouse.inventory.repository.InventoryRepository;
 import com.grainwarehouse.inventory.repository.StockDocumentRepository;
 import com.grainwarehouse.inventory.repository.StockTransactionRepository;
 import com.grainwarehouse.inventory.service.InventoryService;
@@ -40,6 +41,7 @@ import com.grainwarehouse.warehouse.repository.WarehouseRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
@@ -49,6 +51,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -90,6 +93,7 @@ public class SalesOrderService {
     private final CustomerRepository customerRepository;
     private final ProductRepository productRepository;
     private final InventoryService inventoryService;
+    private final InventoryRepository inventoryRepository;
 
     public PageResponse<SalesOrderSummaryResponse> list(SalesOrderSearchCriteria criteria, Pageable pageable) {
         return PageResponse.from(
@@ -237,6 +241,70 @@ public class SalesOrderService {
 
         document.markCompleted(Instant.now());
         return toResponse(stockDocumentRepository.saveAndFlush(document));
+    }
+
+    /**
+     * BR-DLV-06: xuất chuyến — hoàn tất (trừ tồn) mọi phiếu của chuyến trong transaction CỦA NGƯỜI GỌI (MANDATORY:
+     * gọi ngoài transaction thì lỗi ngay). Một phiếu thiếu hàng → BusinessException → rollback cả chuyến, không phiếu
+     * nào bị trừ tồn lẻ (quy tắc cứng 1, 4). Cùng kiểm tra như {@link #complete}: phiếu phải còn Nháp, kho / khách / SP
+     * còn hoạt động (BR-SAL-15).
+     *
+     * <p>Thứ tự khóa: phiếu theo id tăng dần, rồi dòng tồn theo (SP, kho) tăng dần trên TOÀN chuyến — trùng thứ tự
+     * với Hoàn tất một phiếu (SP tăng dần trong một kho), nên hai thao tác chạy cùng lúc không khóa chéo nhau.
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void completeForDelivery(Collection<Long> ids, String tripCode) {
+        List<StockDocument> documents = ids.stream().sorted()
+                .map(id -> stockDocumentRepository.findForUpdate(id, TYPE).orElseThrow(() -> notFound(id)))
+                .toList();
+        List<String> notDraft = documents.stream().filter(document -> document.getStatus() != DRAFT)
+                .map(document -> document.getCode() + " (" + document.getStatus().label() + ")").toList();
+        if (!notDraft.isEmpty()) {
+            throw new BusinessException("Chuyến " + tripCode + " có phiếu không còn là Nháp: "
+                    + String.join(", ", notDraft) + ". Bỏ các phiếu này khỏi chuyến rồi xuất lại");
+        }
+        documents.forEach(document -> checkUsable(document.getWarehouse(), document.getCustomer(),
+                document.getItems().stream().map(StockDocumentItem::getProduct).toList()));
+        requireEnoughStock(documents, tripCode);
+
+        documents.stream().flatMap(document -> document.getItems().stream())
+                .sorted(Comparator.comparing((StockDocumentItem item) -> item.getProduct().getId())
+                        .thenComparing(item -> item.getDocument().getWarehouse().getId())
+                        .thenComparing(item -> item.getDocument().getId()))
+                .forEach(item -> inventoryService.stockOut(item, item.getDocument().getWarehouse(), item.getQuantity()));
+
+        Instant now = Instant.now();
+        documents.forEach(document -> document.markCompleted(now));
+        stockDocumentRepository.saveAllAndFlush(documents);
+    }
+
+    /**
+     * Báo thiếu hàng theo TỔNG của cả chuyến: hai phiếu cùng lấy cám heo ở kho A (30 + 40) mà kho còn 50 thì báo
+     * "còn 50, chuyến cần 70 (PX1: 30, PX2: 40)". Không có bước này, lỗi trừ tồn của phiếu thứ hai sẽ ghi "còn 20,
+     * cần trừ 40" — số 20 là tồn sau khi đã trừ phiếu thứ nhất, sẽ rollback, người dùng nhìn kho thấy 50 không hiểu.
+     * Đây chỉ là kiểm tra để báo lỗi dễ hiểu; chặn tồn âm thật vẫn là UPDATE có điều kiện trong InventoryService.
+     */
+    private void requireEnoughStock(List<StockDocument> documents, String tripCode) {
+        record Key(Product product, Warehouse warehouse) {
+        }
+        Map<Key, List<StockDocumentItem>> demand = documents.stream().flatMap(document -> document.getItems().stream())
+                .collect(Collectors.groupingBy(item -> new Key(item.getProduct(), item.getDocument().getWarehouse()),
+                        LinkedHashMap::new, Collectors.toList()));
+        List<String> shortages = new ArrayList<>();
+        demand.forEach((key, items) -> {
+            int needed = items.stream().mapToInt(StockDocumentItem::getQuantity).sum();
+            int current = inventoryRepository.findQuantity(key.product().getId(), key.warehouse().getId()).orElse(0);
+            if (current < needed) {
+                String breakdown = items.size() == 1 ? "" : " (" + items.stream()
+                        .map(item -> item.getDocument().getCode() + ": " + item.getQuantity())
+                        .collect(Collectors.joining(", ")) + ")";
+                shortages.add("'" + key.product().getName() + "' (" + key.product().getCode() + ") tại kho '"
+                        + key.warehouse().getName() + "' còn " + current + ", chuyến cần " + needed + breakdown);
+            }
+        });
+        if (!shortages.isEmpty()) {
+            throw new BusinessException("Không đủ tồn để xuất chuyến " + tripCode + ": " + String.join("; ", shortages));
+        }
     }
 
     /** Hủy phiếu Nháp (lý do tùy chọn) hoặc đơn Chờ xác nhận (lý do bắt buộc — BR-SAL-21). */
