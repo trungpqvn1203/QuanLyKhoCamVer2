@@ -1,4 +1,4 @@
-import { FileExcelOutlined, PlusOutlined, TagsOutlined } from '@ant-design/icons'
+import { FileExcelOutlined, MobileOutlined, PlusOutlined, TagsOutlined } from '@ant-design/icons'
 import { App, Button, Flex, Typography } from 'antd'
 import type { TableProps } from 'antd'
 import { useState } from 'react'
@@ -21,6 +21,7 @@ import { ImportExcelModal } from '../imports/ImportExcelModal'
 import { CUSTOMER_TYPE_OPTIONS, customerApi, customerImportApi } from './customer-api'
 import type { Customer, CustomerFilters, CustomerType } from './customer-api'
 import { CustomerFormModal } from './CustomerFormModal'
+import { CustomerPortalAccountModal } from './CustomerPortalAccountModal'
 import { CustomerPriceDrawer } from './CustomerPriceDrawer'
 import { CustomerTypeTag } from './CustomerTypeTag'
 
@@ -45,6 +46,7 @@ export function CustomerListPage() {
   const [viewing, setViewing] = useState<Customer | null>(null)
   const [pricesOpen, setPricesOpen] = useState(false)
   const [pricing, setPricing] = useState<Customer | null>(null)
+  const [portalCustomer, setPortalCustomer] = useState<Customer | null>(null)
 
   const openCreate = () => {
     setEditing(null)
@@ -147,6 +149,8 @@ export function CustomerListPage() {
                       setPricesOpen(true)
                     },
                   },
+                  // BR-POR-02, 10: tài khoản app khách tự đặt hàng
+                  { key: 'portal', label: 'Tài khoản app', icon: <MobileOutlined />, onClick: () => setPortalCustomer(customer) },
                 ]
               : []
           }
@@ -244,6 +248,9 @@ export function CustomerListPage() {
         }}
       />
       <CustomerPriceDrawer open={pricesOpen} customer={pricing} onClose={() => setPricesOpen(false)} />
+      {portalCustomer && (
+        <CustomerPortalAccountModal key={portalCustomer.id} customer={portalCustomer} onClose={() => setPortalCustomer(null)} />
+      )}
       <DetailDrawer
         open={detailOpen}
         title={viewing ? `${viewing.code} · ${viewing.name}` : ''}

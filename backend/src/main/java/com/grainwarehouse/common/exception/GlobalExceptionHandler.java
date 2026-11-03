@@ -12,6 +12,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.authentication.DisabledException;
+import org.springframework.security.authentication.LockedException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -135,6 +136,17 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(DisabledException.class)
     public ResponseEntity<ApiResponse<Void>> handleDisabled(DisabledException ex) {
         return error(HttpStatus.UNAUTHORIZED, "UNAUTHORIZED", "Tài khoản đã bị khóa. Liên hệ quản lý hệ thống", null);
+    }
+
+    // App khách (BR-POR-04, 10): khóa tạm do sai mật khẩu nhiều lần / cửa hàng khóa tài khoản — thông báo do service đặt
+    @ExceptionHandler(LockedException.class)
+    public ResponseEntity<ApiResponse<Void>> handleLocked(LockedException ex) {
+        return error(HttpStatus.UNAUTHORIZED, "UNAUTHORIZED", ex.getMessage(), null);
+    }
+
+    @ExceptionHandler(ForbiddenOperationException.class)
+    public ResponseEntity<ApiResponse<Void>> handleForbidden(ForbiddenOperationException ex) {
+        return error(HttpStatus.FORBIDDEN, ex.getCode(), ex.getMessage(), null);
     }
 
     // Sai tên đăng nhập HOẶC sai mật khẩu — cùng một thông báo để không lộ tên đăng nhập nào tồn tại

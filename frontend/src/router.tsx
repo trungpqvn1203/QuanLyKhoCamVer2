@@ -8,6 +8,7 @@ import { CashOpeningPage } from './features/cash-book/CashOpeningPage'
 import { LoginPage } from './features/auth/LoginPage'
 import { RequireAuth, RequirePermission } from './features/auth/RequireAuth'
 import type { Permission } from './features/auth/permissions'
+import { CustomerPortalEntry } from './features/customer-portal/CustomerPortalEntry'
 import { CustomerDebtPage } from './features/customer-debts/CustomerDebtPage'
 import { DashboardPage } from './features/dashboard/DashboardPage'
 import { CustomerListPage } from './features/customers/CustomerListPage'
@@ -34,6 +35,8 @@ function guarded(permission: Permission, page: ReactNode) {
 
 export const router = createBrowserRouter([
   { path: '/login', element: <LoginPage /> },
+  // NGOÀI nhánh "/": nhánh đó bọc RequireAuth (phiên nhân viên) + AppLayout (menu quản trị) — khách không có cả hai
+  { path: '/khach/*', element: <CustomerPortalEntry /> },
   {
     path: '/',
     element: (

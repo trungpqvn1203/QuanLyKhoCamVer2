@@ -78,6 +78,8 @@ public class SalesOrderService {
     private static final StockDocumentType TYPE = StockDocumentType.OUTBOUND;
     private static final String CODE_FORMAT = "PX%06d";
     private static final Locale VIETNAMESE = Locale.forLanguageTag("vi-VN");
+    private static final String APP_CREATOR_PREFIX = "app:";
+    private static final String APP_CANCEL_REASON = "Khách hủy qua app";
 
     private final StockDocumentRepository stockDocumentRepository;
     private final StockTransactionRepository stockTransactionRepository;
@@ -128,7 +130,7 @@ public class SalesOrderService {
      */
     @Transactional
     public SalesOrderResponse createPending(PendingOrderRequest request, String username) {
-        RequestReferences refs = resolve(request);
+        RequestReferences refs = resolve(request, false);
         StockDocument document = StockDocument.pendingSale(nextCode(), username);
         document.setDocumentDate(today());
         applyHeader(document, request, refs.customer());
@@ -142,10 +144,63 @@ public class SalesOrderService {
     public SalesOrderResponse updatePending(Long id, PendingOrderRequest request) {
         StockDocument document = lockForChange(id, PENDING, "sửa phần khách đặt");
         requireSameCustomer(document, request.customerId());
-        RequestReferences refs = resolve(request);
+        RequestReferences refs = resolve(request, false);
         applyHeader(document, request, refs.customer());
         replaceRequestLines(document, request.lines(), refs.products());
         return toResponse(stockDocumentRepository.saveAndFlush(document));
+    }
+
+    // ===== Đơn khách tự đặt qua app (BR-POR-07, 09) — customerId luôn lấy từ token, không từ request =====
+
+    /** BR-POR-07: như createPending nhưng kênh APP; người lập ghi "app:<mã khách>". */
+    @Transactional
+    public SalesOrderResponse createAppOrder(Long customerId, LocalDate deliveryDate, String note,
+                                             List<SaleRequestLineRequest> lines) {
+        PendingOrderRequest request = new PendingOrderRequest(customerId, OrderChannel.APP, deliveryDate, note, lines);
+        RequestReferences refs = resolve(request, true);
+        StockDocument document = StockDocument.pendingSale(nextCode(), APP_CREATOR_PREFIX + refs.customer().getCode());
+        document.setDocumentDate(today());
+        applyHeader(document, request, refs.customer());
+        stockDocumentRepository.save(document);
+        replaceRequestLines(document, request.lines(), refs.products());
+        return toResponse(document);
+    }
+
+    /** BR-POR-09: khách sửa đơn của mình khi còn Chờ xác nhận. Đơn của khách khác → 404 như không tồn tại. */
+    @Transactional
+    public SalesOrderResponse updateAppOrder(Long customerId, Long id, LocalDate deliveryDate, String note,
+                                             List<SaleRequestLineRequest> lines) {
+        StockDocument document = lockOwnedPending(id, customerId, "sửa");
+        PendingOrderRequest request = new PendingOrderRequest(customerId, OrderChannel.APP, deliveryDate, note, lines);
+        RequestReferences refs = resolve(request, true);
+        applyHeader(document, request, refs.customer());
+        replaceRequestLines(document, request.lines(), refs.products());
+        return toResponse(stockDocumentRepository.saveAndFlush(document));
+    }
+
+    /** BR-POR-09: khách tự hủy khi còn Chờ xác nhận; lý do ghi tự động để thỏa BR-SAL-21. */
+    @Transactional
+    public SalesOrderResponse cancelAppOrder(Long customerId, Long id, String note) {
+        StockDocument document = lockOwnedPending(id, customerId, "hủy");
+        String customerNote = blankToNull(note);
+        document.markCancelled(customerNote == null ? APP_CANCEL_REASON : APP_CANCEL_REASON + ": " + customerNote,
+                Instant.now());
+        return toResponse(stockDocumentRepository.saveAndFlush(document));
+    }
+
+    /**
+     * Khóa trước, kiểm CHỦ ĐƠN rồi mới kiểm trạng thái: đơn của khách khác trả đúng thông báo "không tìm thấy" như
+     * đơn không tồn tại — không lộ ra đơn đó có thật hay đang ở trạng thái nào.
+     */
+    private StockDocument lockOwnedPending(Long id, Long customerId, String action) {
+        StockDocument document = stockDocumentRepository.findForUpdate(id, TYPE)
+                .filter(found -> found.getCustomer().getId().equals(customerId))
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đơn hàng id=" + id));
+        if (document.getStatus() != PENDING) {
+            throw new BusinessException("Đơn " + document.getCode() + " đã được cửa hàng tiếp nhận ("
+                    + document.getStatus().label() + "), không " + action + " trên app được nữa. Vui lòng gọi cửa hàng");
+        }
+        return document;
     }
 
     /**
@@ -366,9 +421,9 @@ public class SalesOrderService {
     }
 
     /** Phần khách đặt: khách + SP (không có kho). Thứ tự: 400 → 404 → 409, như phiếu nháp. */
-    private RequestReferences resolve(PendingOrderRequest request) {
-        // App khách sẽ có API riêng; kho ghi hộ chỉ chọn Trực tiếp / Điện thoại / Zalo
-        if (request.orderChannel() == OrderChannel.APP) {
+    private RequestReferences resolve(PendingOrderRequest request, boolean fromApp) {
+        // Kênh APP chỉ có ở đường app khách (createAppOrder); kho ghi hộ chỉ chọn Trực tiếp / Điện thoại / Zalo
+        if (!fromApp && request.orderChannel() == OrderChannel.APP) {
             throw new InvalidRequestException("orderChannel", "Kênh App chỉ dành cho đơn khách tự đặt qua app");
         }
         List<Long> productIds = distinctProductIds(

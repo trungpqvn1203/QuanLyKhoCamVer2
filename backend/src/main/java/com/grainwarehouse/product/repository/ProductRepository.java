@@ -8,6 +8,7 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 
+import java.util.List;
 import java.util.Optional;
 
 public interface ProductRepository extends JpaRepository<Product, Long>, JpaSpecificationExecutor<Product> {
@@ -25,6 +26,10 @@ public interface ProductRepository extends JpaRepository<Product, Long>, JpaSpec
 
     // Trả về bản ghi (thay vì boolean) để thông báo lỗi nêu được mã SP và trạng thái
     Optional<Product> findByNameIgnoreCase(String name);
+
+    // App khách (BR-POR-06): SP đang kinh doanh kèm danh mục + ĐVT, một câu SQL, không phân trang (vài trăm SP)
+    @EntityGraph(attributePaths = {"category", "unit"})
+    List<Product> findByActiveTrueOrderByNameAsc();
 
     Optional<Product> findByNameIgnoreCaseAndIdNot(String name, Long id);
 }

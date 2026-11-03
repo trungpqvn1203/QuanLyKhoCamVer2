@@ -1,0 +1,12 @@
+{
+  "name": "Đặt cám",
+  "short_name": "Đặt cám",
+  "description": "Khách hàng tự đặt cám, theo dõi đơn hàng",
+  "start_url": "/khach",
+  "scope": "/khach",
+  "display": "standalone",
+  "lang": "vi",
+  "background_color": "#f4f6f5",
+  "theme_color": "#2f7d32",
+  "icons": [{ "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml" }]
+}

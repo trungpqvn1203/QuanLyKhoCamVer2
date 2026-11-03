@@ -53,6 +53,7 @@ lỗi đã gặp và câu hỏi ôn tập. Do AI ghi sau mỗi module (CLAUDE.md
 | [Mã tự sinh](4-nen-tang-he-thong/03-ma-tu-sinh.md) | Sequence, lỗi mã bị cắt cụt |
 | [In phiếu (K80)](4-nen-tang-he-thong/04-in-phieu.md) | Phiếu bán K80, in qua iframe, số tiền bằng chữ, `tsc -b` |
 | [Ô thêm nhanh sản phẩm trên phiếu](4-nen-tang-he-thong/05-them-nhanh-san-pham.md) | Đếm thao tác chuột/phím, focus sau render, tìm không dấu (NFD) |
+| [App khách hàng — hai vùng đăng nhập](4-nen-tang-he-thong/06-app-khach-hang.md) | Một backend nhiều client, monorepo/polyrepo, tách khóa + `iss`, IDOR, khóa tạm sai mật khẩu |
 
 ### Vận hành: đóng gói và triển khai
 
@@ -232,6 +233,14 @@ lỗi đã gặp và câu hỏi ôn tập. Do AI ghi sau mỗi module (CLAUDE.md
 2. Vì sao cột SP vẫn phải nằm trong `Form.Item name=productId` dù chỉ hiện chữ? Bỏ đi thì phiếu nhập sau khi đổi NCC bị lỗi gì?
 3. `'đ'.normalize('NFD')` cho ra gì? Vì sao `foldVietnamese` phải đổi `đ` riêng?
 4. Khi nào nên chọn "trùng thì cộng +1 SL" thay vì "trùng thì nhảy về dòng cũ"?
+
+**[App khách hàng — hai vùng đăng nhập](4-nen-tang-he-thong/06-app-khach-hang.md)**
+
+1. Nếu chỉ tách `iss` mà dùng chung khóa ký, kịch bản nào vẫn lộ dữ liệu? Ngược lại, chỉ tách khóa mà dùng chung `iss` thì sao?
+2. Vì sao đơn của khách khác trả 404 chứ không phải 403? Đổi thứ tự "kiểm chủ đơn" và "kiểm trạng thái" thì lộ ra điều gì?
+3. Tại sao `noRollbackFor` là bắt buộc ở đăng nhập app khách, mà đăng nhập nhân viên lại không cần?
+4. Khi thêm app React Native, phần nào của backend phải sửa, và vì sao endpoint mới đó không cần CSRF?
+5. Monorepo và polyrepo khác nhau thế nào? Khi nào dự án này nên tách `mobile/` thành repo riêng?
 
 **[Bản chất deploy](5-van-hanh/01-ban-chat-deploy.md)**
 
