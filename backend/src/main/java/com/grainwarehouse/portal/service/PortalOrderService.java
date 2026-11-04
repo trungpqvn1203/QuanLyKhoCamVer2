@@ -1,6 +1,8 @@
 package com.grainwarehouse.portal.service;
 
+import com.grainwarehouse.common.exception.BusinessException;
 import com.grainwarehouse.common.exception.ForbiddenOperationException;
+import com.grainwarehouse.common.exception.InvalidRequestException;
 import com.grainwarehouse.common.exception.ResourceNotFoundException;
 import com.grainwarehouse.common.response.PageResponse;
 import com.grainwarehouse.common.search.CommonSpecifications;
@@ -24,6 +26,8 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
+import java.time.LocalDate;
 import java.util.List;
 
 /**
@@ -44,6 +48,7 @@ public class PortalOrderService {
     private final StockDocumentRepository stockDocumentRepository;
     private final ProductRepository productRepository;
     private final SalesOrderService salesOrderService;
+    private final Clock clock;
 
     public PortalMeResponse me(Long accountId) {
         return PortalMeResponse.from(activeAccount(accountId));
@@ -78,18 +83,31 @@ public class PortalOrderService {
         return PortalOrderResponse.from(order);
     }
 
+    /**
+     * BR-POR-12: khóa dòng tài khoản rồi mới đếm đơn đang chờ — hai request đặt cùng lúc (bấm Gửi hai lần, hai máy)
+     * chạy lần lượt, request sau đếm thấy đơn của request trước. Không khóa thì cả hai cùng thấy "4 đơn" và cùng tạo.
+     */
     @Transactional
     public PortalOrderResponse create(Long accountId, PortalOrderRequest request) {
-        Long customerId = readyAccount(accountId).getCustomer().getId();
+        requireDeliveryDateInRange(request.requestedDeliveryDate());
+        CustomerAccount account = accountRepository.findForUpdateWithCustomerById(accountId)
+                .orElseThrow(PortalOrderService::accountGone);
+        Long customerId = requireReady(account).getCustomer().getId();
+        if (stockDocumentRepository.countAppOrders(customerId, StockDocumentStatus.PENDING)
+                >= PortalOrderLimits.MAX_PENDING_ORDERS) {
+            throw new BusinessException("Bạn đang có " + PortalOrderLimits.MAX_PENDING_ORDERS
+                    + " đơn chờ cửa hàng xác nhận. Vui lòng sửa đơn đang chờ hoặc đợi cửa hàng xác nhận rồi đặt tiếp");
+        }
         return PortalOrderResponse.from(salesOrderService.createAppOrder(
-                customerId, request.requestedDeliveryDate(), request.note(), request.lines()));
+                customerId, request.requestedDeliveryDate(), request.note(), request.saleRequestLines()));
     }
 
     @Transactional
     public PortalOrderResponse update(Long accountId, Long orderId, PortalOrderRequest request) {
+        requireDeliveryDateInRange(request.requestedDeliveryDate());
         Long customerId = readyAccount(accountId).getCustomer().getId();
         return PortalOrderResponse.from(salesOrderService.updateAppOrder(
-                customerId, orderId, request.requestedDeliveryDate(), request.note(), request.lines()));
+                customerId, orderId, request.requestedDeliveryDate(), request.note(), request.saleRequestLines()));
     }
 
     @Transactional
@@ -100,8 +118,10 @@ public class PortalOrderService {
 
     /** BR-POR-10: tài khoản bị khóa / khách ngừng hoạt động → 403 ACCOUNT_DISABLED, app đăng xuất. */
     private CustomerAccount activeAccount(Long accountId) {
-        CustomerAccount account = accountRepository.findWithCustomerById(accountId)
-                .orElseThrow(() -> new ForbiddenOperationException("ACCOUNT_DISABLED", "Tài khoản app không còn tồn tại"));
+        return requireActive(accountRepository.findWithCustomerById(accountId).orElseThrow(PortalOrderService::accountGone));
+    }
+
+    private static CustomerAccount requireActive(CustomerAccount account) {
         if (!account.isActive() || !account.getCustomer().isActive()) {
             throw new ForbiddenOperationException("ACCOUNT_DISABLED",
                     "Tài khoản app đã bị khóa. Vui lòng liên hệ cửa hàng");
@@ -111,12 +131,35 @@ public class PortalOrderService {
 
     /** BR-POR-03: đặt / sửa / hủy đơn chỉ sau khi khách đã đổi mật khẩu do cửa hàng cấp. */
     private CustomerAccount readyAccount(Long accountId) {
-        CustomerAccount account = activeAccount(accountId);
+        return requireReady(activeAccount(accountId));
+    }
+
+    private static CustomerAccount requireReady(CustomerAccount account) {
+        requireActive(account);
         if (account.isMustChangePassword()) {
             throw new ForbiddenOperationException("PASSWORD_CHANGE_REQUIRED",
                     "Vui lòng đổi mật khẩu do cửa hàng cấp trước khi đặt hàng");
         }
         return account;
+    }
+
+    /** BR-POR-12: ngày muốn giao từ hôm nay (giờ VN) đến tối đa 60 ngày tới; không hẹn ngày thì bỏ trống. */
+    private void requireDeliveryDateInRange(LocalDate date) {
+        if (date == null) {
+            return;
+        }
+        LocalDate today = LocalDate.ofInstant(clock.instant(), CommonSpecifications.BUSINESS_ZONE);
+        if (date.isBefore(today)) {
+            throw new InvalidRequestException("requestedDeliveryDate", "Ngày muốn giao không được trước hôm nay");
+        }
+        if (date.isAfter(today.plusDays(PortalOrderLimits.MAX_DELIVERY_DAYS_AHEAD))) {
+            throw new InvalidRequestException("requestedDeliveryDate",
+                    "Chỉ đặt trước tối đa " + PortalOrderLimits.MAX_DELIVERY_DAYS_AHEAD + " ngày");
+        }
+    }
+
+    private static ForbiddenOperationException accountGone() {
+        return new ForbiddenOperationException("ACCOUNT_DISABLED", "Tài khoản app không còn tồn tại");
     }
 
     private static ResourceNotFoundException notFound(Long orderId) {

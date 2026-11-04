@@ -53,7 +53,7 @@ lỗi đã gặp và câu hỏi ôn tập. Do AI ghi sau mỗi module (CLAUDE.md
 | [Mã tự sinh](4-nen-tang-he-thong/03-ma-tu-sinh.md) | Sequence, lỗi mã bị cắt cụt |
 | [In phiếu (K80)](4-nen-tang-he-thong/04-in-phieu.md) | Phiếu bán K80, in qua iframe, số tiền bằng chữ, `tsc -b` |
 | [Ô thêm nhanh sản phẩm trên phiếu](4-nen-tang-he-thong/05-them-nhanh-san-pham.md) | Đếm thao tác chuột/phím, focus sau render, tìm không dấu (NFD) |
-| [App khách hàng — hai vùng đăng nhập](4-nen-tang-he-thong/06-app-khach-hang.md) | Một backend nhiều client, monorepo/polyrepo, tách khóa + `iss`, IDOR, khóa tạm sai mật khẩu |
+| [App khách hàng — hai vùng đăng nhập](4-nen-tang-he-thong/06-app-khach-hang.md) | Một backend nhiều client, monorepo/polyrepo, tách khóa + `iss`, IDOR, khóa tạm sai mật khẩu; rà soát: tách ghi chú khách / nội bộ, giới hạn đơn + khóa trước khi đếm, password spraying |
 
 ### Vận hành: đóng gói và triển khai
 
@@ -241,6 +241,9 @@ lỗi đã gặp và câu hỏi ôn tập. Do AI ghi sau mỗi module (CLAUDE.md
 3. Tại sao `noRollbackFor` là bắt buộc ở đăng nhập app khách, mà đăng nhập nhân viên lại không cần?
 4. Khi thêm app React Native, phần nào của backend phải sửa, và vì sao endpoint mới đó không cần CSRF?
 5. Monorepo và polyrepo khác nhau thế nào? Khi nào dự án này nên tách `mobile/` thành repo riêng?
+6. Vì sao chép từng trường ra `PortalOrderResponse` vẫn không chặn được lộ ghi chú nội bộ? Sửa ở tầng nào mới đúng?
+7. "Tối đa 5 đơn chờ": vẽ hai request song song khi không khóa dòng tài khoản. Vì sao khóa `customer_account` mà không khóa các phiếu bán?
+8. Password spraying khác dò mật khẩu một tài khoản thế nào? Vì sao không giới hạn `refresh` theo IP?
 
 **[Bản chất deploy](5-van-hanh/01-ban-chat-deploy.md)**
 

@@ -43,6 +43,39 @@ Bài toán: mỗi ngày một người vừa quản kho vừa nghe hàng trăm c
 - **`npx tsc --noEmit` không kiểm tra gì:** gặp lại từ module trước. Lệnh đúng là `npx tsc --noEmit -p tsconfig.app.json`.
 - **Lint `only-export-components`:** khai báo `lazy(...)` trong `router.tsx`, file đang export `router`, làm hỏng Fast Refresh. Cách sửa: tách phần tải lười ra component riêng (`CustomerPortalEntry`).
 
+## Rà soát bảo mật trước khi mở cho khách thật (2026-11-04, V29)
+
+Tách vùng đăng nhập đã chắc, nhưng rà lại theo câu hỏi "người ngoài làm được gì với **dữ liệu của cửa hàng**" thì ra ba lỗ mà không test nào trước đó bắt được.
+
+### Một cột, hai người đọc = rò rỉ
+
+- Đơn app chỉ có cột `note`. Khách ghi "Giao buổi sáng"; quản kho xác nhận, ghi đè thành "Khách nợ nhiều, thu tiền trước". App khách đọc `note`, nên khách đọc được câu đó.
+- Lỗi không nằm ở phần đăng nhập mà ở **mô hình dữ liệu**: một trường do hai bên ghi, nhưng bên ngoài được đọc. Chép từng trường ra DTO (bài trên) không cứu được, vì chính trường `note` đã được phép ra ngoài.
+- Cách sửa: **mỗi bên một cột**. `customer_note` chỉ app ghi, `note` chỉ cửa hàng ghi, app chỉ đọc `customer_note`. CHECK `customer_note IS NULL OR order_channel = 'APP'`.
+- Lý do hủy cũng thế: cửa hàng ghi "Khách bom hàng nhiều lần" thì khách không được đọc. App chỉ hiện nguyên văn khi lý do bắt đầu bằng "Khách hủy qua app"; còn lại hiện câu chung.
+- **Chuyển dữ liệu cũ theo hướng an toàn:** chỉ chép những đơn chắc chắn là lời khách (còn `PENDING`, chưa ai sửa). Đơn đã xác nhận thì bỏ: thà mất một câu ghi chú cũ còn hơn lộ ghi chú nội bộ.
+
+### Chặn làm ngập: giới hạn + khóa trước khi đếm
+
+- Không có giới hạn thì một tài khoản bị lộ mật khẩu có thể gửi 500 đơn, mỗi đơn 200 dòng, mỗi dòng SL 2 tỷ, và danh sách Chờ xác nhận của quản kho thành vô dụng.
+- "Tối đa 5 đơn chờ" là kiểu **kiểm rồi ghi** (check-then-act), cùng loại với thu tiền vượt nợ: hai request cùng lúc cùng đếm 4, rồi cùng tạo. Cách chặn: `findForUpdateWithCustomerById` khóa dòng `customer_account` trước khi đếm, nên request thứ hai phải chờ rồi đếm ra 5. Test `concurrentOrdersShouldRespectPendingLimit`: 8 request cùng lúc thì đúng 5 thành công.
+- Giới hạn chỉ cho app: SL tối đa nằm ở DTO riêng `PortalOrderLineRequest`, không sửa `SaleRequestLineRequest` mà nhân viên đang dùng.
+
+### Jackson lặng lẽ làm tròn số
+
+- Khách gửi `"quantity": 1.5` vào trường `Integer`: Jackson mặc định **cắt thành 1** (`ACCEPT_FLOAT_AS_INT`), không báo lỗi. Đặt 1,5 bao thì nhận đơn 1 bao.
+- Cách sửa ở app: đọc vào `BigDecimal` rồi kiểm `@Digits(fraction = 0)`. Hệ quả nhỏ: `2.0` cũng bị từ chối, vì Hibernate Validator đếm cả số 0 sau dấu phẩy. App luôn gửi số nguyên nên chấp nhận được.
+
+### Giới hạn theo IP ở Nginx — vì sao chỉ cho đăng nhập
+
+- Khóa 5 lần sai chỉ chặn dò **một** tài khoản. Kẻ xấu đổi chiến thuật: thử `12345678` cho 1.000 SĐT, mỗi SĐT một lần, nên không tài khoản nào bị khóa (password spraying). Chặn bằng `limit_req` theo IP.
+- Không giới hạn `refresh`: refresh token là chuỗi ngẫu nhiên 256 bit nên không dò được, và mỗi khách gọi 15 phút một lần. Nhà mạng di động dùng **CGNAT** (nhiều thuê bao chung một IP), giới hạn refresh có thể chặn nhầm cả nhóm khách thật.
+- Chạy `npm run dev` không qua Nginx thì không có giới hạn này; chỉ có khi chạy bằng Docker.
+
+### Lỗi đã gặp
+
+- **Hai nhánh cùng dùng số migration:** nhánh chuyến giao có V28 và đã chạy vào DB test. Nhánh này tách từ main, thêm V29 → Flyway báo "applied migration not resolved locally: 28". Khi chạy test, em thêm `-Dspring.flyway.ignore-migration-patterns=*:missing` **chỉ trên dòng lệnh**, không ghi vào cấu hình. Bài học: số phiên bản migration là tài nguyên dùng chung giữa các nhánh, nên gộp nhánh nào trước thì nhánh sau phải đánh lại số migration của mình.
+
 ### Câu hỏi ôn tập (để cuối dự án)
 
 1. Nếu chỉ tách `iss` mà dùng chung khóa ký, kịch bản nào vẫn lộ dữ liệu? Ngược lại, nếu chỉ tách khóa mà dùng chung `iss` thì sao?
@@ -50,3 +83,6 @@ Bài toán: mỗi ngày một người vừa quản kho vừa nghe hàng trăm c
 3. Tại sao `noRollbackFor` là bắt buộc ở đăng nhập app khách, mà đăng nhập nhân viên lại không cần?
 4. Khi thêm app React Native, phần nào của backend phải sửa, và vì sao endpoint mới đó không cần CSRF?
 5. Monorepo và polyrepo khác nhau thế nào? Khi nào dự án này nên tách `mobile/` thành repo riêng?
+6. Vì sao chép từng trường ra `PortalOrderResponse` vẫn không chặn được lộ ghi chú nội bộ? Sửa ở tầng nào mới đúng?
+7. "Tối đa 5 đơn chờ": vẽ hai request song song khi không khóa dòng tài khoản. Vì sao khóa `customer_account` mà không khóa các phiếu bán?
+8. Password spraying khác dò mật khẩu một tài khoản thế nào? Vì sao không giới hạn `refresh` theo IP?

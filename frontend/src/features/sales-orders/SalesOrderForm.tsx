@@ -319,7 +319,7 @@ export function SalesOrderForm({ form, initialValues, references, order, disable
           </Form.Item>
         </Col>
       </Row>
-      <Form.Item name="note" label="Ghi chú">
+      <Form.Item name="note" label="Ghi chú nội bộ" tooltip="Chỉ cửa hàng thấy — khách không thấy trên app">
         <Input.TextArea maxLength={500} showCount autoSize={{ minRows: 1, maxRows: 3 }} placeholder="Ví dụ: địa chỉ giao, biển số xe" />
       </Form.Item>
 

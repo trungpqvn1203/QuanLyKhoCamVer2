@@ -7,7 +7,15 @@ import { matchesSearch } from '../../components/ui/product-quick-add'
 import { formatDate, todayIso } from '../../utils/format'
 import { portalApi } from './portal-api'
 import type { PortalOrder, PortalProduct } from './portal-api'
-import { cartFromRequestLines, cartLineCount, setQuantity, toOrderInput } from './portal-cart'
+import {
+  MAX_LINE_QUANTITY,
+  MAX_LINES,
+  cartFromRequestLines,
+  cartLineCount,
+  latestDeliveryIso,
+  setQuantity,
+  toOrderInput,
+} from './portal-cart'
 import type { Cart } from './portal-cart'
 import { BOTTOM_NAV_HEIGHT } from './PortalLayout'
 
@@ -75,6 +83,7 @@ export function OrderFormPage() {
   // SP đã chọn lên đầu — khách đặt lại đơn cũ thấy ngay những gì đã có trong giỏ
   const sorted = [...visible].sort((a, b) => Number(Boolean(cart[b.id])) - Number(Boolean(cart[a.id])))
   const count = cartLineCount(cart)
+  const cartFull = count >= MAX_LINES
 
   const submit = async (values: SubmitValues) => {
     const { input, unavailable } = toOrderInput(cart, new Set(byId.keys()), values.requestedDeliveryDate, values.note)
@@ -109,6 +118,9 @@ export function OrderFormPage() {
       </Typography.Title>
       {reorderFrom && !editing && (
         <Alert type="info" showIcon title={`Đặt lại theo đơn ${reorderFrom.code} — sửa số lượng nếu cần rồi gửi`} />
+      )}
+      {cartFull && (
+        <Alert type="warning" showIcon title={`Một đơn tối đa ${MAX_LINES} sản phẩm — cần thêm thì gửi đơn này rồi đặt đơn mới`} />
       )}
       <Input
         allowClear
@@ -146,6 +158,9 @@ export function OrderFormPage() {
                     />
                     <InputNumber<number>
                       min={0}
+                      max={MAX_LINE_QUANTITY}
+                      precision={0}
+                      disabled={quantity === 0 && cartFull}
                       value={quantity || null}
                       placeholder="0"
                       inputMode="numeric"
@@ -157,6 +172,7 @@ export function OrderFormPage() {
                     <Button
                       icon={<PlusOutlined />}
                       aria-label={`Thêm ${product.name}`}
+                      disabled={quantity >= MAX_LINE_QUANTITY || (quantity === 0 && cartFull)}
                       onClick={() => setCart((current) => setQuantity(current, product.id, quantity + 1))}
                     />
                   </Flex>
@@ -227,11 +243,14 @@ export function OrderFormPage() {
               {
                 validator: async (_, value?: string) => {
                   if (value && value < todayIso()) throw new Error(`Chọn từ hôm nay (${formatDate(todayIso())}) trở đi`)
+                  if (value && value > latestDeliveryIso()) {
+                    throw new Error(`Chỉ đặt trước tối đa 60 ngày (đến ${formatDate(latestDeliveryIso())})`)
+                  }
                 },
               },
             ]}
           >
-            <Input type="date" min={todayIso()} />
+            <Input type="date" min={todayIso()} max={latestDeliveryIso()} />
           </Form.Item>
           <Form.Item name="note" label="Ghi chú cho cửa hàng">
             <Input.TextArea maxLength={500} autoSize={{ minRows: 2, maxRows: 4 }} placeholder="Ví dụ: giao buổi sáng, gọi trước khi đến" />

@@ -28,4 +28,12 @@ public interface CustomerAccountRepository extends JpaRepository<CustomerAccount
 
     @Query("select a from CustomerAccount a join fetch a.customer where a.id = :id")
     Optional<CustomerAccount> findWithCustomerById(@Param("id") Long id);
+
+    /**
+     * Đặt đơn: khóa dòng tài khoản để đếm đơn đang chờ (BR-POR-12) không bị hai request cùng lúc vượt qua.
+     * Cùng một khóa với đăng nhập / cửa hàng khóa tài khoản → khóa tài khoản và đặt đơn không chen nhau.
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select a from CustomerAccount a join fetch a.customer where a.id = :id")
+    Optional<CustomerAccount> findForUpdateWithCustomerById(@Param("id") Long id);
 }

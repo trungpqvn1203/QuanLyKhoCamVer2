@@ -118,7 +118,10 @@ export interface SalesOrder {
   customerCode: string
   customerName: string
   customerPhone: string
+  /** Ghi chú nội bộ — khách KHÔNG thấy trên app (BR-POR-11) */
   note?: string
+  /** Lời khách ghi trên app (chỉ đơn kênh App) — chỉ đọc */
+  customerNote?: string
   totalAmount: number
   /** BR-SAL-10: đã thu và còn nợ — số do backend tính */
   paidAmount: number
