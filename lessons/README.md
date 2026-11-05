@@ -61,6 +61,8 @@ lỗi đã gặp và câu hỏi ôn tập. Do AI ghi sau mỗi module (CLAUDE.md
 |---|---|
 | [Bản chất deploy](5-van-hanh/01-ban-chat-deploy.md) | Code / cấu hình / dữ liệu, cập nhật và rollback |
 | [Đóng gói & triển khai: Docker Compose + Nginx](5-van-hanh/02-docker-compose-nginx.md) | Image hai giai đoạn, mạng nội bộ, reverse proxy |
+| [Nền tảng deploy: một request đi qua những tầng nào](5-van-hanh/03-nen-tang-mang-va-may-chu.md) | DNS → NSG → iptables → Nginx → backend → DB, đọc lỗi theo tầng, container = namespaces + cgroups, RAM/OOM, CI vs CD |
+| [CI với GitHub Actions](5-van-hanh/04-ci-github-actions.md) | Workflow/job/step, service Postgres, ghi rõ điều ngầm định (TZ, npm ci), quyền tối thiểu, `tsc --noEmit` không kiểm gì, DB test dùng chung giữa nhánh |
 
 ## Ghi bài mới
 
@@ -260,3 +262,21 @@ lỗi đã gặp và câu hỏi ôn tập. Do AI ghi sau mỗi module (CLAUDE.md
 4. Lộ `JWT_SECRET` nguy hiểm hơn lộ mật khẩu admin ở điểm nào? Phải làm gì ngay khi bị lộ?
 5. Sửa `POSTGRES_PASSWORD` trong `.env.prod` rồi `up -d` thì chuyện gì xảy ra, vì sao?
 6. Vì sao Let's Encrypt không cấp được chứng chỉ khi cổng 80 bị chặn?
+
+**[Nền tảng deploy: một request đi qua những tầng nào](5-van-hanh/03-nen-tang-mang-va-may-chu.md)**
+
+1. Khách báo "app không vào được". Hỏi lại đúng một câu nào để phân biệt lỗi NSG/VM tắt với lỗi container `web` chết?
+2. Vì sao healthcheck của backend gọi `localhost:8080`, còn Nginx phải gọi `backend:8080`?
+3. Ngay sau `up -d --build` thấy 502 khoảng nửa phút rồi tự hết — tầng nào đang làm gì?
+4. Backend lưu file Excel vào `/app/exports` trong container — sau lần deploy tiếp theo file đi đâu? Sửa thế nào?
+5. Vì sao thêm user vào nhóm `docker` gần như là cho user đó quyền root?
+6. Vì sao build image trên CI rồi đem lên server an toàn hơn `--build` trên server, ngoài chuyện RAM?
+
+**[CI với GitHub Actions](5-van-hanh/04-ci-github-actions.md)**
+
+1. Test xanh trên máy bạn nhưng đỏ trên CI lúc 6h sáng, xanh lúc 9h — nghi ngờ đầu tiên là gì, dòng nào trong `ci.yml` xử lý?
+2. Vì sao CI dùng `npm ci` mà không dùng `npm install`?
+3. Bỏ healthcheck của service Postgres thì chuyện gì có thể xảy ra, vì sao lúc có lúc không?
+4. `permissions: contents: read` bảo vệ trước kịch bản tấn công nào?
+5. Vì sao `npx tsc --noEmit` ở `frontend/` báo thành công dù có lỗi kiểu?
+6. "Detected applied migration not resolved locally: 28" nghĩa là gì? Vì sao CI không bao giờ gặp lỗi này?
