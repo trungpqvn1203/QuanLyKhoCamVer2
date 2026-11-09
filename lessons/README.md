@@ -63,6 +63,7 @@ lỗi đã gặp và câu hỏi ôn tập. Do AI ghi sau mỗi module (CLAUDE.md
 | [Đóng gói & triển khai: Docker Compose + Nginx](5-van-hanh/02-docker-compose-nginx.md) | Image hai giai đoạn, mạng nội bộ, reverse proxy |
 | [Nền tảng deploy: một request đi qua những tầng nào](5-van-hanh/03-nen-tang-mang-va-may-chu.md) | DNS → NSG → iptables → Nginx → backend → DB, đọc lỗi theo tầng, container = namespaces + cgroups, RAM/OOM, CI vs CD |
 | [CI với GitHub Actions](5-van-hanh/04-ci-github-actions.md) | Workflow/job/step, service Postgres, ghi rõ điều ngầm định (TZ, npm ci), quyền tối thiểu, `tsc --noEmit` không kiểm gì, DB test dùng chung giữa nhánh |
+| [CD với GitHub Actions](5-van-hanh/05-cd-github-actions.md) | Build trên GitHub vs trên VM, GHCR + tag commit, `workflow_call`, token qua stdin, known_hosts, backup → pull → `up --wait`, vì sao không tự rollback |
 
 ## Ghi bài mới
 
@@ -280,3 +281,14 @@ lỗi đã gặp và câu hỏi ôn tập. Do AI ghi sau mỗi module (CLAUDE.md
 4. `permissions: contents: read` bảo vệ trước kịch bản tấn công nào?
 5. Vì sao `npx tsc --noEmit` ở `frontend/` báo thành công dù có lỗi kiểu?
 6. "Detected applied migration not resolved locally: 28" nghĩa là gì? Vì sao CI không bao giờ gặp lỗi này?
+
+**[CD với GitHub Actions](5-van-hanh/05-cd-github-actions.md)**
+
+1. Vì sao tag image bằng mã commit mà không dùng `latest`?
+2. Build image trên VM thay vì trên GitHub thì mất những gì? Nêu ít nhất ba điểm.
+3. `ci.yml` có `cancel-in-progress: true`, `cd.yml` lại `false` — vì sao?
+4. Vì sao không dùng `ssh-keyscan` trong workflow để lấy host key của VM?
+5. Token GitHub đi từ đâu tới VM, dùng vào việc gì, vì sao VM không cần lưu Personal Access Token?
+6. Bỏ `pipefail` khỏi `deploy.sh` thì lỗi `pg_dump` bị che giấu thế nào?
+7. Deploy bản có migration V30 rồi mới thấy lỗi — vì sao pipeline không tự rollback? Các bước rollback tay?
+8. Mở cổng 22 cho mọi IP — rủi ro gì, đã bù bằng gì, hai phương án nào tránh được việc mở cổng?

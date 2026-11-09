@@ -1,15 +1,17 @@
 # CI: mỗi lần push, tự build + test backend và frontend (lessons/5-van-hanh/04-ci-github-actions.md).
-# Không đụng tới server — deploy là workflow riêng (module CD).
+# Không đụng tới server — deploy là workflow riêng (cd.yml), cd.yml gọi lại file này trước khi build image.
 name: CI
 
 on:
   push:
-    branches: ["**"]
+    # main do cd.yml gọi CI (workflow_call) → không chạy hai lần cho cùng một commit
+    branches-ignore: ["main"]
     # Chỉ sửa tài liệu / bài học thì không tốn phút chạy (repo private: 2.000 phút miễn phí/tháng)
     paths-ignore:
       - "docs/**"
       - "lessons/**"
       - "**/*.md"
+  workflow_call: # cd.yml dùng lại toàn bộ CI làm bước đầu tiên
   workflow_dispatch: # nút "Run workflow" trên tab Actions để chạy tay
 
 # Push liên tiếp lên cùng nhánh → hủy lần chạy cũ, chỉ giữ lần mới nhất

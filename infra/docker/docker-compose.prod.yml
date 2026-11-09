@@ -1,5 +1,9 @@
 # Chạy từ thư mục gốc dự án:
 #   docker compose -f infra/docker/docker-compose.prod.yml --env-file .env.prod up -d --build
+#
+# backend/web có cả `image` lẫn `build`:
+#   - Server (CD): deploy.sh `pull` image đã build sẵn trên GitHub, tag = mã commit (IMAGE_TAG trong .env.prod)
+#   - Máy local:   `up -d --build` tự build, image được gắn tag "local" (IMAGE_TAG để trống)
 name: grain-warehouse-prod
 
 services:
@@ -22,6 +26,8 @@ services:
       retries: 10
 
   backend:
+    # Tên phải khớp IMAGE_PREFIX trong .github/workflows/cd.yml
+    image: ghcr.io/trungpqvn1203/grain-warehouse-backend:${IMAGE_TAG:-local}
     build:
       context: ../../backend
       dockerfile: ../infra/docker/backend.Dockerfile
@@ -50,6 +56,7 @@ services:
       start_period: 40s
 
   web:
+    image: ghcr.io/trungpqvn1203/grain-warehouse-web:${IMAGE_TAG:-local}
     build:
       context: ../..
       dockerfile: infra/docker/frontend.Dockerfile

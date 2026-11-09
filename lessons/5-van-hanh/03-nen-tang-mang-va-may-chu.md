@@ -133,7 +133,7 @@ Mỗi bước đang gõ tay qua SSH tương ứng một bước pipeline sẽ t�
 | `curl /api/health` | Quên kiểm tra | Bước cuối pipeline; không healthy → báo đỏ |
 
 - **CI (Continuous Integration)** — mỗi thay đổi đều được tự động build + test. Không đụng tới server.
-- **Continuous Delivery** — luôn có sẵn bản sẵn sàng deploy; **người bấm nút** để lên server. Dự án chọn mức này (deployment.md).
+- **Continuous Delivery** — luôn có sẵn bản sẵn sàng deploy; **người bấm nút** để lên server. Ban đầu dự án định chọn mức này; sau đổi sang Continuous Deployment (ADR-0006, bài 05).
 - **Continuous Deployment** — merge vào `main` là tự lên server, không ai bấm. Chỉ an toàn khi test đủ dày và có rollback tự động.
 
 ### Câu hỏi ôn tập
