@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
-import { onPortalSessionExpired } from '../../api/client'
+import { onPortalAccountDisabled, onPortalSessionExpired } from '../../api/client'
 import { portalApi } from './portal-api'
 import type { PortalMe } from './portal-api'
 import { PortalAuthContext } from './portal-auth-context'
@@ -12,7 +12,7 @@ import { PortalAuthContext } from './portal-auth-context'
 export function PortalAuthProvider({ children }: { children: ReactNode }) {
   const [me, setMe] = useState<PortalMe | null>(null)
   const [loading, setLoading] = useState(true)
-  const [sessionExpired, setSessionExpired] = useState(false)
+  const [signOutNotice, setSignOutNotice] = useState<string | null>(null)
   const loggedIn = useRef(false)
 
   useEffect(() => {
@@ -39,16 +39,25 @@ export function PortalAuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     onPortalSessionExpired(() => {
-      if (loggedIn.current) setSessionExpired(true)
+      if (loggedIn.current) setSignOutNotice('Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại')
       setMe(null)
     })
-    return () => onPortalSessionExpired(null)
+    // Bị khóa giữa chừng: xóa cookie phiên (logout) rồi về trang đăng nhập kèm lý do từ backend
+    onPortalAccountDisabled((message) => {
+      setSignOutNotice(message)
+      setMe(null)
+      portalApi.logout().catch(() => undefined)
+    })
+    return () => {
+      onPortalSessionExpired(null)
+      onPortalAccountDisabled(null)
+    }
   }, [])
 
   const login = useCallback(async (phone: string, password: string) => {
     await portalApi.csrf()
     const current = await portalApi.login(phone, password)
-    setSessionExpired(false)
+    setSignOutNotice(null)
     setMe(current)
     return current
   }, [])
@@ -66,8 +75,8 @@ export function PortalAuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const value = useMemo(
-    () => ({ me, loading, sessionExpired, login, logout, reload }),
-    [me, loading, sessionExpired, login, logout, reload],
+    () => ({ me, loading, signOutNotice, login, logout, reload }),
+    [me, loading, signOutNotice, login, logout, reload],
   )
   return <PortalAuthContext.Provider value={value}>{children}</PortalAuthContext.Provider>
 }

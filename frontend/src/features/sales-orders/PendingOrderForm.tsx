@@ -1,5 +1,5 @@
 import { DeleteOutlined } from '@ant-design/icons'
-import { App, Button, Col, Form, Input, InputNumber, Radio, Row, Select, Table } from 'antd'
+import { App, Button, Col, Form, Input, InputNumber, Radio, Row, Select, Table, Typography } from 'antd'
 import type { FormInstance, FormListFieldData, RefSelectProps, FormRule as Rule, TableProps } from 'antd'
 import { useEffect, useRef, useState } from 'react'
 import { focusLineField, resolveQuickAdd } from '../../components/ui/product-quick-add'
@@ -39,6 +39,8 @@ interface ProductInfo {
 }
 
 const CHANNEL_OPTIONS = STAFF_ORDER_CHANNELS.map((channel) => ({ value: channel, label: ORDER_CHANNEL_LABELS[channel] }))
+// Đơn khách tự đặt qua app giữ kênh App (BR-POR-11) — hiện đúng kênh, không cho đổi
+const APP_CHANNEL_OPTIONS = [{ value: 'APP', label: ORDER_CHANNEL_LABELS.APP }]
 
 /**
  * Form ghi nhanh đơn khách đặt (BR-SAL-17) — lúc đang nghe máy / đọc tin Zalo: khách, kênh, ngày muốn giao,
@@ -172,7 +174,11 @@ export function PendingOrderForm({ form, initialValues, references, order, disab
         </Col>
         <Col xs={24} md={8}>
           <Form.Item name="orderChannel" label="Khách đặt qua" rules={[{ required: true, message: 'Chọn kênh' }]}>
-            <Radio.Group optionType="button" options={CHANNEL_OPTIONS} />
+            <Radio.Group
+              optionType="button"
+              options={order?.orderChannel === 'APP' ? APP_CHANNEL_OPTIONS : CHANNEL_OPTIONS}
+              disabled={order?.orderChannel === 'APP'}
+            />
           </Form.Item>
         </Col>
         <Col xs={24} md={6}>
@@ -185,7 +191,12 @@ export function PendingOrderForm({ form, initialValues, references, order, disab
           </Form.Item>
         </Col>
       </Row>
-      <Form.Item name="note" label="Ghi chú">
+      {order?.customerNote && (
+        <Form.Item label="Khách ghi">
+          <Typography.Text>{order.customerNote}</Typography.Text>
+        </Form.Item>
+      )}
+      <Form.Item name="note" label="Ghi chú nội bộ" tooltip="Chỉ cửa hàng thấy — khách không thấy trên app">
         <Input.TextArea
           maxLength={500}
           showCount

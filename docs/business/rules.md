@@ -422,9 +422,18 @@ _(Trả lời BR-SAL-Q01: có công nợ, chỉ ở mức phiếu bán + lịch 
 - **BR-POR-05:** Phiên app hết hạn sau **30 ngày không dùng**, tối đa **90 ngày** từ lúc đăng nhập (khác nhân viên — BR-AUTH-06). Đăng xuất / đổi mật khẩu như BR-AUTH-06, 07.
 - **BR-POR-06:** Khách chỉ thấy **SP đang kinh doanh** (mã, tên, ĐVT, danh mục) — **không thấy giá, không thấy tồn**.
 - **BR-POR-07:** Khách đặt hàng = **đơn Chờ xác nhận kênh App** (BR-SAL-16..22): SP + SL theo ĐVT, ngày muốn giao, ghi chú. Cửa hàng xác nhận / hủy như đơn ghi từ điện thoại.
-- **BR-POR-08:** Khách chỉ thấy **đơn của chính mình**. Trạng thái hiển thị: Chờ cửa hàng xác nhận · Đã nhận đơn · Đã giao · Đã hủy · Đã hủy giao. **Giá chỉ hiện sau khi cửa hàng xác nhận** (dòng chốt: SL, đơn giá, thành tiền, tổng; luôn là giá mới nhất kể cả sau BR-SAL-23). Không hiện công nợ, kho xuất, người lập / xác nhận. Đơn bị hủy hiện lý do.
+- **BR-POR-08:** Khách chỉ thấy **đơn của chính mình**. Trạng thái hiển thị: Chờ cửa hàng xác nhận · Đã nhận đơn · Đã giao · Đã hủy · Đã hủy giao. **Giá chỉ hiện sau khi cửa hàng xác nhận** (dòng chốt: SL, đơn giá, thành tiền, tổng; luôn là giá mới nhất kể cả sau BR-SAL-23). Không hiện công nợ, kho xuất, người lập / xác nhận. Đơn bị hủy hiện lý do theo BR-POR-11.
 - **BR-POR-09:** Khách **sửa / tự hủy** đơn khi còn **Chờ xác nhận** (BR-SAL-18). Tự hủy ghi lý do "Khách hủy qua app" (+ ghi chú của khách nếu có). Đã nhận đơn thì phải gọi cửa hàng.
-- **BR-POR-10:** Cửa hàng **khóa** tài khoản (khách không đăng nhập, không gia hạn, không đặt hàng được ngay — đơn đã có giữ nguyên), **mở khóa** (xóa đếm sai mật khẩu), **đặt lại mật khẩu** (mọi phiên của khách bị thu hồi, BR-POR-03 áp dụng lại).
+- **BR-POR-10:** Cửa hàng **khóa** tài khoản (khách không đăng nhập, không gia hạn, không đặt hàng được ngay — đơn đã có giữ nguyên), **mở khóa** (xóa đếm sai mật khẩu), **đặt lại mật khẩu** (mọi phiên của khách bị thu hồi, BR-POR-03 áp dụng lại). Khách đang mở app khi bị khóa → app tự đăng xuất và hiện lý do.
+- **BR-POR-11 (chốt 2026-11-04):** Thông tin nội bộ không ra app khách.
+  - **Ghi chú tách đôi:** lời khách ghi trên app lưu riêng (`customer_note`), nhân viên chỉ đọc ("Khách ghi"). Ô "Ghi chú nội bộ" của cửa hàng khách **không bao giờ** thấy; khách sửa đơn cũng không xóa ghi chú nội bộ.
+  - **Lý do hủy:** khách tự hủy → hiện lý do của khách. Cửa hàng hủy / hủy giao → khách chỉ thấy câu chung "Cửa hàng đã hủy (giao) đơn này. Vui lòng liên hệ cửa hàng nếu cần".
+  - Đơn app luôn giữ kênh **App**: nhân viên sửa phần khách đặt không đổi sang kênh khác được.
+- **BR-POR-12 (chốt 2026-11-04):** Giới hạn đơn khách tự đặt qua app (nhân viên ghi đơn hộ không bị giới hạn) — chặn một tài khoản làm ngập danh sách Chờ xác nhận:
+  - Tối đa **5 đơn app đang Chờ xác nhận** mỗi khách (đơn thứ 6 → 409; hủy / được xác nhận bớt thì đặt tiếp).
+  - Tối đa **50 sản phẩm** một đơn; mỗi sản phẩm **1–9.999**, số nguyên.
+  - Ngày muốn giao: **từ hôm nay đến 60 ngày tới** (giờ VN), hoặc để trống.
+  - Đăng nhập app: tối đa khoảng **10 lần / phút mỗi IP** (Nginx, dồn được 10) — chống thử một mật khẩu cho nhiều SĐT.
 
 ### ❓ Câu hỏi mở
 

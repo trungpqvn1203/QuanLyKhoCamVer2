@@ -1,0 +1,114 @@
+# CD: push lên main → chạy lại CI → build 2 image, đẩy lên GHCR → SSH vào VM chạy infra/deploy/deploy.sh.
+# Bài học: lessons/5-van-hanh/05-cd-github-actions.md. Cài đặt một lần: docs/maintenance/deployment.md mục "CI/CD".
+name: CD
+
+on:
+  push:
+    branches: ["main"]
+    # Chỉ sửa tài liệu thì image không đổi → không deploy (tránh downtime vô ích)
+    paths-ignore:
+      - "docs/**"
+      - "lessons/**"
+      - "**/*.md"
+  workflow_dispatch: # deploy lại bản main hiện tại bằng nút "Run workflow"
+
+# Chỉ một lần deploy tại một thời điểm, lần sau XẾP HÀNG chứ không hủy lần đang chạy:
+# hủy giữa chừng có thể bỏ dở lúc Flyway đang migrate
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  # Phải khớp tên image trong infra/docker/docker-compose.prod.yml (GHCR bắt buộc chữ thường)
+  IMAGE_PREFIX: ghcr.io/trungpqvn1203/grain-warehouse
+
+jobs:
+  # Gọi lại đúng workflow CI (workflow_call) → không deploy bản chưa qua test
+  ci:
+    uses: ./.github/workflows/ci.yml
+
+  build:
+    name: Build & push images
+    needs: ci
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write # chỉ job này được ghi lên GHCR
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Login GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+      # Tag = mã commit: biết chính xác image nào ứng với code nào, rollback = chạy lại tag cũ.
+      # Label source: gắn package với repo → GITHUB_TOKEN của job deploy được quyền pull
+      - name: Build backend
+        run: >-
+          docker build
+          -f infra/docker/backend.Dockerfile
+          --label org.opencontainers.image.source=https://github.com/${{ github.repository }}
+          -t "$IMAGE_PREFIX-backend:${{ github.sha }}"
+          backend
+
+      - name: Build web (React + Nginx)
+        run: >-
+          docker build
+          -f infra/docker/frontend.Dockerfile
+          --label org.opencontainers.image.source=https://github.com/${{ github.repository }}
+          -t "$IMAGE_PREFIX-web:${{ github.sha }}"
+          .
+
+      - name: Push
+        run: |
+          docker push "$IMAGE_PREFIX-backend:${{ github.sha }}"
+          docker push "$IMAGE_PREFIX-web:${{ github.sha }}"
+
+  deploy:
+    name: Deploy to VM
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    # Environment "production": tab Actions ghi lịch sử deploy; sau này có thể bật "required reviewers" để duyệt tay
+    environment: production
+    permissions:
+      contents: read # deploy.sh dùng token này để git fetch repo private
+      packages: read # ... và pull image từ GHCR
+    env:
+      DEPLOY_PATH: ${{ vars.DEPLOY_PATH || '/opt/grain-warehouse' }}
+    steps:
+      - uses: actions/checkout@v5
+
+      # known_hosts lấy từ secret (đã kiểm tra tay), KHÔNG ssh-keyscan lúc chạy:
+      # keyscan tin bất kỳ ai trả lời ở IP đó → kẻ đứng giữa có thể nhận luôn token
+      - name: Setup SSH
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "${{ secrets.DEPLOY_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+          cat >> ~/.ssh/config <<EOF
+          Host vm
+            HostName ${{ secrets.DEPLOY_HOST }}
+            User ${{ secrets.DEPLOY_USER }}
+            IdentityFile ~/.ssh/deploy_key
+            IdentitiesOnly yes
+            BatchMode yes
+            StrictHostKeyChecking yes
+          EOF
+
+      # Chép script từ commit đang deploy (không dùng bản cũ đang nằm trên server)
+      - name: Upload deploy script
+        run: scp infra/deploy/deploy.sh vm:grain-deploy.sh
+
+      - name: Run deploy.sh on VM
+        run: printf '%s\n' "${{ secrets.GITHUB_TOKEN }}" | ssh vm "bash grain-deploy.sh '$DEPLOY_PATH' '${{ github.sha }}' '${{ github.repository }}' '${{ github.actor }}'"
+
+      - name: Cleanup
+        if: always()
+        run: |
+          ssh vm 'rm -f grain-deploy.sh' || true
+          rm -f ~/.ssh/deploy_key

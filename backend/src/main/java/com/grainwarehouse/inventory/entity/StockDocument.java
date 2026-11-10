@@ -78,6 +78,12 @@ public class StockDocument extends AuditableEntity {
     @Column(length = 500)
     private String note;
 
+    // BR-POR-11: lời khách ghi trên app (chỉ đơn kênh APP). Tách khỏi note (ghi chú nội bộ) để khách không đọc được
+    // ghi chú của cửa hàng và nhân viên không ghi đè được lời khách
+    @Setter
+    @Column(name = "customer_note", length = 500)
+    private String customerNote;
+
     @Column(name = "total_amount", nullable = false, precision = 18, scale = 0)
     private BigDecimal totalAmount = BigDecimal.ZERO;
 

@@ -67,6 +67,16 @@ export function onPortalSessionExpired(handler: (() => void) | null) {
   sessionExpiredHandlers.portal = handler
 }
 
+let portalAccountDisabledHandler: ((message: string) => void) | null = null
+
+/**
+ * BR-POR-10: cửa hàng khóa tài khoản / ngừng khách trong lúc khách đang mở app → API portal trả 403 ACCOUNT_DISABLED
+ * (access token còn sống tối đa 15 phút nhưng backend kiểm lại DB). App đăng xuất và hiện lý do thay vì báo lỗi lạ.
+ */
+export function onPortalAccountDisabled(handler: ((message: string) => void) | null) {
+  portalAccountDisabledHandler = handler
+}
+
 type RefreshOutcome = 'renewed' | 'race' | 'failed'
 const refreshInFlight: Record<Realm, Promise<RefreshOutcome> | null> = { staff: null, portal: null }
 
@@ -134,7 +144,15 @@ async function sendWithRefresh(path: string, init: RequestInit): Promise<Respons
  * Đường dẫn tương đối "/api/..." — Vite proxy chuyển sang backend :8080 (vite.config.ts).
  */
 export async function apiRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
-  return readEnvelope<T>(await sendWithRefresh(path, init))
+  const response = await sendWithRefresh(path, init)
+  try {
+    return await readEnvelope<T>(response)
+  } catch (error) {
+    if (error instanceof ApiError && error.code === 'ACCOUNT_DISABLED' && realmOf(path.split('?')[0]) === 'portal') {
+      portalAccountDisabledHandler?.(error.message)
+    }
+    throw error
+  }
 }
 
 async function readEnvelope<T>(response: Response): Promise<T> {

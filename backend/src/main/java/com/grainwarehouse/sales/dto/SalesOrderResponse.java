@@ -34,7 +34,10 @@ public record SalesOrderResponse(
         String customerCode,
         String customerName,
         String customerPhone,
+        // Ghi chú nội bộ — app khách KHÔNG BAO GIỜ trả trường này (BR-POR-11)
         String note,
+        // Lời khách ghi trên app (chỉ đơn kênh APP) — nhân viên chỉ đọc
+        String customerNote,
         BigDecimal totalAmount,
         BigDecimal paidAmount,
         BigDecimal outstandingAmount,
@@ -80,6 +83,7 @@ public record SalesOrderResponse(
                 document.getCustomer().getName(),
                 document.getCustomer().getPhone(),
                 document.getNote(),
+                document.getCustomerNote(),
                 document.getTotalAmount(),
                 document.getPaidAmount(),
                 document.getOutstandingAmount(),

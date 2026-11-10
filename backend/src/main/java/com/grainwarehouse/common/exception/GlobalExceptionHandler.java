@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.exc.MismatchedInputException;
 import com.grainwarehouse.common.importing.ImportFailedException;
 import com.grainwarehouse.common.response.ApiResponse;
 import com.grainwarehouse.common.response.ApiResponse.ApiErrorDetail;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.mapping.PropertyReferenceException;
@@ -149,10 +150,13 @@ public class GlobalExceptionHandler {
         return error(HttpStatus.FORBIDDEN, ex.getCode(), ex.getMessage(), null);
     }
 
-    // Sai tên đăng nhập HOẶC sai mật khẩu — cùng một thông báo để không lộ tên đăng nhập nào tồn tại
+    // Sai tên đăng nhập HOẶC sai mật khẩu — cùng một thông báo để không lộ tên đăng nhập nào tồn tại.
+    // App khách đăng nhập bằng SĐT → nói "số điện thoại" cho khách khỏi bối rối
     @ExceptionHandler(AuthenticationException.class)
-    public ResponseEntity<ApiResponse<Void>> handleAuthentication(AuthenticationException ex) {
-        return error(HttpStatus.UNAUTHORIZED, "UNAUTHORIZED", "Sai tên đăng nhập hoặc mật khẩu", null);
+    public ResponseEntity<ApiResponse<Void>> handleAuthentication(AuthenticationException ex, HttpServletRequest request) {
+        String message = request.getRequestURI().startsWith("/api/portal/")
+                ? "Sai số điện thoại hoặc mật khẩu" : "Sai tên đăng nhập hoặc mật khẩu";
+        return error(HttpStatus.UNAUTHORIZED, "UNAUTHORIZED", message, null);
     }
 
     @ExceptionHandler(DuplicateResourceException.class)

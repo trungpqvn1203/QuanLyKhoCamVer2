@@ -122,6 +122,13 @@ Chi tiết đơn khách thấy: mã, trạng thái hiển thị, ngày đặt, n
 - Đặt hàng → phiếu `PENDING` kênh `APP` hiện ở danh sách cửa hàng; khách thấy giá chỉ sau khi xác nhận; tự hủy chỉ khi Chờ xác nhận.
 - CSRF bắt buộc với mọi request ghi của portal.
 
+## Cập nhật 2026-11-04 — rà soát bảo mật trước khi mở cho khách thật
+
+- **Lộ ghi chú nội bộ:** đơn app chỉ có một cột `note`, nhân viên ghi khi xác nhận → khách đọc được. Sửa: cột `customer_note` (V29), app chỉ trả cột này; lý do hủy do cửa hàng ghi thay bằng câu chung (BR-POR-11).
+- **Làm ngập danh sách Chờ xác nhận:** không có giới hạn số đơn / dòng / SL. Sửa: BR-POR-12 (5 đơn chờ, 50 dòng, 9.999 / dòng, ngày giao ≤ 60 ngày) — khóa dòng `customer_account` trước khi đếm để request song song không vượt.
+- **Dò một mật khẩu cho nhiều SĐT:** khóa 5 lần chỉ theo tài khoản. Sửa: `limit_req` ở Nginx cho `POST /api/portal/auth/login` (mục 7 ở trên, làm ngay thay vì đợi triển khai).
+- Vẫn còn trước khi đưa cho khách thật: **HTTPS** (mục 7).
+
 ## Còn mở / làm sau
 
 - Khách tự đăng ký + OTP SMS (phương án C), quên mật khẩu tự phục vụ (hiện: gọi cửa hàng đặt lại).

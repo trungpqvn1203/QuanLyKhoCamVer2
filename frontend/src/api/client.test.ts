@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { ApiError, apiRequest, onPortalSessionExpired, onSessionExpired, withQuery } from './client'
+import { ApiError, apiRequest, onPortalAccountDisabled, onPortalSessionExpired, onSessionExpired, withQuery } from './client'
 
 function mockFetchResponse(status: number, body?: unknown) {
   const response =
@@ -239,6 +239,21 @@ describe('apiRequest - vùng app khách (ADR-0005)', () => {
     expect(portalExpired).toHaveBeenCalledOnce()
     expect(staffExpired).not.toHaveBeenCalled()
     onPortalSessionExpired(null)
+  })
+
+  it('cửa hàng khóa tài khoản giữa chừng (403 ACCOUNT_DISABLED ở API khách) → báo app đăng xuất kèm lý do', async () => {
+    const disabled = vi.fn()
+    onPortalAccountDisabled(disabled)
+    const body = { success: false, error: { code: 'ACCOUNT_DISABLED', message: 'Tài khoản app đã bị khóa' }, timestamp: '' }
+    routedFetch({ '/api/portal/orders?page=0': [json(403, body)], '/api/sales-orders': [json(403, body)] })
+
+    const error = await catchApiError(apiRequest('/api/portal/orders?page=0'))
+    expect(error.code).toBe('ACCOUNT_DISABLED')
+    expect(disabled).toHaveBeenCalledWith('Tài khoản app đã bị khóa')
+    // API nhân viên không bao giờ kích hoạt việc đăng xuất app khách
+    await catchApiError(apiRequest('/api/sales-orders'))
+    expect(disabled).toHaveBeenCalledOnce()
+    onPortalAccountDisabled(null)
   })
 
   it('đăng nhập app sai (401 ở /api/portal/auth/login) → không thử gia hạn', async () => {
