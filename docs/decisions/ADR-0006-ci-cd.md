@@ -18,7 +18,7 @@ Thay thế định hướng cũ trong `deployment.md` ("Continuous Delivery — 
 |---|---|---|---|
 | Build image ở đâu | **Trên runner GitHub, đẩy GHCR**, tag = mã commit | Build trên VM (`git pull && up --build` qua SSH) — ít bước hơn nhưng VM vẫn build, bản chạy không phải bản CI đã test, khó rollback | — |
 | Khi nào deploy | **Tự động khi push `main`** (Continuous Deployment) | Bấm tay (`workflow_dispatch`, Continuous Delivery) | Khi có người dùng thật: bật *required reviewers* cho environment `production` → mỗi lần deploy chờ duyệt, không phải sửa workflow |
-| Vào VM bằng cách nào | **SSH, NSG mở cổng 22 cho mọi IP**, chỉ cho đăng nhập bằng key, key riêng cho deploy | Self-hosted runner trên VM (không mở cổng nào) · Azure CLI mở tạm IP runner rồi đóng | Khi log SSH bị dò quá nhiều hoặc VM có dữ liệu nhạy cảm hơn → self-hosted runner |
+| Vào VM bằng cách nào | **SSH, NSG mở cổng 22 cho mọi IP**, chỉ cho đăng nhập bằng key (đã kiểm `sshd -T`: `passwordauthentication no`). Key: **tạm dùng chung key cá nhân `QuanKhoCam_key.pem`** (chọn 2026-11-10 cho gọn) — secret lộ thì phải thu hồi cả key của chủ; nên đổi sang key riêng (deployment.md bước 2) | Self-hosted runner trên VM (không mở cổng nào) · Azure CLI mở tạm IP runner rồi đóng | Khi log SSH bị dò quá nhiều hoặc VM có dữ liệu nhạy cảm hơn → self-hosted runner |
 | Token trên server | **Không lưu**. `GITHUB_TOKEN` của job deploy truyền qua stdin, dùng để `git fetch` + pull GHCR, hết hạn khi job xong | Personal Access Token lưu trên VM | — |
 | Kiểm tra trước deploy | Gọi lại `ci.yml` (`workflow_call`) trong cùng lần chạy | Kích hoạt bằng `workflow_run` khi CI xong | — |
 | Lỗi khi deploy | Dừng, in log, **không rollback tự động** | Tự quay về image cũ | Không làm: migration đã chạy thì image cũ có thể không khớp schema — rollback cần người quyết định có restore DB hay không |
@@ -29,3 +29,4 @@ Thay thế định hướng cũ trong `deployment.md` ("Continuous Delivery — 
 - Mỗi lần deploy có một file `~/backups/pre-deploy-<thời gian>-<commit>.sql.gz` trên VM (giữ 30 ngày). Backup vẫn nằm trên **cùng VM** — mất VM là mất cả backup; backup ra ngoài là việc riêng.
 - Tên image khai báo ở hai nơi phải khớp: `IMAGE_PREFIX` trong `cd.yml` và `image:` trong `docker-compose.prod.yml`.
 - `.env.prod` có thêm dòng `IMAGE_TAG` do `deploy.sh` tự ghi.
+- **Lần deploy đầu (server V24 → V29) bỏ trống V28** — đã chốt 2026-11-10: nhánh `feature/delivery-trip` phải **đổi `V28` thành `V30` trước khi merge** vào `main`, nếu không Flyway trên production từ chối migration "đến muộn" và backend không khởi động.

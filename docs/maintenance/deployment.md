@@ -115,7 +115,7 @@ Chỉ sửa `docs/`, `lessons/`, `*.md` thì không chạy. Deploy lại bản `
 sudo sshd -T | grep -E 'passwordauthentication|permitrootlogin'   # phải là "no" / "no" (hoặc without-password)
 ```
 
-**2. Key SSH riêng cho deploy** (trên máy local, không dùng lại key `.pem` cá nhân):
+**2. Key SSH riêng cho deploy** (trên máy local, không dùng lại key `.pem` cá nhân). *Hiện trạng 2026-11-10: `DEPLOY_SSH_KEY` đang dùng tạm `QuanKhoCam_key.pem` (ADR-0006); làm bước này khi muốn tách key.*
 
 ```bash
 ssh-keygen -t ed25519 -f ~/.ssh/grain_deploy -N "" -C "github-actions-deploy"

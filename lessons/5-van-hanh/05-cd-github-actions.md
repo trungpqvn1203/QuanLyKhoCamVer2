@@ -79,7 +79,8 @@ Câu nói gọn khi phỏng vấn: **"Build once, deploy many"** — build một
 
 Runner GitHub có IP thay đổi mỗi lần → NSG không thể chỉ cho "IP của mình" như trước. Đã chọn mở `Any` và bù bằng:
 - Chỉ đăng nhập bằng key (`PasswordAuthentication no`) → bot dò mật khẩu cả ngày cũng vô ích.
-- **Key riêng cho deploy**, không dùng key cá nhân → lộ thì chỉ cần xóa một dòng trong `authorized_keys`.
+- **Key riêng cho deploy**, không dùng key cá nhân → lộ thì chỉ cần xóa một dòng trong `authorized_keys`. *Dự án hiện dùng tạm key cá nhân `QuanKhoCam_key.pem` cho gọn — chạy được, nhưng secret lộ thì phải thu hồi luôn đường vào của chính mình.*
+- **Hai loại key, đừng nhầm**: *host key* do **VM tự tạo**, chứng minh "tôi là VM thật" (→ `DEPLOY_KNOWN_HOSTS`). *Key đăng nhập* do **phía đăng nhập** tạo (hoặc Azure tạo hộ lúc tạo VM, chính là file `.pem`), chứng minh "tôi được vào" — private ở phía đăng nhập, public nằm trong `authorized_keys` của VM.
 
 Hai phương án khác, khi nào nên dùng: **self-hosted runner** (cài agent lên VM, agent tự gọi ra GitHub nhận việc → không cần mở cổng vào nào); **Azure CLI** mở tạm IP runner trong lúc deploy rồi đóng. Cả hai an toàn hơn nhưng nhiều thành phần hơn.
 
