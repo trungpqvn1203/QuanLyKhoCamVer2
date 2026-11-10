@@ -68,6 +68,15 @@ services:
       - "${HTTP_PORT:-80}:80"
     networks:
       - web
+    # Không có healthcheck thì `up --wait` coi web "Healthy" ngay khi container vừa start,
+    # lúc entrypoint nginx:alpine chưa mở port 80 → bước kiểm tra của deploy.sh bị Connection refused.
+    # 127.0.0.1 thay vì localhost: localhost phân giải ra ::1 trước, mà default.conf chỉ listen IPv4.
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/api/health > /dev/null || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
 
 networks:
   # internal: true → container trong mạng này không ra được Internet và không nhận kết nối từ ngoài
