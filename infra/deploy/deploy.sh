@@ -86,7 +86,9 @@ if ! dc up -d --no-build --wait --wait-timeout 300; then
 fi
 
 log "6/6 Kiểm tra đi qua Nginx → backend → DB"
-dc exec -T web wget -qO- http://localhost/api/health
+# 127.0.0.1, KHÔNG dùng localhost: trong nginx:alpine "localhost" phân giải ra ::1 (IPv6) trước,
+# còn default.conf chỉ "listen 80" (IPv4) → Connection refused dù Nginx vẫn chạy bình thường
+dc exec -T web wget -qO- http://127.0.0.1/api/health
 echo
 dc ps
 

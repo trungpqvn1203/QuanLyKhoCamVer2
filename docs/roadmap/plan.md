@@ -115,7 +115,7 @@ Hệ thống chạy trên VPS với HTTPS, CI/CD, backup. README đầy đủ đ
 - [ ] Let's Encrypt certificate
 - [ ] Quản lý secrets trên VPS
 - [x] GitHub Actions: lint + test + build
-- [x] GitHub Actions: deploy (on push main — ADR-0006)
+- [ ] GitHub Actions: deploy (on push main — ADR-0006) — đã deploy được, chờ job xanh sau fix/deploy-health-check
 - [x] Migration chạy đúng trên production
 - [x] Health check endpoint
 - [ ] Backup script PostgreSQL

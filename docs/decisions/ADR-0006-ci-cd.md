@@ -2,7 +2,7 @@
 
 ## Trạng thái
 
-✅ **Đã chấp nhận — 2026-11-10.** Code: `.github/workflows/cd.yml`, `infra/deploy/deploy.sh`. **Đã chạy thật 2026-11-10**: commit `b7c93b6` lên production (V24 → V29), job deploy đỏ lần đầu do sai `DEPLOY_KNOWN_HOSTS`, sửa rồi chạy lại xanh.
+✅ **Đã chấp nhận — 2026-11-10.** Code: `.github/workflows/cd.yml`, `infra/deploy/deploy.sh`. **Đã chạy thật 2026-11-10**: commit `b7c93b6` lên production (V24 → V29), app đã lên bản mới; job deploy đỏ lần 1 do sai `DEPLOY_KNOWN_HOSTS`, lần 2 do bước kiểm tra cuối gọi `localhost` (→ IPv6) — sửa ở `fix/deploy-health-check`.
 
 Thay thế định hướng cũ trong `deployment.md` ("Continuous Delivery — deploy cần bấm tay").
 
