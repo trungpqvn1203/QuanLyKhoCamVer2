@@ -109,15 +109,15 @@ Hệ thống chạy trên VPS với HTTPS, CI/CD, backup. README đầy đủ đ
 
 - [ ] Dockerfile cho backend (multi-stage build)
 - [ ] Dockerfile cho frontend (build → Nginx serve)
-- [ ] Docker Compose production
+- [x] Docker Compose production
 - [ ] Chuẩn bị VPS: SSH, firewall, Docker
 - [ ] Nginx config: reverse proxy + HTTPS
 - [ ] Let's Encrypt certificate
 - [ ] Quản lý secrets trên VPS
-- [ ] GitHub Actions: lint + test + build
-- [ ] GitHub Actions: deploy (manual trigger hoặc on push)
-- [ ] Migration chạy đúng trên production
-- [ ] Health check endpoint
+- [x] GitHub Actions: lint + test + build
+- [x] GitHub Actions: deploy (on push main — ADR-0006)
+- [x] Migration chạy đúng trên production
+- [x] Health check endpoint
 - [ ] Backup script PostgreSQL
 - [ ] Thử khôi phục backup ít nhất 1 lần
 - [ ] Kiểm tra không mở port PostgreSQL ra Internet

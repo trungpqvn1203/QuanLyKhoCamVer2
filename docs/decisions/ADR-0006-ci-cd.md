@@ -2,7 +2,7 @@
 
 ## Trạng thái
 
-✅ **Đã chấp nhận — 2026-11-10.** Code: `.github/workflows/cd.yml`, `infra/deploy/deploy.sh`. **Chưa chạy thật lần nào** — cần cài đặt một lần theo `docs/maintenance/deployment.md` mục "CI/CD" rồi push `main`.
+✅ **Đã chấp nhận — 2026-11-10.** Code: `.github/workflows/cd.yml`, `infra/deploy/deploy.sh`. **Đã chạy thật 2026-11-10**: commit `b7c93b6` lên production (V24 → V29), job deploy đỏ lần đầu do sai `DEPLOY_KNOWN_HOSTS`, sửa rồi chạy lại xanh.
 
 Thay thế định hướng cũ trong `deployment.md` ("Continuous Delivery — deploy cần bấm tay").
 

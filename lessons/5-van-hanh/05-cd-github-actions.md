@@ -4,7 +4,7 @@
 
 ## Module: CD — push main là tự lên server (2026-11-10, ADR-0006)
 
-**Trạng thái:** code đã viết, **chưa chạy thật** (cần cài secrets + mở NSG trước). Phần "Lỗi đã gặp" sẽ bổ sung sau lần chạy đầu.
+**Trạng thái:** đã chạy thật 2026-11-10 — commit `b7c93b6`, server từ `cf88efa` (V24) lên V29, gián đoạn quan sát được < 1 phút. Lần đầu đỏ ở job deploy (xem "Lỗi đã gặp"), sửa secret rồi *Re-run failed jobs* là xanh.
 
 Trước module này, mỗi lần cập nhật phải SSH vào VM gõ tay 5 lệnh (bài 01, mục 3). CD biến 5 lệnh đó thành một pipeline:
 
@@ -83,6 +83,22 @@ Runner GitHub có IP thay đổi mỗi lần → NSG không thể chỉ cho "IP 
 - **Hai loại key, đừng nhầm**: *host key* do **VM tự tạo**, chứng minh "tôi là VM thật" (→ `DEPLOY_KNOWN_HOSTS`). *Key đăng nhập* do **phía đăng nhập** tạo (hoặc Azure tạo hộ lúc tạo VM, chính là file `.pem`), chứng minh "tôi được vào" — private ở phía đăng nhập, public nằm trong `authorized_keys` của VM.
 
 Hai phương án khác, khi nào nên dùng: **self-hosted runner** (cài agent lên VM, agent tự gọi ra GitHub nhận việc → không cần mở cổng vào nào); **Azure CLI** mở tạm IP runner trong lúc deploy rồi đóng. Cả hai an toàn hơn nhưng nhiều thành phần hơn.
+
+### Lỗi đã gặp khi chạy lần đầu
+
+**`No ED25519 host key is known for *** and you have requested strict checking. Host key verification failed.`** (bước *Upload deploy script*)
+
+- Nghĩa: VM đưa ra host key loại ED25519; runner tìm trong `~/.ssh/known_hosts` (dựng từ secret `DEPLOY_KNOWN_HOSTS`) một dòng **bắt đầu đúng bằng chuỗi `DEPLOY_HOST`** và có key ED25519 — không thấy → `StrictHostKeyChecking yes` chặn ngay.
+- Nguyên nhân: nội dung secret `DEPLOY_KNOWN_HOSTS` nhập ban đầu không phải dòng `<IP> ssh-ed25519 ...` khớp với `DEPLOY_HOST`.
+- Sửa: lấy dòng từ `known_hosts` **của máy mình** — nơi đã lưu host key thật từ lần SSH đầu tiên mình tự gõ `yes`: `ssh-keygen -F 20.2.216.219 -f ~/.ssh/known_hosts | grep ssh-ed25519`. Update secret → *Re-run failed jobs* (không build lại: image đã có trên GHCR).
+- Vì sao không bị hại gì: lỗi xảy ra trước khi kết nối được → `deploy.sh` chưa chạy, server không đổi. Chuỗi `needs` + `set -e` đảm bảo "đỏ là dừng ở chỗ an toàn".
+- Bài học: secret không xem lại được → khi nghi sai, **ghi đè** bằng giá trị lấy từ nguồn đã kiểm chứng, đừng đoán.
+
+**Hai lầm tưởng của chính mình trong lúc làm** (đáng nhớ hơn cả lỗi):
+- "Key SSH là do VM cung cấp" — chỉ đúng với **host key**. Key đăng nhập do phía đăng nhập tạo; file `.pem` trông như VM cấp vì Azure Portal tạo hộ lúc tạo VM.
+- "CI xanh xong phải bấm tay CD" — không: một lần push `main` chạy cả chuỗi ci → build → deploy. Tách bước chỉ là cách thận trọng cho lần đầu.
+
+**Cách kiểm chứng từ bên ngoài** (không cần vào tab Actions): tên file `assets/index-*.js` trong trang chủ đổi → image `web` mới đã chạy; `/api/health` 200 → backend mới đã qua Flyway và Hibernate `validate`, tức migration mới đã áp đúng (schema lệch thì backend không lên). Lưu ý `/actuator/health` qua Nginx trả **200 nhưng là `index.html`** (SPA fallback) — không phải bị lộ actuator; phải nhìn nội dung, không chỉ nhìn mã HTTP.
 
 ### Lựa chọn và phương án thay thế
 
