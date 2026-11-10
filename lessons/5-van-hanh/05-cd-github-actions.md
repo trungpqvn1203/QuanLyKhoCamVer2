@@ -4,7 +4,7 @@
 
 ## Module: CD — push main là tự lên server (2026-11-10, ADR-0006)
 
-**Trạng thái:** đã chạy thật 2026-11-10 — commit `b7c93b6`, server từ `cf88efa` (V24) lên V29, gián đoạn quan sát được < 1 phút. Lần đầu đỏ ở job deploy (xem "Lỗi đã gặp"), sửa secret rồi *Re-run failed jobs* là xanh.
+**Trạng thái:** đã chạy thật 2026-11-10 — commit `b7c93b6`, server từ `cf88efa` (V24) lên V29, gián đoạn quan sát được < 1 phút. Job deploy đỏ hai lần: lần 1 sai `DEPLOY_KNOWN_HOSTS`; lần 2 app đã lên bản mới nhưng bước kiểm tra cuối gọi nhầm `localhost` (xem "Lỗi đã gặp"). Bản sửa ở nhánh `fix/deploy-health-check`.
 
 Trước module này, mỗi lần cập nhật phải SSH vào VM gõ tay 5 lệnh (bài 01, mục 3). CD biến 5 lệnh đó thành một pipeline:
 
@@ -93,6 +93,15 @@ Hai phương án khác, khi nào nên dùng: **self-hosted runner** (cài agent 
 - Sửa: lấy dòng từ `known_hosts` **của máy mình** — nơi đã lưu host key thật từ lần SSH đầu tiên mình tự gõ `yes`: `ssh-keygen -F 20.2.216.219 -f ~/.ssh/known_hosts | grep ssh-ed25519`. Update secret → *Re-run failed jobs* (không build lại: image đã có trên GHCR).
 - Vì sao không bị hại gì: lỗi xảy ra trước khi kết nối được → `deploy.sh` chưa chạy, server không đổi. Chuỗi `needs` + `set -e` đảm bảo "đỏ là dừng ở chỗ an toàn".
 - Bài học: secret không xem lại được → khi nghi sai, **ghi đè** bằng giá trị lấy từ nguồn đã kiểm chứng, đừng đoán.
+
+**`6/6 ... wget: can't connect to remote host: Connection refused`** — app đã lên, job vẫn đỏ
+
+- Log bước 5/6: cả 3 container `Healthy`. Từ Internet gọi `/api/health` vẫn 200. Chỉ lệnh kiểm tra cuối `wget http://localhost/api/health` (chạy trong container web) bị từ chối.
+- Nguyên nhân: trong `nginx:alpine`, `getent hosts localhost` → **`::1`** (IPv6) đứng trước. `default.conf` chỉ `listen 80;` → Nginx chỉ nghe IPv4 → gõ cửa IPv6 thì không ai mở. Đã tái hiện trên máy bằng container Nginx tối giản: `wget localhost` lỗi, `wget 127.0.0.1` OK.
+- Vì sao healthcheck của backend dùng `localhost:8080` lại chạy? Java/Tomcat mặc định nghe **cả** IPv4 lẫn IPv6.
+- Sửa: dùng `127.0.0.1` (rõ ràng, không phụ thuộc cách phân giải tên). Cách khác: thêm `listen [::]:80;` vào Nginx — đổi cấu hình server chỉ vì một lệnh kiểm tra thì không đáng.
+- Hậu quả lúc đó: bản mới **đã chạy**, `IMAGE_TAG` đã ghi; chỉ thiếu bước dọn image cũ. Không cần rollback.
+- **Bài học lớn hơn:** mình đã kết luận "deploy thành công" chỉ từ quan sát bên ngoài (site đổi bản, health 200) mà chưa xem trạng thái job. Quan sát bên ngoài chứng minh *app chạy*, không chứng minh *pipeline xanh*. Pipeline đỏ nghĩa là lần sau không biết tin vào đâu — phải nhìn cả hai.
 
 **Hai lầm tưởng của chính mình trong lúc làm** (đáng nhớ hơn cả lỗi):
 - "Key SSH là do VM cung cấp" — chỉ đúng với **host key**. Key đăng nhập do phía đăng nhập tạo; file `.pem` trông như VM cấp vì Azure Portal tạo hộ lúc tạo VM.
