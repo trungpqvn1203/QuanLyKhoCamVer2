@@ -117,6 +117,12 @@ class SalesOrderConcurrencyTest {
             jdbcTemplate.update("DELETE FROM sale_payment WHERE document_id IN"
                     + " (SELECT id FROM stock_document WHERE warehouse_id = ?)", warehouse.getId());
             jdbcTemplate.execute("ALTER TABLE sale_payment ENABLE TRIGGER trg_sale_payment_immutable");
+            // adjustPriceAndPayShouldSerialize: khi điều chỉnh giá thắng cuộc đua, có một dòng nhật ký trỏ về dòng
+            // phiếu — phải xóa trước stock_document_item, nếu không FK chặn và dữ liệu rác lọt sang lớp test khác
+            jdbcTemplate.execute("ALTER TABLE sale_price_adjustment DISABLE TRIGGER trg_sale_price_adjustment_immutable");
+            jdbcTemplate.update("DELETE FROM sale_price_adjustment WHERE document_id IN"
+                    + " (SELECT id FROM stock_document WHERE customer_id = ?)", customer.getId());
+            jdbcTemplate.execute("ALTER TABLE sale_price_adjustment ENABLE TRIGGER trg_sale_price_adjustment_immutable");
             jdbcTemplate.execute("ALTER TABLE stock_transaction DISABLE TRIGGER trg_stock_transaction_immutable");
             jdbcTemplate.update("DELETE FROM stock_transaction WHERE warehouse_id = ?", warehouse.getId());
             jdbcTemplate.execute("ALTER TABLE stock_transaction ENABLE TRIGGER trg_stock_transaction_immutable");
