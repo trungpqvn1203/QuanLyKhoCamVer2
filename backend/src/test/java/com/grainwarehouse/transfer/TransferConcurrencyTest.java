@@ -1,6 +1,9 @@
 package com.grainwarehouse.transfer;
 
 import com.grainwarehouse.common.exception.BusinessException;
+import com.grainwarehouse.customer.entity.Customer;
+import com.grainwarehouse.customer.entity.CustomerType;
+import com.grainwarehouse.customer.repository.CustomerRepository;
 import com.grainwarehouse.opening.dto.OpeningStockLineRequest;
 import com.grainwarehouse.opening.dto.OpeningStockRequest;
 import com.grainwarehouse.opening.service.OpeningStockService;
@@ -9,6 +12,9 @@ import com.grainwarehouse.product.entity.Product;
 import com.grainwarehouse.product.repository.CategoryRepository;
 import com.grainwarehouse.product.repository.ProductRepository;
 import com.grainwarehouse.product.repository.ProductUnitRepository;
+import com.grainwarehouse.sales.dto.SalesOrderLineRequest;
+import com.grainwarehouse.sales.dto.SalesOrderRequest;
+import com.grainwarehouse.sales.service.SalesOrderService;
 import com.grainwarehouse.transfer.dto.TransferLineRequest;
 import com.grainwarehouse.transfer.dto.TransferRequest;
 import com.grainwarehouse.transfer.service.TransferService;
@@ -46,7 +52,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * (BR-TRF-04). KHÔNG có @Transactional ở lớp test — mỗi lời gọi service là một transaction riêng như khi chạy thật
  * (xem InboundReceiptConcurrencyTest); dữ liệu tự dọn ở @AfterEach.
  *
- * <p>k1 tạo trước nên id nhỏ hơn k2: k1 → k2 = trừ nguồn trước, k2 → k1 = cộng đích trước (thứ tự khóa theo id kho).
+ * <p>k1 tạo trước nên id nhỏ hơn k2: k1 → k2 = trừ nguồn trước, k2 → k1 = cộng đích trước (với mỗi SP, kho có id nhỏ hơn
+ * được đụng trước — thứ tự khóa (SP, kho) của BR-TRF-04).
  */
 @SpringBootTest
 @ActiveProfiles("test")
@@ -60,6 +67,12 @@ class TransferConcurrencyTest {
 
     @Autowired
     private OpeningStockService openingStockService;
+
+    @Autowired
+    private SalesOrderService salesOrderService;
+
+    @Autowired
+    private CustomerRepository customerRepository;
 
     @Autowired
     private CategoryRepository categoryRepository;
@@ -85,6 +98,7 @@ class TransferConcurrencyTest {
     private Warehouse k2;
     private Product cornFeed;
     private Product pigFeed;
+    private Long customerId;   // chỉ ca có phiếu bán mới tạo
 
     @BeforeEach
     void setUp() {
@@ -111,6 +125,9 @@ class TransferConcurrencyTest {
             jdbcTemplate.update("DELETE FROM stock_document_item WHERE document_id IN"
                     + " (SELECT id FROM stock_document WHERE warehouse_id IN (?, ?))", ids);
             jdbcTemplate.update("DELETE FROM stock_document WHERE warehouse_id IN (?, ?)", ids);
+            if (customerId != null) {
+                jdbcTemplate.update("DELETE FROM customer WHERE id = ?", customerId);
+            }
             jdbcTemplate.update("DELETE FROM product WHERE category_id = ?", category.getId());
             jdbcTemplate.update("DELETE FROM category WHERE id = ?", category.getId());
             jdbcTemplate.update("DELETE FROM warehouse WHERE id IN (?, ?)", ids);
@@ -155,7 +172,7 @@ class TransferConcurrencyTest {
     }
 
     @Test
-    @DisplayName("BR-TRF-12: đảo khi kho đích không còn đủ hàng - kho nguồn (đảo trước) không được cộng lại,"
+    @DisplayName("BR-TRF-12: đảo khi kho đích không còn đủ hàng - kho nguồn (đảo trước, vì id nhỏ hơn) không được cộng lại,"
             + " phiếu vẫn Hoàn tất")
     void shouldRollbackReverseWhenTargetIsShort() {
         seed(k1, line(cornFeed, 100));
@@ -241,7 +258,46 @@ class TransferConcurrencyTest {
         assertThat(inventory(pigFeed, k2)).isEqualTo(1030);
     }
 
+    @Test
+    @DisplayName("BR-TRF-04: 10 phiếu điều chuyển K1→K2 và 10 lần xuất chuyến giao lấy hàng từ cả hai kho cùng lúc"
+            + " - không deadlock: hai nghiệp vụ phải khóa dòng tồn theo CÙNG thứ tự (SP, kho)")
+    void transfersAndDeliveryDispatchShouldNotDeadlock() throws Exception {
+        seed(k1, line(cornFeed, 1000), line(pigFeed, 1000));
+        seed(k2, line(cornFeed, 1000), line(pigFeed, 1000));
+        Customer customer = new Customer();
+        customer.setName("Khách điều chuyển " + tag);
+        customer.setType(CustomerType.DEALER);
+        customer.setPhone("07%08d".formatted(Math.floorMod(tag.hashCode(), 100_000_000)));
+        customerId = customerRepository.save(customer).getId();
+
+        List<Callable<Object>> actions = new ArrayList<>();
+        for (int i = 0; i < 10; i++) {
+            long transfer = draft(k1, k2, line(cornFeed, 3), line(pigFeed, 4));
+            // Một "chuyến" gồm hai phiếu bán: cám B từ K1 và cám A từ K2. Xuất chuyến khóa (A, K2) rồi (B, K1);
+            // điều chuyển viết theo (kho, SP) sẽ khóa (B, K1) rồi mới tới (A, K2) → hai bên giữ chéo nhau
+            List<Long> orders = List.of(saleDraft(k1, pigFeed, 2), saleDraft(k2, cornFeed, 1));
+            actions.add(() -> transferService.complete(transfer, USER));
+            actions.add(() -> transactionTemplate.execute(status -> {
+                salesOrderService.completeForDelivery(orders, "CG-TEST");
+                return null;
+            }));
+        }
+
+        List<Throwable> results = runConcurrently(actions);
+
+        assertThat(failures(results)).isEmpty();
+        assertThat(inventory(cornFeed, k1)).isEqualTo(970);     // −3 × 10
+        assertThat(inventory(cornFeed, k2)).isEqualTo(1020);    // +3 × 10 − 1 × 10
+        assertThat(inventory(pigFeed, k1)).isEqualTo(940);      // −4 × 10 − 2 × 10
+        assertThat(inventory(pigFeed, k2)).isEqualTo(1040);     // +4 × 10
+    }
+
     // ===== Helpers =====
+
+    private long saleDraft(Warehouse warehouse, Product product, int quantity) {
+        return salesOrderService.create(new SalesOrderRequest(customerId, warehouse.getId(), null, null,
+                List.of(new SalesOrderLineRequest(product.getId(), quantity, new BigDecimal("1000")))), USER).id();
+    }
 
     private List<Callable<Object>> nTimes(Callable<Object> action) {
         List<Callable<Object>> actions = new ArrayList<>();

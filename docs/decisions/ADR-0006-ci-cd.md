@@ -29,4 +29,4 @@ Thay thế định hướng cũ trong `deployment.md` ("Continuous Delivery — 
 - Mỗi lần deploy có một file `~/backups/pre-deploy-<thời gian>-<commit>.sql.gz` trên VM (giữ 30 ngày). Backup vẫn nằm trên **cùng VM** — mất VM là mất cả backup; backup ra ngoài là việc riêng.
 - Tên image khai báo ở hai nơi phải khớp: `IMAGE_PREFIX` trong `cd.yml` và `image:` trong `docker-compose.prod.yml`.
 - `.env.prod` có thêm dòng `IMAGE_TAG` do `deploy.sh` tự ghi.
-- **Lần deploy đầu (server V24 → V29) bỏ trống V28** — đã chốt 2026-11-10: nhánh `feature/delivery-trip` phải **đổi `V28` thành số còn trống kế tiếp trước khi merge** vào `main` (ban đầu dự kiến `V30`; từ 2026-11-12 `V30` đã là điều chuyển kho nên sẽ là `V31` hoặc số lớn hơn), nếu không Flyway trên production từ chối migration "đến muộn" và backend không khởi động.
+- **Lần deploy đầu (server V24 → V29) bỏ trống V28** — đã chốt 2026-11-10: nhánh `feature/delivery-trip` phải **đổi `V28` thành số còn trống kế tiếp trước khi merge** vào `main` (ban đầu dự kiến `V30`; `V30` đã là điều chuyển kho nên **đã đổi thành `V31` ngày 2026-11-12**), nếu không Flyway trên production từ chối migration "đến muộn" và backend không khởi động.

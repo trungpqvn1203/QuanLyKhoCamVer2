@@ -106,6 +106,20 @@ class AuthorizationMatrixTest {
                 new Rule(HttpMethod.POST, "/api/sales-orders/999999/complete", SALES),
                 new Rule(HttpMethod.POST, "/api/sales-orders/999999/payments", SALES),
                 new Rule(HttpMethod.GET, "/api/customer-debts", SALES),
+                // Xe, chuyến giao (BR-VEH-03, BR-DLV-10): ai cũng xem; quản lý kho xếp, xuất chuyến; danh sách lái
+                // xe (tên + SĐT nhân viên) chỉ người lập chuyến
+                new Rule(HttpMethod.GET, "/api/vehicles", ALL),
+                new Rule(HttpMethod.POST, "/api/vehicles", WAREHOUSE),
+                new Rule(HttpMethod.PUT, "/api/vehicles/999999", WAREHOUSE),
+                new Rule(HttpMethod.DELETE, "/api/vehicles/999999", WAREHOUSE),
+                new Rule(HttpMethod.GET, "/api/delivery-trips", ALL),
+                new Rule(HttpMethod.GET, "/api/delivery-trips/999999", ALL),
+                new Rule(HttpMethod.GET, "/api/delivery-trips/assignable-orders", ALL),
+                new Rule(HttpMethod.GET, "/api/delivery-trips/drivers", WAREHOUSE),
+                new Rule(HttpMethod.POST, "/api/delivery-trips", WAREHOUSE),
+                new Rule(HttpMethod.PUT, "/api/delivery-trips/999999", WAREHOUSE),
+                new Rule(HttpMethod.DELETE, "/api/delivery-trips/999999", WAREHOUSE),
+                new Rule(HttpMethod.POST, "/api/delivery-trips/999999/dispatch", WAREHOUSE),
                 // Tồn kho, lịch sử kho: ai cũng xem
                 new Rule(HttpMethod.GET, "/api/inventory/products", ALL),
                 new Rule(HttpMethod.GET, "/api/inventory/transactions", ALL),

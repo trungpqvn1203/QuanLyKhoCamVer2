@@ -111,8 +111,11 @@ public class TransferService {
      *
      * <p>Thứ tự khóa (BR-TRF-04): mỗi lần cộng/trừ khóa một dòng inventory (SP, kho) đến hết transaction. Hai phiếu
      * K1→K2 và K2→K1 chạy cùng lúc, nếu mỗi phiếu đều "trừ nguồn trước, cộng đích sau" thì phiếu A giữ dòng ở K1
-     * chờ K2, phiếu B giữ dòng ở K2 chờ K1 → deadlock. Ở đây mọi phiếu đều đụng kho có id NHỎ hơn trước, trong mỗi
-     * kho theo product_id tăng dần → hai phiếu luôn xếp hàng ở cùng một dòng đầu tiên, không ai giữ thứ người kia cần.
+     * chờ K2, phiếu B giữ dòng ở K2 chờ K1 → deadlock. Ở đây mọi phiếu đi theo (product_id, warehouse_id) tăng dần:
+     * lần lượt từng SP, với mỗi SP đụng kho có id NHỎ hơn trước → hai phiếu luôn xếp hàng ở cùng một dòng đầu tiên,
+     * không ai giữ thứ người kia cần. Thứ tự này phải TRÙNG với mọi nghiệp vụ khác cùng khóa dòng tồn — hoàn tất
+     * phiếu bán (SP tăng dần trong một kho) và xuất chuyến giao (SalesOrderService.completeForDelivery: SP rồi kho);
+     * một thứ tự riêng (kho rồi SP) tự nó không deadlock nhưng sẽ khóa chéo với xuất chuyến lấy hàng từ hai kho.
      * Hệ quả: khi kho đích có id nhỏ hơn, hàng được CỘNG vào đích trước khi TRỪ ở nguồn — vẫn đúng, vì nếu bước
      * trừ thất bại thì bước cộng bị rollback cùng transaction.
      */
@@ -123,18 +126,18 @@ public class TransferService {
         Warehouse target = document.getTargetWarehouse();
         checkTargetUsable(target);
 
-        List<StockDocumentItem> items = document.getItems().stream()
+        boolean sourceFirst = source.getId() < target.getId();
+        document.getItems().stream()
                 .sorted(Comparator.comparing((StockDocumentItem item) -> item.getProduct().getId()))
-                .toList();
-        Runnable takeFromSource = () -> items.forEach(item -> inventoryService.stockOut(item, source, item.getQuantity()));
-        Runnable putIntoTarget = () -> items.forEach(item -> inventoryService.stockIn(item, target, item.getQuantity()));
-        if (source.getId() < target.getId()) {
-            takeFromSource.run();
-            putIntoTarget.run();
-        } else {
-            putIntoTarget.run();
-            takeFromSource.run();
-        }
+                .forEach(item -> {
+                    if (sourceFirst) {
+                        inventoryService.stockOut(item, source, item.getQuantity());
+                        inventoryService.stockIn(item, target, item.getQuantity());
+                    } else {
+                        inventoryService.stockIn(item, target, item.getQuantity());
+                        inventoryService.stockOut(item, source, item.getQuantity());
+                    }
+                });
 
         document.markCompleted(Instant.now(), username);
         return TransferResponse.from(stockDocumentRepository.saveAndFlush(document));
@@ -156,8 +159,8 @@ public class TransferService {
     public TransferResponse reverse(Long id, String reason) {
         StockDocument document = lockForChange(id, COMPLETED, "đảo");
         stockTransactionRepository.findOriginalsOfDocument(document.getId()).stream()
-                .sorted(Comparator.comparing((StockTransaction transaction) -> transaction.getWarehouse().getId())
-                        .thenComparing(transaction -> transaction.getProduct().getId()))
+                .sorted(Comparator.comparing((StockTransaction transaction) -> transaction.getProduct().getId())
+                        .thenComparing(transaction -> transaction.getWarehouse().getId()))
                 .forEach(inventoryService::reverse);
         document.markReversed(reason.trim(), Instant.now());
         return TransferResponse.from(stockDocumentRepository.saveAndFlush(document));
