@@ -5,14 +5,15 @@ import { toFilterParams } from '../../utils/filters'
 /** IN tăng tồn, OUT giảm tồn — số lượng luôn dương. */
 export type StockTransactionType = 'IN' | 'OUT'
 
-/** Loại chứng từ gây ra biến động. Điều chuyển kho thêm sau. */
-export type StockDocumentType = 'INBOUND' | 'OUTBOUND' | 'OPENING_STOCK' | 'STOCK_COUNT'
+/** Loại chứng từ gây ra biến động. */
+export type StockDocumentType = 'INBOUND' | 'OUTBOUND' | 'OPENING_STOCK' | 'STOCK_COUNT' | 'TRANSFER'
 
 export const DOCUMENT_TYPE_LABELS: Record<StockDocumentType, string> = {
   INBOUND: 'Phiếu nhập',
   OUTBOUND: 'Phiếu bán',
   OPENING_STOCK: 'Tồn đầu kỳ',
   STOCK_COUNT: 'Kiểm kê',
+  TRANSFER: 'Điều chuyển',
 }
 
 export const TRANSACTION_TYPE_LABELS: Record<StockTransactionType, string> = {
@@ -46,6 +47,9 @@ export interface StockTransaction {
   supplierName?: string
   customerId?: number
   customerName?: string
+  /** Chỉ phiếu điều chuyển: kho ở ĐẦU KIA của lần chuyển (dòng tại kho nguồn ghi kho đích và ngược lại) */
+  counterpartWarehouseId?: number
+  counterpartWarehouseName?: string
 }
 
 export type StockTransactionFilters = {
@@ -70,6 +74,9 @@ export type MovementKind =
   | 'COUNT_SURPLUS'
   | 'COUNT_SHORTAGE'
   | 'COUNT_REVERSAL'
+  | 'TRANSFER_OUT'
+  | 'TRANSFER_IN'
+  | 'TRANSFER_REVERSAL'
 
 export const MOVEMENT_LABELS: Record<MovementKind, string> = {
   COUNT_SURPLUS: 'Kiểm kê thừa',
@@ -81,6 +88,9 @@ export const MOVEMENT_LABELS: Record<MovementKind, string> = {
   SALE_REVERSAL: 'Đảo phiếu bán',
   OPENING: 'Tồn đầu kỳ',
   OPENING_REVERSAL: 'Đảo tồn đầu kỳ',
+  TRANSFER_OUT: 'Chuyển đi',
+  TRANSFER_IN: 'Chuyển đến',
+  TRANSFER_REVERSAL: 'Đảo điều chuyển',
 }
 
 /** Nghiệp vụ đọc được cho người dùng, ghép từ loại chứng từ + có phải giao dịch đảo hay không. */
@@ -96,9 +106,27 @@ export function movementKind(
     // Kiểm kê có cả hai chiều: thừa (IN) và thiếu (OUT)
     case 'STOCK_COUNT':
       return reversal ? 'COUNT_REVERSAL' : transaction.type === 'IN' ? 'COUNT_SURPLUS' : 'COUNT_SHORTAGE'
+    // Một phiếu điều chuyển sinh hai dòng: OUT ở kho nguồn (chuyển đi), IN ở kho đích (chuyển đến)
+    case 'TRANSFER':
+      return reversal ? 'TRANSFER_REVERSAL' : transaction.type === 'IN' ? 'TRANSFER_IN' : 'TRANSFER_OUT'
     default:
       return reversal ? 'SALE_REVERSAL' : 'SALE'
   }
+}
+
+/**
+ * Cột "Đối tác" của một dòng lịch sử: NCC, khách, hoặc với điều chuyển là kho ở đầu kia kèm chiều hàng đi.
+ * Giao dịch đảo đi ngược chiều giao dịch gốc nên mũi tên suy từ chiều IN/OUT của chính dòng đó.
+ */
+export function partnerLabel(
+  transaction: Pick<StockTransaction, 'type' | 'supplierName' | 'customerName' | 'counterpartWarehouseName'>,
+): string | undefined {
+  if (transaction.counterpartWarehouseName) {
+    return transaction.type === 'OUT'
+      ? `→ ${transaction.counterpartWarehouseName}`
+      : `← ${transaction.counterpartWarehouseName}`
+  }
+  return transaction.supplierName ?? transaction.customerName
 }
 
 /** Số lượng có dấu theo chiều: IN 20 → 20, OUT 5 → -5. */

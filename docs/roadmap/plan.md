@@ -50,11 +50,11 @@ Hoàn thành nhập kho, bán hàng, điều chuyển với đầy đủ StockTr
 - [x] Module nhập kho: API + service + test _(backend 2026-10-19; giao diện ở Tuần 3)_
 - [x] Nhân viên + chấm công (ngày công, tấn bốc vác) + bảng lương tháng _(bổ sung ngoài MVP theo yêu cầu, 2026-10-20, V9 + V11 + V12)_
 - [x] Module bán hàng/xuất kho: API + service + test _(2026-10-20, V13 — kèm bảng giá theo khách, thanh toán, công nợ)_
-- [ ] Module điều chuyển kho: API + service + test
-- [ ] StockTransaction ghi nhận đúng cho tất cả nghiệp vụ _(nhập, bán + đảo hai loại phiếu xong; còn điều chuyển)_
+- [x] Module điều chuyển kho: API + service + test _(2026-11-12, V30 — loại chứng từ `TRANSFER`, mã `DC`)_
+- [x] StockTransaction ghi nhận đúng cho tất cả nghiệp vụ _(nhập, bán, điều chuyển + đảo cả ba loại phiếu)_
 - [x] Test: không xuất vượt tồn _(đảo phiếu nhập; bán hàng: `SalesOrderConcurrencyTest` 5 phiếu × 30 bao trên tồn 100 → đúng 3 thành công)_
 - [x] Test: race condition với concurrent requests _(`InboundReceiptConcurrencyTest`: hoàn tất/đảo đồng thời, cộng tồn đồng thời)_
-- [ ] Test: điều chuyển rollback khi thất bại _(đã có rollback khi đảo phiếu 2 dòng; còn điều chuyển)_
+- [x] Test: điều chuyển rollback khi thất bại _(`TransferConcurrencyTest`: rollback cả hai chiều khóa, không deadlock với 20 phiếu ngược chiều)_
 - [x] Test: CHECK constraint ngăn tồn âm ở DB level _(`InventoryPersistenceTest`)_
 - [ ] Commit sau mỗi module hoàn chỉnh
 
@@ -77,7 +77,7 @@ Giao diện sử dụng được cho tất cả nghiệp vụ chính. Hệ thố
 
 - [x] Giao diện nhập kho _(2026-10-19: form phiếu trong `Drawer`; dòng hàng động `Form.List`; dòng tổng `Table.Summary`; ô SP lấy từ SP đang gán cho NCC — xem ADR-0002)_
 - [x] Giao diện bán hàng/xuất kho _(2026-10-20: phiếu bán, thu tiền, hoàn khoản thu, trang Công nợ, bảng giá riêng trong menu ⋯ của Khách hàng)_
-- [ ] Giao diện điều chuyển kho _(các bước `Steps`: chọn kho nguồn → chọn hàng → xác nhận)_
+- [x] Giao diện điều chuyển kho _(2026-11-12: menu "Điều chuyển kho", form trong `Drawer` như phiếu nhập thay cho `Steps` dự kiến — cùng một khuôn với các phiếu khác; cột tồn kho nguồn, quy ra tấn; Lịch sử kho hiện "Chuyển đi / Chuyển đến" kèm kho đầu kia)_
 - [x] Giao diện lịch sử biến động tồn kho _(2026-10-20: menu "Lịch sử kho", `GET /api/inventory/transactions`; lọc SP/kho/loại chứng từ/tăng-giảm/mã phiếu/ngày ghi sổ; bấm mã mở khung phiếu; menu ⋯ của Sản phẩm → "Lịch sử tồn kho")_
 - [x] Báo cáo tồn kho (theo kho, theo sản phẩm) _(theo sản phẩm 2026-10-19 trên trang Sản phẩm; 2026-10-29: trang Tổng quan — thẻ số liệu + biểu đồ doanh số 30 ngày (Recharts); trang Báo cáo tồn kho — tồn SP × kho, nhập – xuất – tồn theo kỳ, in A4 — BR-RPT-01..06)_
 - [ ] Phân trang cho danh sách dài

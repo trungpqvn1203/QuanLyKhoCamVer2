@@ -14,7 +14,7 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Cửa duy nhất làm thay đổi tồn kho — dùng chung cho nhập, xuất (bán) và (sau này) điều chuyển.
+ * Cửa duy nhất làm thay đổi tồn kho — dùng chung cho nhập, xuất (bán), điều chuyển, tồn đầu kỳ và kiểm kê.
  * Mỗi lần đổi tồn luôn đi kèm đúng một StockTransaction (BR-INV-04).
  * MANDATORY: bắt buộc chạy trong transaction của nghiệp vụ gọi tới (ví dụ hoàn tất phiếu) —
  * gọi ngoài transaction thì lỗi ngay, để cộng tồn của dòng 1 không thể commit riêng

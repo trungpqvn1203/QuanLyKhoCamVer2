@@ -131,6 +131,11 @@ class AuthorizationMatrixTest {
                 new Rule(HttpMethod.POST, "/api/cash-vouchers/999999/reverse", ADMIN_ONLY),
                 new Rule(HttpMethod.GET, "/api/cash-categories", ADMIN_ONLY),
                 new Rule(HttpMethod.POST, "/api/cash-categories", ADMIN_ONLY),
+                // Điều chuyển kho (BR-TRF-11): như phiếu nhập
+                new Rule(HttpMethod.GET, "/api/transfers", WAREHOUSE),
+                new Rule(HttpMethod.POST, "/api/transfers", WAREHOUSE),
+                new Rule(HttpMethod.POST, "/api/transfers/999999/complete", WAREHOUSE),
+                new Rule(HttpMethod.POST, "/api/transfers/999999/reverse", WAREHOUSE),
                 new Rule(HttpMethod.GET, "/api/opening-stocks", ADMIN_ONLY),
                 new Rule(HttpMethod.POST, "/api/opening-stocks", ADMIN_ONLY),
                 new Rule(HttpMethod.POST, "/api/opening-stocks/999999/complete", ADMIN_ONLY),

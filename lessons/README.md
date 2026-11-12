@@ -24,6 +24,7 @@ lỗi đã gặp và câu hỏi ôn tập. Do AI ghi sau mỗi module (CLAUDE.md
 | [Tồn kho đầu kỳ](1-kho-hang/05-ton-dau-ky.md) | Khởi tạo tồn bằng chứng từ, chặn trùng hai lớp |
 | [Kiểm kê kho](1-kho-hang/06-kiem-ke.md) | Chụp sổ sách, ghi phần chênh, không khóa kho |
 | [Báo cáo tồn kho và tổng quan](1-kho-hang/07-bao-cao-ton-kho.md) | Tính lại từ sổ, đảo bù cột gốc, tải lười biểu đồ |
+| [Điều chuyển kho](1-kho-hang/08-dieu-chuyen-kho.md) | Một transaction hai kho, deadlock và thứ tự khóa, điều chuyển trong báo cáo |
 
 ### Tiền và công nợ
 
@@ -135,6 +136,16 @@ lỗi đã gặp và câu hỏi ôn tập. Do AI ghi sau mỗi module (CLAUDE.md
 3. Báo cáo tồn dùng ngày ghi sổ, doanh số dùng ngày bán. Cho ví dụ hai cách cho ra số khác nhau.
 4. Vì sao thẻ "Tiền mặt" trên tổng quan gọi API sổ quỹ chứ không nằm trong `/api/reports/dashboard`?
 5. Nêu một lỗi có thể xảy ra khi ghép chuỗi SQL động, và cách test để phát hiện.
+
+**[Điều chuyển kho](1-kho-hang/08-dieu-chuyen-kho.md)**
+
+1. Nếu `TransferService.complete` không có `@Transactional` và bước cộng kho đích ném lỗi sau khi kho nguồn đã bị trừ, sổ sách sẽ ra sao? Cơ chế nào khiến tình huống đó không thể xảy ra?
+2. Deadlock là gì? Mô tả từng bước hai phiếu Hà Nội → Bắc Ninh và Bắc Ninh → Hà Nội khóa nhau khi không có thứ tự khóa.
+3. Vì sao sắp thứ tự khóa theo (id kho, id sản phẩm) lại loại được deadlock? Điều kiện để cách này có tác dụng là gì?
+4. Chuyển từ kho id lớn sang kho id nhỏ thì kho đích được cộng trước khi kho nguồn bị trừ. Vì sao điều đó vẫn an toàn?
+5. Vì sao một dòng phiếu điều chuyển sinh hai `stock_transaction` nhưng không cần thêm cột nào vào bảng `stock_transaction`?
+6. Khi nào báo cáo nhập – xuất – tồn tính điều chuyển vào cột Nhập/Xuất, khi nào không?
+7. Làm sao biết một test đồng thời thật sự bắt được lỗi mà nó nhắm tới?
 
 **[Công nợ nhân viên: lương theo tấn, trả lương, tạm ứng](2-tien-va-cong-no/02-cong-no-nhan-vien.md)**
 
