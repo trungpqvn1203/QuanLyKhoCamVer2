@@ -47,7 +47,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * Phiếu điều chuyển kho qua API (BR-TRF-01..13). Test rollback sau mỗi ca; các ca cần commit thật (đồng thời,
  * deadlock) nằm ở TransferConcurrencyTest.
  *
- * <p>Kho Hà Nội được tạo trước nên có id NHỎ hơn kho Bắc Ninh. Vì thứ tự khóa đi theo id kho (BR-TRF-04):
+ * <p>Kho Hà Nội được tạo trước nên có id NHỎ hơn kho Bắc Ninh. Vì với mỗi SP, kho có id nhỏ hơn được đụng trước (BR-TRF-04):
  * Hà Nội → Bắc Ninh = trừ nguồn trước, cộng đích sau; Bắc Ninh → Hà Nội = cộng đích trước, trừ nguồn sau.
  * Hai chiều đều có ca kiểm số; rollback của cả hai chiều kiểm ở TransferConcurrencyTest.
  */

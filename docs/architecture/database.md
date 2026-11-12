@@ -488,11 +488,12 @@ Transfer K2→K1: lock K1 trước (ID nhỏ hơn), rồi K2
 
 Cả hai transaction đều lock theo thứ tự ID tăng dần → không deadlock.
 
-**Đã triển khai ở V30 (`TransferService.complete` / `reverse`):** khóa thật nằm trên dòng `inventory` (SP, kho), lấy bằng chính câu `UPDATE` / `INSERT … ON CONFLICT` cộng trừ tồn. Mọi phiếu chạy các câu đó theo `(warehouse_id, product_id)` tăng dần. Hệ quả: khi kho đích có id nhỏ hơn, tồn kho đích được **cộng trước** khi kho nguồn bị trừ — vẫn đúng vì cả hai nằm trong một transaction, bước trừ thất bại thì bước cộng rollback.
+**Đã triển khai ở V30 (`TransferService.complete` / `reverse`):** khóa thật nằm trên dòng `inventory` (SP, kho), lấy bằng chính câu `UPDATE` / `INSERT … ON CONFLICT` cộng trừ tồn. Mọi phiếu chạy các câu đó theo `(product_id, warehouse_id)` tăng dần — **trùng** với xuất chuyến giao (`SalesOrderService.completeForDelivery`) và hoàn tất phiếu bán. Thứ tự khóa chỉ có tác dụng khi là thứ tự **chung của mọi nghiệp vụ**: bản đầu của điều chuyển sắp theo `(warehouse_id, product_id)`, tự nó không deadlock nhưng khóa chéo với xuất chuyến lấy hàng từ hai kho (phát hiện khi merge hai nhánh, 2026-11-12). Hệ quả: khi kho đích có id nhỏ hơn, tồn kho đích được **cộng trước** khi kho nguồn bị trừ — vẫn đúng vì cả hai nằm trong một transaction, bước trừ thất bại thì bước cộng rollback.
 
 | Tình huống | Cơ chế | Test kiểm chứng |
 |---|---|---|
-| 10 phiếu K1→K2 và 10 phiếu K2→K1 hoàn tất cùng lúc | Thứ tự khóa theo (id kho, id SP) | `TransferConcurrencyTest.opposingTransfersShouldNotDeadlock`. Đã thử bỏ thứ tự khóa (luôn trừ nguồn trước) → PostgreSQL báo `deadlock detected`, test fail |
+| 10 phiếu điều chuyển K1→K2 và 10 lần xuất chuyến giao lấy hàng từ K1 và K2 cùng lúc | Hai nghiệp vụ cùng thứ tự khóa (id SP, id kho) | `TransferConcurrencyTest.transfersAndDeliveryDispatchShouldNotDeadlock`. Đã thử trả điều chuyển về thứ tự (id kho, id SP) → `deadlock detected`, test fail |
+| 10 phiếu K1→K2 và 10 phiếu K2→K1 hoàn tất cùng lúc | Thứ tự khóa theo (id SP, id kho) | `TransferConcurrencyTest.opposingTransfersShouldNotDeadlock`. Đã thử bỏ thứ tự khóa (luôn trừ nguồn trước) → PostgreSQL báo `deadlock detected`, test fail |
 | Dòng 2 thiếu tồn sau khi dòng 1 đã trừ; nguồn thiếu sau khi đích đã cộng | Một `@Transactional` bao cả phiếu; `InventoryService` là `Propagation.MANDATORY` | `shouldRollbackEarlierLinesWhenLaterLineIsShort`, `shouldRollbackTargetIncreaseWhenSourceIsShort` |
 | 5 phiếu × 30 bao cùng rút từ tồn 100 | `UPDATE … WHERE quantity >= :q` | `concurrentTransfersShouldNotOverdrawSource`: đúng 3 thành công, nguồn còn 10, đích nhận 90 |
 | Bấm Hoàn tất nhiều lần một phiếu | Khóa phiếu `FOR UPDATE` rồi kiểm tra trạng thái | `concurrentCompleteOfSameDocumentShouldApplyOnce` |

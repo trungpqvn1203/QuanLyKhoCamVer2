@@ -175,7 +175,7 @@ _(Trả lời BR-SAL-Q01: có công nợ, chỉ ở mức phiếu bán + lịch 
 - **BR-TRF-01:** Một điều chuyển thành công phải: kho nguồn giảm, kho đích tăng đúng số lượng, lịch sử đủ, trong cùng transaction.
 - **BR-TRF-02:** Nếu bất kỳ bước nào thất bại, toàn bộ transaction rollback.
 - **BR-TRF-03:** Không được có trạng thái "hoàn tất" mà chỉ một kho được cập nhật.
-- **BR-TRF-04:** Xử lý thứ tự khóa (lock ordering) để giảm nguy cơ deadlock khi có nhiều giao dịch đồng thời. _(Triển khai: mọi phiếu cộng/trừ tồn theo id kho tăng dần, trong mỗi kho theo id sản phẩm tăng dần.)_
+- **BR-TRF-04:** Xử lý thứ tự khóa (lock ordering) để giảm nguy cơ deadlock khi có nhiều giao dịch đồng thời. _(Triển khai: mọi nghiệp vụ cộng/trừ tồn theo id sản phẩm tăng dần, với mỗi sản phẩm theo id kho tăng dần — cùng một thứ tự cho hoàn tất phiếu bán, xuất chuyến giao và điều chuyển.)_
 
 ### ✅ Đã xác nhận (2026-11-12, migration V30)
 

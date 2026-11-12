@@ -25,7 +25,7 @@ lỗi đã gặp và câu hỏi ôn tập. Do AI ghi sau mỗi module (CLAUDE.md
 | [Kiểm kê kho](1-kho-hang/06-kiem-ke.md) | Chụp sổ sách, ghi phần chênh, không khóa kho |
 | [Báo cáo tồn kho và tổng quan](1-kho-hang/07-bao-cao-ton-kho.md) | Tính lại từ sổ, đảo bù cột gốc, tải lười biểu đồ |
 | [Xe và chuyến giao hàng](1-kho-hang/08-chuyen-giao-hang.md) | Bảng nối + thứ tự, UNIQUE `DEFERRABLE`, hoàn tất nhiều phiếu một transaction, thứ tự khóa chống deadlock, kéo thả HTML5 |
-| [Điều chuyển kho](1-kho-hang/09-dieu-chuyen-kho.md) | Một transaction hai kho, deadlock và thứ tự khóa, điều chuyển trong báo cáo |
+| [Điều chuyển kho](1-kho-hang/09-dieu-chuyen-kho.md) | Một transaction hai kho, deadlock và thứ tự khóa chung toàn hệ thống, điều chuyển trong báo cáo |
 
 ### Tiền và công nợ
 
@@ -150,7 +150,7 @@ lỗi đã gặp và câu hỏi ôn tập. Do AI ghi sau mỗi module (CLAUDE.md
 
 1. Nếu `TransferService.complete` không có `@Transactional` và bước cộng kho đích ném lỗi sau khi kho nguồn đã bị trừ, sổ sách sẽ ra sao? Cơ chế nào khiến tình huống đó không thể xảy ra?
 2. Deadlock là gì? Mô tả từng bước hai phiếu Hà Nội → Bắc Ninh và Bắc Ninh → Hà Nội khóa nhau khi không có thứ tự khóa.
-3. Vì sao sắp thứ tự khóa theo (id kho, id sản phẩm) lại loại được deadlock? Điều kiện để cách này có tác dụng là gì?
+3. Vì sao sắp thứ tự khóa theo (id sản phẩm, id kho) lại loại được deadlock? Vì sao thứ tự (id kho, id sản phẩm) — tự nó cũng nhất quán — vẫn gây deadlock với xuất chuyến giao?
 4. Chuyển từ kho id lớn sang kho id nhỏ thì kho đích được cộng trước khi kho nguồn bị trừ. Vì sao điều đó vẫn an toàn?
 5. Vì sao một dòng phiếu điều chuyển sinh hai `stock_transaction` nhưng không cần thêm cột nào vào bảng `stock_transaction`?
 6. Khi nào báo cáo nhập – xuất – tồn tính điều chuyển vào cột Nhập/Xuất, khi nào không?
