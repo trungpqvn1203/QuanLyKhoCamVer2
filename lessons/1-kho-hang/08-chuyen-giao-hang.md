@@ -2,7 +2,7 @@
 
 [← Mục lục kho bài học](../README.md)
 
-## Module: Chuyến giao (2026-11-03, V28)
+## Module: Chuyến giao (2026-11-03, V31)
 
 Bài toán: mỗi sáng chủ cửa hàng chia các phiếu bán đã chốt cho từng xe, sắp thứ tự giao theo đường mình biết, in tờ danh sách cho lái xe. Xe chạy thì hàng rời kho, và đó là lúc trừ tồn. Trước đây phải bấm Hoàn tất từng phiếu, quên một phiếu là sổ kho lệch với thực tế.
 

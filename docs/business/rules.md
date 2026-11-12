@@ -437,7 +437,7 @@ _(Trả lời BR-SAL-Q01: có công nợ, chỉ ở mức phiếu bán + lịch 
 
 > Tình huống: mỗi sáng chủ cửa hàng chia các phiếu bán đã chốt cho từng xe, sắp thứ tự giao theo đường mình biết, in tờ danh sách cho lái xe. Xe chạy thì hàng rời kho — đó là lúc trừ tồn.
 
-### ✅ Đã xác nhận (2026-11-03, migration V28)
+### ✅ Đã xác nhận (2026-11-03, migration V31)
 
 - **BR-VEH-01:** Danh mục xe: **biển số** (bắt buộc, tối đa 20 ký tự, lưu viết hoa), tên xe (tùy chọn), tải trọng. Biển số **không trùng**, so sánh bỏ qua hoa thường, khoảng trắng, dấu chấm, gạch ngang (`29H-123.45` = `29h 12345`).
 - **BR-VEH-02:** **Tải trọng** (tấn, > 0, tối đa 3 chữ số lẻ) tùy chọn — để trống thì không cảnh báo quá tải (xe ba gác, xe máy).

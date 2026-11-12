@@ -33,7 +33,7 @@ Ràng buộc đổi: `ck_employee_has_rate` (ít nhất một trong ba đơn gi�
 | `customer_product_price` | Giá bán riêng hiện hành theo (khách, SP) — chỉ để điền sẵn | ✅ Đã duyệt 2026-10-20 (V13) |
 | `sale_payment` | Lịch sử thanh toán của phiếu bán (bất biến) | ✅ Đã duyệt 2026-10-20 (V13) |
 | `customer_account`, `customer_refresh_token` | Tài khoản app khách hàng + refresh token — vùng đăng nhập riêng với nhân viên (ADR-0005) | ✅ Đã duyệt 2026-11-03 (V27) |
-| `vehicle`, `delivery_trip`, `delivery_trip_stop` | Xe giao hàng; chuyến giao (xe + lái xe + ngày) và các phiếu bán theo thứ tự giao | ✅ Đã duyệt 2026-11-03 (V28) |
+| `vehicle`, `delivery_trip`, `delivery_trip_stop` | Xe giao hàng; chuyến giao (xe + lái xe + ngày) và các phiếu bán theo thứ tự giao | ✅ Đã duyệt 2026-11-03 (V31) |
 | `sale_price_adjustment` | Nhật ký điều chỉnh giá phiếu bán đã giao chưa thu tiền (bất biến) | ✅ Đã duyệt 2026-11-03 (V26) |
 | `sale_request_item` | Phần **khách đặt** (SP + SL) của phiếu bán — giữ nguyên sau khi xác nhận để đối chiếu | ✅ Đã duyệt 2026-11-02 (V25) |
 | `supplier_payment` | Lịch sử trả tiền NCC trên phiếu nhập (bất biến) | ✅ Đã duyệt 2026-10-25 (V16) |
@@ -310,7 +310,7 @@ erDiagram
 - Đăng nhập khóa dòng tài khoản `FOR UPDATE` trước khi đếm sai mật khẩu: 5 request sai cùng lúc không thể cùng đọc "đã sai 4 lần" rồi cùng ghi 5 (lost update như BR-SAL-11).
 - Đơn khách đặt dùng lại phiếu bán `PENDING` kênh `APP` (V25) — không có bảng đơn riêng. `created_by` = `app:` + mã khách.
 
-### vehicle, delivery_trip, delivery_trip_stop (Xe & chuyến giao) (✅ đã duyệt 2026-11-03 — migration V28)
+### vehicle, delivery_trip, delivery_trip_stop (Xe & chuyến giao) (✅ đã duyệt 2026-11-03 — migration V31)
 
 - `vehicle`: `plate_number` (lưu như người dùng gõ, viết hoa — in ra dễ đọc), `name`, `capacity_tons NUMERIC(6,3)` nullable `> 0` (BR-VEH-02), `active`. Trùng biển số chặn bằng **UNIQUE trên biểu thức** bỏ khoảng trắng / chấm / gạch, không phải cột "biển số chuẩn hóa" riêng — không có hai cột phải luôn khớp nhau.
 - `delivery_trip`: `code` CG (sequence `delivery_trip_code_seq`), `trip_date`, `vehicle_id`, `driver_id` → `employee`, `status` `PLANNED` / `DISPATCHED`, `note`, `created_by`, `dispatched_at` + `dispatched_by` (`ck_delivery_trip_dispatched`: có khi và chỉ khi Đã xuất).
@@ -509,11 +509,11 @@ Cả hai transaction đều lock theo thứ tự ID tăng dần → không deadl
 | UK | `customer_account` | `customer_id` | Mỗi khách một tài khoản app; tra tài khoản theo khách (V27) |
 | IDX | `customer_refresh_token` | `customer_account_id`, `family_id` | Thu hồi phiên khách theo tài khoản / theo lần đăng nhập (V27) |
 | IDX | `sale_price_adjustment` | `document_id` | Lịch sử điều chỉnh giá của phiếu (V26) |
-| UK | `vehicle` | `upper(regexp_replace(plate_number, '[[:space:].-]', '', 'g'))` | Biển số không trùng dù gõ khác cách (V28) |
-| UK | `delivery_trip` | `code` | Mã chuyến CG (V28) |
-| IDX | `delivery_trip` | `trip_date` | Danh sách chuyến theo ngày đi giao (V28) |
-| UK | `delivery_trip_stop` | `document_id` | Một phiếu một chuyến; tra phiếu đã xếp chuyến nào (V28) |
-| UK | `delivery_trip_stop` | `(trip_id, stop_order)` DEFERRABLE | Thứ tự giao không trùng — kiểm lúc COMMIT để đổi chỗ được (V28) |
+| UK | `vehicle` | `upper(regexp_replace(plate_number, '[[:space:].-]', '', 'g'))` | Biển số không trùng dù gõ khác cách (V31) |
+| UK | `delivery_trip` | `code` | Mã chuyến CG (V31) |
+| IDX | `delivery_trip` | `trip_date` | Danh sách chuyến theo ngày đi giao (V31) |
+| UK | `delivery_trip_stop` | `document_id` | Một phiếu một chuyến; tra phiếu đã xếp chuyến nào (V31) |
+| UK | `delivery_trip_stop` | `(trip_id, stop_order)` DEFERRABLE | Thứ tự giao không trùng — kiểm lúc COMMIT để đổi chỗ được (V31) |
 | UK | `sale_request_item` | `(document_id, product_id)` | Phần khách đặt của một phiếu; chặn SP lặp (V25) |
 | IDX | `stock_document` | `(type, document_date)` | Lọc chứng từ theo loại + ngày chứng từ (V6 — đổi từ `created_at` vì danh sách lọc theo ngày chứng từ) |
 

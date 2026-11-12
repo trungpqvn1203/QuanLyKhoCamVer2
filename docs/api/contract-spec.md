@@ -358,7 +358,7 @@ Phía cửa hàng (chuỗi nhân viên, quyền như ghi khách hàng — xem: m
 | `PUT /api/customers/{id}/portal-account/password` | `{ password }` | Đặt lại: `mustChangePassword = true`, xóa khóa tạm, **thu hồi mọi phiên** của khách. Chưa có tài khoản → 404 |
 | `POST …/portal-account/lock` · `…/unlock` | — | Khóa → thu hồi mọi phiên; mở → xóa đếm sai mật khẩu |
 
-**Xe và chuyến giao — `/api/vehicles`, `/api/delivery-trips`** (thêm 2026-11-03, V28, BR-VEH-01..04, BR-DLV-01..10). Xem: mọi vai trò; ghi: Quản lý kho + Quản lý hệ thống; `GET /api/delivery-trips/drivers` chỉ hai vai trò đó.
+**Xe và chuyến giao — `/api/vehicles`, `/api/delivery-trips`** (thêm 2026-11-03, V31, BR-VEH-01..04, BR-DLV-01..10). Xem: mọi vai trò; ghi: Quản lý kho + Quản lý hệ thống; `GET /api/delivery-trips/drivers` chỉ hai vai trò đó.
 
 | Endpoint | Body | Kết quả / lỗi |
 |---|---|---|

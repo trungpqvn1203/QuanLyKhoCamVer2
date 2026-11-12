@@ -14,7 +14,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
- * Ràng buộc của V28 (xe, chuyến giao) ở tầng DB — ghi thẳng SQL để chứng minh chính DB chặn khi code Java quên.
+ * Ràng buộc của V31 (xe, chuyến giao) ở tầng DB — ghi thẳng SQL để chứng minh chính DB chặn khi code Java quên.
  * Mỗi test chỉ một câu vi phạm: sau lỗi đầu tiên PostgreSQL hủy transaction (SQL state 25P02).
  */
 @SpringBootTest

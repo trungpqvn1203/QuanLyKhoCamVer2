@@ -23,7 +23,7 @@ import java.util.regex.Pattern;
 @Transactional(readOnly = true)
 public class VehicleService {
 
-    // Khớp biểu thức của uk_vehicle_plate (V28): [[:space:].-]
+    // Khớp biểu thức của uk_vehicle_plate (V31): [[:space:].-]
     private static final Pattern PLATE_SEPARATORS = Pattern.compile("[\\s.\\-]");
     private static final Pattern MULTI_SPACE = Pattern.compile("\\s+");
 

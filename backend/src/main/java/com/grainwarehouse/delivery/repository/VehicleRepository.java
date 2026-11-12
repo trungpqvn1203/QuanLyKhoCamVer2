@@ -13,7 +13,7 @@ import java.util.Optional;
 public interface VehicleRepository extends JpaRepository<Vehicle, Long>, JpaSpecificationExecutor<Vehicle> {
 
     /**
-     * BR-VEH-01: xe trùng biển số — so sánh đúng biểu thức của uk_vehicle_plate (V28) để báo lỗi rõ trước khi
+     * BR-VEH-01: xe trùng biển số — so sánh đúng biểu thức của uk_vehicle_plate (V31) để báo lỗi rõ trước khi
      * đụng UNIQUE ở DB. normalized = biển số đã viết hoa, bỏ khoảng trắng / chấm / gạch (VehicleService.normalize).
      */
     @Query(value = """

@@ -1,4 +1,4 @@
--- Migration V28: Xe và chuyến giao hàng (BR-VEH-01..04, BR-DLV-01..10)
+-- Migration V31: Xe và chuyến giao hàng (BR-VEH-01..04, BR-DLV-01..10)
 -- Chuyến gom các phiếu bán Nháp theo thứ tự giao. Xuất chuyến = hoàn tất mọi phiếu trong chuyến (trừ tồn) trong MỘT
 -- transaction. Không thêm cột nào vào stock_document: phiếu thuộc chuyến nào tra qua delivery_trip_stop.
 
