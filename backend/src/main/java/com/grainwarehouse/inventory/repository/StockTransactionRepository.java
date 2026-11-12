@@ -18,10 +18,12 @@ import java.util.List;
 public interface StockTransactionRepository
         extends JpaRepository<StockTransaction, Long>, JpaSpecificationExecutor<StockTransaction> {
 
-    // Trang lịch sử: JOIN lấy luôn SP, kho, chứng từ, NCC/khách — toàn quan hệ *-to-one nên vẫn phân trang trong SQL, không N+1
+    // Trang lịch sử: JOIN lấy luôn SP, kho, chứng từ, NCC/khách, kho nguồn/đích của phiếu điều chuyển — toàn quan hệ
+    // *-to-one nên vẫn phân trang trong SQL, không N+1
     @Override
     @EntityGraph(attributePaths = {"product", "warehouse", "documentItem", "documentItem.document",
-            "documentItem.document.supplier", "documentItem.document.customer"})
+            "documentItem.document.supplier", "documentItem.document.customer",
+            "documentItem.document.warehouse", "documentItem.document.targetWarehouse"})
     Page<StockTransaction> findAll(Specification<StockTransaction> spec, Pageable pageable);
 
     /**

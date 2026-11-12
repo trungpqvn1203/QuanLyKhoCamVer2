@@ -180,6 +180,7 @@ DELETE /api/products/:id          # Xóa (soft delete)
 | Tồn kho đầu kỳ | `GET/POST /api/opening-stocks`, `GET/PUT /api/opening-stocks/{id}`, `POST …/{id}/complete`, `POST …/{id}/cancel`, `POST …/{id}/reverse`, `GET /api/opening-stocks/products-with-movement?warehouseId=` | Chỉ `SYSTEM_ADMIN`. Xem mục **Tồn kho đầu kỳ** bên dưới |
 | Tạm ứng, trả lương, công nợ nhân viên | `GET/POST /api/employees/{id}/advances`, `POST …/advances/{advanceId}/reverse`; `GET /api/payrolls/{YYYY-MM}/items/{employeeId}`, `POST …/payments`, `POST …/payments/{paymentId}/reverse`; `GET /api/employee-debts?employeeId=` | Chỉ `SYSTEM_ADMIN`. Xem mục **Công nợ nhân viên** bên dưới |
 | Trả tiền NCC, công nợ NCC | `POST /api/inbound-receipts/{id}/payments`, `POST …/{id}/payments/{paymentId}/reverse`, `GET /api/supplier-debts?supplierId=` | Xem mục **Trả tiền và công nợ nhà cung cấp** bên dưới |
+| Điều chuyển kho | `GET/POST /api/transfers`, `GET/PUT /api/transfers/{id}`, `POST …/{id}/complete`, `POST …/{id}/cancel`, `POST …/{id}/reverse` | `WAREHOUSE_MANAGER` + `SYSTEM_ADMIN`. Xem mục **Điều chuyển kho** bên dưới |
 | Lịch sử biến động tồn | `GET /api/inventory/transactions` | Chỉ đọc (POST → 405). Xem mục **Lịch sử biến động tồn** bên dưới |
 | Xác thực | `GET /api/auth/csrf`, `POST /api/auth/login`, `…/refresh`, `…/logout`, `GET /api/auth/me`, `PUT /api/auth/me/password` | Xem mục **Xác thực & phân quyền** bên dưới |
 | Người dùng | `GET/POST /api/users`, `GET/PUT /api/users/{id}`, `POST /api/users/{id}/reset-password` | Chỉ `SYSTEM_ADMIN`. Không có DELETE (khóa = `active=false`) |
@@ -205,6 +206,22 @@ Lọc `GET /api/inbound-receipts` (tất cả tùy chọn):
 | `status` | `DRAFT` \| `COMPLETED` \| `CANCELLED` \| `REVERSED` | Sai giá trị → 400 |
 | `warehouseId`, `supplierId` | number | Kho nhận / NCC |
 | `documentDateFrom`, `documentDateTo` | `YYYY-MM-DD` | Ngày chứng từ trong khoảng, hai đầu đều tính |
+
+**Điều chuyển kho** (thêm 2026-11-12, BR-TRF-01..13) — `WAREHOUSE_MANAGER` + `SYSTEM_ADMIN`:
+
+| Endpoint | Body / tham số | Kết quả |
+|---|---|---|
+| `GET /api/transfers` | `keyword` (mã phiếu), `status`, `sourceWarehouseId`, `targetWarehouseId`, `documentDateFrom`, `documentDateTo`, phân trang (mặc định id giảm dần) | Trang `{ id, code, status, documentDate, sourceWarehouseId, sourceWarehouseCode, sourceWarehouseName, targetWarehouseId, targetWarehouseCode, targetWarehouseName, lineCount, totalQuantity, createdBy?, completedBy?, completedAt?, createdAt }` |
+| `GET /api/transfers/{id}` | — | `{ …như trên, note?, reason?, cancelledAt?, reversedAt?, updatedAt, lines: [{ id, productId, productCode, productName, unitName, netWeightKg, quantity }] }`. Id của phiếu loại khác → 404 |
+| `POST /api/transfers` | `{ sourceWarehouseId, targetWarehouseId, documentDate?, note?, lines: [{ productId, quantity }] }` | 201, Nháp, mã `DC…`, chưa đổi tồn. Kho đích trùng kho nguồn → 400 field `targetWarehouseId`; SL ≤ 0 / lẻ → 400 field `lines[i].quantity`; trùng SP → 400 field `lines[i].productId`; không dòng → 400 field `lines`; ngày tương lai → 400 field `documentDate`; kho đích ngừng → 409; kho / SP không có → 404. Kho nguồn đã ngừng, SP đã ngừng, SL vượt tồn vẫn lưu nháp được |
+| `PUT /api/transfers/{id}` | như POST | 200. Phiếu không còn Nháp → 409 |
+| `POST /api/transfers/{id}/complete` | — | 200, Hoàn tất: kho nguồn giảm, kho đích tăng. Một dòng không đủ tồn → 409 (thông báo nêu SP, kho, số còn), **không dòng nào được thực hiện**, phiếu vẫn Nháp; kho đích đã ngừng → 409; không còn Nháp → 409 |
+| `POST /api/transfers/{id}/cancel` | `{ reason? }` (body tùy chọn) | 200, Đã hủy. Không còn Nháp → 409 |
+| `POST /api/transfers/{id}/reverse` | `{ reason }` (bắt buộc) | 200, Đã đảo, hàng về kho nguồn. Kho đích không đủ tồn → 409; đã đảo → 409; thiếu lý do → 400 field `reason` |
+
+`GET /api/inventory/transactions`: `documentType` có thêm `TRANSFER` (OUT = chuyển đi tại kho nguồn, IN = chuyển đến tại kho đích); dòng của phiếu điều chuyển có thêm `counterpartWarehouseId`, `counterpartWarehouseName` — kho ở đầu kia của lần chuyển.
+
+`GET /api/reports/stock-movement`: không gửi `warehouseId` thì giao dịch điều chuyển không tính vào `inboundQuantity` / `outboundQuantity` (BR-TRF-13); có `warehouseId` thì tính như nhập / xuất của kho đó.
 
 **Tồn kho đầu kỳ** (thêm 2026-10-27, BR-OPN-01..10) — chỉ `SYSTEM_ADMIN`:
 

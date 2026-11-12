@@ -2,7 +2,7 @@ package com.grainwarehouse.inventory.entity;
 
 /**
  * Loại chứng từ: phiếu nhập, phiếu bán (V13), phiếu tồn đầu kỳ (V20), công nợ đầu kỳ khách / NCC (V21 — chứng từ
- * không có kho, không có dòng hàng), kiểm kê (V22). TRANSFER thêm ở module sau (kèm migration nới CHECK).
+ * không có kho, không có dòng hàng), kiểm kê (V22), điều chuyển kho (V30 — có thêm kho đích).
  */
 public enum StockDocumentType {
     INBOUND,
@@ -10,5 +10,6 @@ public enum StockDocumentType {
     OPENING_STOCK,
     OPENING_CUSTOMER_DEBT,
     OPENING_SUPPLIER_DEBT,
-    STOCK_COUNT
+    STOCK_COUNT,
+    TRANSFER
 }

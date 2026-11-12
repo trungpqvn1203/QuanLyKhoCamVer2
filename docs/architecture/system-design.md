@@ -115,7 +115,7 @@ graph LR
 |---|---|
 | Nhập kho | Tạo chứng từ + cập nhật tồn + ghi StockTransaction |
 | Bán hàng | Tạo chứng từ + kiểm tra tồn + trừ tồn + ghi StockTransaction |
-| Điều chuyển | Tạo chứng từ + trừ tồn kho nguồn + tăng tồn kho đích + ghi StockTransaction (2 bản ghi) |
+| Điều chuyển | Hoàn tất phiếu: trừ tồn kho nguồn + tăng tồn kho đích + ghi StockTransaction (2 bản ghi mỗi dòng), theo thứ tự khóa (id kho, id SP) — `TransferService.complete` |
 
 Tất cả các bước trong một nghiệp vụ phải thành công hoặc rollback toàn bộ.
 
