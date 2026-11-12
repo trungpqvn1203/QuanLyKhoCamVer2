@@ -59,6 +59,12 @@ public class StockDocument extends AuditableEntity {
     @JoinColumn(name = "warehouse_id")
     private Warehouse warehouse;
 
+    // Chỉ phiếu điều chuyển (V30): kho ĐÍCH; warehouse ở trên là kho NGUỒN. CHECK ck_stock_document_target_warehouse
+    @Setter
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "target_warehouse_id")
+    private Warehouse targetWarehouse;
+
     @Setter
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "supplier_id")
@@ -77,6 +83,12 @@ public class StockDocument extends AuditableEntity {
     @Setter
     @Column(length = 500)
     private String note;
+
+    // BR-POR-11: lời khách ghi trên app (chỉ đơn kênh APP). Tách khỏi note (ghi chú nội bộ) để khách không đọc được
+    // ghi chú của cửa hàng và nhân viên không ghi đè được lời khách
+    @Setter
+    @Column(name = "customer_note", length = 500)
+    private String customerNote;
 
     @Column(name = "total_amount", nullable = false, precision = 18, scale = 0)
     private BigDecimal totalAmount = BigDecimal.ZERO;
@@ -142,7 +154,8 @@ public class StockDocument extends AuditableEntity {
     public StockDocument(StockDocumentType type, String code) {
         this.type = type;
         this.code = code;
-        this.tracksDebt = type != StockDocumentType.OPENING_STOCK && type != StockDocumentType.STOCK_COUNT;
+        this.tracksDebt = type != StockDocumentType.OPENING_STOCK && type != StockDocumentType.STOCK_COUNT
+                && type != StockDocumentType.TRANSFER;
     }
 
     /** Phiếu có ghi người lập (tồn đầu kỳ, phiếu bán). */

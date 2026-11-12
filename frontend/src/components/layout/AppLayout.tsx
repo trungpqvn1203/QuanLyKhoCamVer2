@@ -1,4 +1,4 @@
-import { AccountBookOutlined, AppstoreOutlined, CarOutlined, AuditOutlined, BankOutlined, BarChartOutlined, CalendarOutlined, DashboardOutlined, DollarOutlined, DownOutlined, ExportOutlined, FlagOutlined, HistoryOutlined, HomeOutlined, IdcardOutlined, ImportOutlined, InboxOutlined, KeyOutlined, LogoutOutlined, SafetyOutlined, ShopOutlined, ShoppingOutlined, TeamOutlined, TruckOutlined, UserOutlined, UsergroupAddOutlined, WalletOutlined } from '@ant-design/icons'
+import { AccountBookOutlined, AppstoreOutlined, CarOutlined, AuditOutlined, BankOutlined, BarChartOutlined, CalendarOutlined, DashboardOutlined, DollarOutlined, DownOutlined, ExportOutlined, FlagOutlined, HistoryOutlined, HomeOutlined, IdcardOutlined, ImportOutlined, InboxOutlined, KeyOutlined, LogoutOutlined, SafetyOutlined, ShopOutlined, ShoppingOutlined, SwapOutlined, TeamOutlined, TruckOutlined, UserOutlined, UsergroupAddOutlined, WalletOutlined } from '@ant-design/icons'
 import { App, Breadcrumb, Button, Dropdown, Flex, Layout, Menu, Typography, theme } from 'antd'
 import type { MenuProps } from 'antd'
 import type { ReactNode } from 'react'
@@ -36,6 +36,7 @@ const MENU_ITEMS: MenuEntry[] = [
   { key: '/inbound-receipts', icon: <ImportOutlined />, label: 'Nhập kho', permission: 'inbound' },
   { key: '/sales-orders', icon: <ExportOutlined />, label: 'Bán hàng' },
   { key: '/delivery-trips', icon: <TruckOutlined />, label: 'Chuyến giao' },
+  { key: '/transfers', icon: <SwapOutlined />, label: 'Điều chuyển kho', permission: 'transfer' },
   { key: '/customer-debts', icon: <AccountBookOutlined />, label: 'Công nợ khách', permission: 'debts' },
   // Cùng quyền với phiếu nhập: quản lý kho trả tiền NCC (BR-SPAY-06)
   { key: '/supplier-debts', icon: <WalletOutlined />, label: 'Công nợ NCC', permission: 'inbound' },

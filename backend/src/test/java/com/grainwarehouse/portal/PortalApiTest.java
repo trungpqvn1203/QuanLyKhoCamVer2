@@ -468,6 +468,160 @@ class PortalApiTest {
         portalLogin(dealer.getPhone(), PASSWORD).andExpect(jsonPath("$.data.mustChangePassword").value(true));
     }
 
+    // ===== BR-POR-11: thông tin nội bộ không ra app khách =====
+
+    @Test
+    @DisplayName("BR-POR-11: ghi chú nội bộ cửa hàng ghi lúc sửa / xác nhận không hiện trên app; lời khách không bị ghi đè")
+    void internalNoteShouldNeverReachCustomer() throws Exception {
+        Session customer = readyCustomer(dealer);
+        long id = data(createOrder(customer, "{\"note\": \"Giao buổi sáng\", \"lines\": [" + line(pigFeed, 50) + "]}"))
+                .get("id").asLong();
+
+        // Cửa hàng thấy lời khách ở customerNote, ghi chú nội bộ còn trống
+        mockMvc.perform(get("/api/sales-orders/{id}", id).cookie(staff.access()))
+                .andExpect(jsonPath("$.data.customerNote").value("Giao buổi sáng"))
+                .andExpect(jsonPath("$.data.note").doesNotExist());
+
+        // Cửa hàng sửa phần khách đặt (giữ kênh App) kèm ghi chú nội bộ; khách sửa đơn sau đó cũng không xóa ghi chú đó
+        mockMvc.perform(put("/api/sales-orders/{id}/request", id).with(csrf()).cookie(staff.access())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"customerId\": " + dealer.getId() + ", \"orderChannel\": \"APP\","
+                                + " \"note\": \"Khách nợ nhiều, thu tiền trước\", \"lines\": [" + line(pigFeed, 40) + "]}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.orderChannel").value("APP"))
+                .andExpect(jsonPath("$.data.customerNote").value("Giao buổi sáng"));
+        String pendingView = mockMvc.perform(get("/api/portal/orders/{id}", id).cookie(customer.access()))
+                .andExpect(jsonPath("$.data.note").value("Giao buổi sáng"))
+                .andReturn().getResponse().getContentAsString(StandardCharsets.UTF_8);
+        assertThat(pendingView).doesNotContain("nợ nhiều");
+        mockMvc.perform(put("/api/portal/orders/{id}", id).with(csrf()).cookie(customer.access())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"note\": \"Giao buổi chiều\", \"lines\": [" + line(pigFeed, 45) + "]}"))
+                .andExpect(status().isOk());
+
+        // Xác nhận với ghi chú nội bộ khác
+        salesOrderService.confirm(id, new SalesOrderRequest(dealer.getId(), warehouse.getId(), null,
+                "Khách nợ nhiều, thu tiền trước", List.of(new SalesOrderLineRequest(pigFeed.getId(), 45,
+                new BigDecimal("250000")))), "lan.bh");
+        entityManager.flush();
+        assertThat(jdbcTemplate.queryForObject("SELECT customer_note FROM stock_document WHERE id = ?", String.class, id))
+                .isEqualTo("Giao buổi chiều");
+
+        String confirmedView = mockMvc.perform(get("/api/portal/orders/{id}", id).cookie(customer.access()))
+                .andExpect(jsonPath("$.data.status").value("DRAFT"))
+                .andExpect(jsonPath("$.data.note").value("Giao buổi chiều"))
+                .andReturn().getResponse().getContentAsString(StandardCharsets.UTF_8);
+        assertThat(confirmedView).doesNotContain("nợ nhiều");
+    }
+
+    @Test
+    @DisplayName("BR-POR-11: đơn app giữ kênh App - nhân viên sửa phần khách đặt không đổi sang kênh khác được")
+    void staffShouldNotChangeChannelOfAppOrder() throws Exception {
+        Session customer = readyCustomer(dealer);
+        long id = data(createOrder(customer, orderBody(null, line(pigFeed, 5)))).get("id").asLong();
+
+        mockMvc.perform(put("/api/sales-orders/{id}/request", id).with(csrf()).cookie(staff.access())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"customerId\": " + dealer.getId() + ", \"orderChannel\": \"PHONE\","
+                                + " \"lines\": [" + line(pigFeed, 5) + "]}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.details[0].field").value("orderChannel"));
+    }
+
+    @Test
+    @DisplayName("BR-POR-11: cửa hàng hủy đơn - khách chỉ thấy câu chung, không thấy lý do nội bộ; khách tự hủy thì thấy lý do của mình")
+    void storeCancelReasonShouldStayInternal() throws Exception {
+        Session customer = readyCustomer(dealer);
+        long storeCancelled = data(createOrder(customer, orderBody(null, line(pigFeed, 5)))).get("id").asLong();
+        salesOrderService.cancel(storeCancelled, "Khách bom hàng nhiều lần, không nhận đơn");
+
+        String view = mockMvc.perform(get("/api/portal/orders/{id}", storeCancelled).cookie(customer.access()))
+                .andExpect(jsonPath("$.data.status").value("CANCELLED"))
+                .andExpect(jsonPath("$.data.cancelReason").value(containsString("Cửa hàng đã hủy đơn")))
+                .andReturn().getResponse().getContentAsString(StandardCharsets.UTF_8);
+        assertThat(view).doesNotContain("bom hàng");
+    }
+
+    // ===== BR-POR-12: giới hạn đơn app =====
+
+    @Test
+    @DisplayName("BR-POR-12: tối đa 5 đơn app Chờ xác nhận - đơn thứ 6 bị từ chối; hủy bớt thì đặt tiếp được; đơn kho ghi hộ không tính")
+    void shouldLimitPendingAppOrders() throws Exception {
+        Session customer = readyCustomer(dealer);
+        // Đơn kho ghi hộ qua điện thoại cho cùng khách không chiếm chỗ của app
+        mockMvc.perform(post("/api/sales-orders/pending").with(csrf()).cookie(staff.access())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"customerId\": " + dealer.getId() + ", \"orderChannel\": \"PHONE\","
+                                + " \"lines\": [" + line(pigFeed, 1) + "]}"))
+                .andExpect(status().isCreated());
+        long first = 0;
+        for (int i = 0; i < 5; i++) {
+            long id = data(createOrder(customer, orderBody(null, line(pigFeed, i + 1)))
+                    .andExpect(status().isCreated())).get("id").asLong();
+            first = i == 0 ? id : first;
+        }
+
+        createOrder(customer, orderBody(null, line(pigFeed, 9)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.message").value(containsString("5 đơn chờ cửa hàng xác nhận")));
+
+        mockMvc.perform(post("/api/portal/orders/{id}/cancel", first).with(csrf()).cookie(customer.access()))
+                .andExpect(status().isOk());
+        createOrder(customer, orderBody(null, line(pigFeed, 9))).andExpect(status().isCreated());
+    }
+
+    @Test
+    @DisplayName("BR-POR-12: số lượng tối đa 9.999 và phải là số nguyên; tối đa 50 sản phẩm một đơn")
+    void shouldValidateOrderSize() throws Exception {
+        Session customer = readyCustomer(dealer);
+
+        createOrder(customer, orderBody(null, line(pigFeed, 10_000)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.details[0].field").value("lines[0].quantity"))
+                .andExpect(jsonPath("$.error.details[0].message").value(containsString("9.999")));
+        // Jackson mặc định cắt 1.5 thành 1 nếu đọc vào Integer → phải báo lỗi thay vì lặng lẽ đặt 1 bao
+        createOrder(customer, "{\"lines\": [{\"productId\": " + pigFeed.getId() + ", \"quantity\": 1.5}]}")
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.details[0].field").value("lines[0].quantity"));
+        String tooManyLines = String.join(", ", java.util.Collections.nCopies(51, line(pigFeed, 1)));
+        createOrder(customer, orderBody(null, tooManyLines))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.details[0].field").value("lines"));
+        createOrder(customer, orderBody(null, line(pigFeed, 9_999)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.requestLines[0].quantity").value(9999));
+    }
+
+    @Test
+    @DisplayName("BR-POR-12: ngày muốn giao từ hôm nay đến 60 ngày tới (giờ VN)")
+    void shouldValidateDeliveryDate() throws Exception {
+        Session customer = readyCustomer(dealer);
+        LocalDate today = LocalDate.ofInstant(clock.instant(), java.time.ZoneId.of("Asia/Ho_Chi_Minh"));
+
+        createOrder(customer, orderBody(today.minusDays(1), line(pigFeed, 1)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.details[0].field").value("requestedDeliveryDate"));
+        createOrder(customer, orderBody(today.plusDays(61), line(pigFeed, 1)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.details[0].message").value(containsString("60 ngày")));
+        long id = data(createOrder(customer, orderBody(today, line(pigFeed, 1))).andExpect(status().isCreated()))
+                .get("id").asLong();
+        mockMvc.perform(put("/api/portal/orders/{id}", id).with(csrf()).cookie(customer.access())
+                        .contentType(MediaType.APPLICATION_JSON).content(orderBody(today.plusDays(60), line(pigFeed, 1))))
+                .andExpect(status().isOk());
+        mockMvc.perform(put("/api/portal/orders/{id}", id).with(csrf()).cookie(customer.access())
+                        .contentType(MediaType.APPLICATION_JSON).content(orderBody(today.plusDays(61), line(pigFeed, 1))))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("App khách sai mật khẩu - thông báo nói 'số điện thoại' (trang nhân viên vẫn 'tên đăng nhập')")
+    void portalLoginErrorShouldMentionPhone() throws Exception {
+        staffCreateAccount(dealer, PASSWORD).andExpect(status().isCreated());
+        portalLogin(dealer.getPhone(), "sai-mat-khau-1")
+                .andExpect(jsonPath("$.error.message").value("Sai số điện thoại hoặc mật khẩu"));
+    }
+
     // ===== Helpers =====
 
     /** Cookie app khách sau một lần đăng nhập / gia hạn. */

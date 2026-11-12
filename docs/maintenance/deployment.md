@@ -94,19 +94,63 @@ sudo ufw enable
 
 ## CI/CD với GitHub Actions
 
-### Pipeline dự kiến
+### Pipeline (ADR-0006: Continuous Deployment)
 
 ```
-Push to main
-  → Checkout code
-  → Setup JDK 21 + Node.js
-  → Backend: mvn test
-  → Frontend: npm test + npm run build
-  → Build Docker images
-  → (Manual trigger) Deploy to VPS via SSH
+push nhánh khác main ──► ci.yml: mvn verify + npm lint/test/build
+push main ──► cd.yml:
+   ci       (gọi lại ci.yml)
+   build    build 2 image, đẩy ghcr.io/trungpqvn1203/grain-warehouse-{backend,web}:<mã commit>
+   deploy   SSH vào VM → infra/deploy/deploy.sh:
+            git fetch + ff-only → backup DB → pull image → up -d --wait → /api/health qua Nginx
 ```
 
-> ⚠️ Dự án này dùng **Continuous Delivery** — CI tự động chạy test/build, deploy cần manual trigger để kiểm soát rủi ro.
+Chỉ sửa `docs/`, `lessons/`, `*.md` thì không chạy. Deploy lại bản `main` hiện tại: tab Actions → CD → **Run workflow**.
+
+### Cài đặt một lần (trước lần push main đầu tiên)
+
+**1. Mở cổng SSH cho GitHub Actions** — IP của runner thay đổi liên tục nên NSG cổng 22 phải mở `Any` (đã chọn ở ADR-0006). Bù lại, trên VM bắt buộc chỉ đăng nhập bằng key:
+
+```bash
+sudo sshd -T | grep -E 'passwordauthentication|permitrootlogin'   # phải là "no" / "no" (hoặc without-password)
+```
+
+**2. Key SSH riêng cho deploy** (trên máy local, không dùng lại key `.pem` cá nhân). *Hiện trạng 2026-11-10: `DEPLOY_SSH_KEY` đang dùng tạm `QuanKhoCam_key.pem` (ADR-0006); làm bước này khi muốn tách key.*
+
+```bash
+ssh-keygen -t ed25519 -f ~/.ssh/grain_deploy -N "" -C "github-actions-deploy"
+# Thêm public key vào VM (user có quyền docker, ví dụ azureuser):
+cat ~/.ssh/grain_deploy.pub | ssh azureuser@<IP> 'cat >> ~/.ssh/authorized_keys'
+ssh -i ~/.ssh/grain_deploy azureuser@<IP> 'docker ps'      # thử: phải vào được và chạy được docker
+grep '<IP>' ~/.ssh/known_hosts                               # dòng host key đã xác nhận lần SSH đầu → dùng cho DEPLOY_KNOWN_HOSTS
+```
+
+**3. GitHub → repo → Settings → Secrets and variables → Actions**
+
+| Loại | Tên | Giá trị |
+|---|---|---|
+| Secret | `DEPLOY_HOST` | IP public của VM |
+| Secret | `DEPLOY_USER` | `azureuser` |
+| Secret | `DEPLOY_SSH_KEY` | Toàn bộ nội dung file `~/.ssh/grain_deploy` (private key) |
+| Secret | `DEPLOY_KNOWN_HOSTS` | Dòng host key của VM lấy ở bước 2 |
+| Variable | `DEPLOY_PATH` | Thư mục repo trên VM (bỏ trống = `/opt/grain-warehouse`) |
+
+**4. Trên VM** — thư mục `DEPLOY_PATH` là bản clone của repo, đang ở nhánh `main`, không có sửa tay (`git status` sạch), có `.env.prod`. Không cần lưu token GitHub trên VM: `deploy.sh` dùng `GITHUB_TOKEN` của job, hết hạn khi job xong.
+
+### Khi deploy đỏ
+
+| Bước đỏ | Nguyên nhân thường gặp |
+|---|---|
+| `ci` | Test/lint lỗi — giống CI thường, sửa code |
+| `build` | Lỗi Dockerfile; hoặc `denied` khi push → package GHCR không cấp quyền Actions cho repo (Package settings → Manage Actions access) |
+| `Upload deploy script` | `Host key verification failed` → `DEPLOY_KNOWN_HOSTS` sai; `Permission denied (publickey)` → public key chưa nằm trong `authorized_keys`; treo → NSG chưa mở 22 |
+| `1/6` git | `Not possible to fast-forward` → trên VM có commit/sửa tay, xử lý tay bằng `git status` |
+| `4/6` pull | `denied` → giống lỗi quyền package ở bước build |
+| `5/6` up | Backend không healthy — log 80 dòng in ngay trong job (thường do migration lỗi hoặc thiếu biến `.env.prod`) |
+
+**Rollback** (không tự động — DB đã migrate thì code cũ có thể không chạy được):
+1. Bản mới chưa đổi schema → trên VM: sửa `IMAGE_TAG=<mã commit cũ>` trong `.env.prod`, `docker login ghcr.io` (Personal Access Token quyền `read:packages`), `dc pull && dc up -d`. Hoặc `git revert` rồi push main để pipeline tự chạy lại.
+2. Bản mới đã chạy migration → restore file `~/backups/pre-deploy-*.sql.gz` ([backup-restore.md](backup-restore.md)) rồi mới chạy image cũ.
 
 ---
 
@@ -192,8 +236,8 @@ Trên Azure đã có sẵn user `azureuser` đăng nhập bằng key, và đăng
 ### Bước 2 — Lấy code và cấu hình
 
 ```bash
-sudo mkdir -p /opt/grain-warehouse && sudo chown deployer: /opt/grain-warehouse
-git clone https://github.com/<user>/<repo>.git /opt/grain-warehouse   # repo private: dùng deploy key hoặc Personal Access Token
+sudo mkdir -p /opt/grain-warehouse && sudo chown azureuser: /opt/grain-warehouse
+git clone https://github.com/trungpqvn1203/QuanLyKhoCamVer2.git /opt/grain-warehouse  # PHẢI ghi thư mục đích; repo private: dùng Personal Access Token
 cd /opt/grain-warehouse
 cp .env.prod.example .env.prod && chmod 600 .env.prod
 openssl rand -base64 24   # → POSTGRES_PASSWORD
@@ -227,6 +271,8 @@ Trình duyệt: mở `http://<IP>` → đăng nhập admin → **đổi mật kh
 Trỏ bản ghi A của tên miền về IP VPS, sau đó cần: cấp chứng chỉ Let's Encrypt (certbot), thêm `server { listen 443 ssl; ... }` vào Nginx, chuyển hướng 80 → 443, publish cổng 443 và gia hạn tự động. Làm thành module riêng khi có tên miền.
 
 ### Cập nhật phiên bản mới
+
+**Đã tự động** bằng `cd.yml` khi push `main` (xem mục CI/CD ở trên). Các lệnh dưới đây là cách làm tay cũ — chỉ dùng khi GitHub Actions hỏng. Lưu ý: `--build` trên server tạo image tag `IMAGE_TAG` đang ghi trong `.env.prod`, nên trước đó đặt `IMAGE_TAG=` (trống) để không ghi đè tên image của CD.
 
 ```bash
 cd /opt/grain-warehouse

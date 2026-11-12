@@ -1,0 +1,25 @@
+# Điều chuyển kho
+
+[← Mục lục kho bài học](../README.md)
+
+## Module: Điều chuyển kho (2026-11-12, migration V30)
+
+- **Một nghiệp vụ, hai kho, một transaction.** Chuyển 30 bao cám A từ Kho Hà Nội (đang có 100) sang Kho Bắc Ninh (đang có 7) là *hai* thay đổi: Hà Nội 100 → 70 và Bắc Ninh 7 → 37. Nếu chỉ một trong hai được lưu thì hoặc 30 bao biến mất khỏi sổ, hoặc 30 bao tự mọc thêm. `@Transactional` ở `TransferService.complete` gói cả hai (và mọi dòng khác của phiếu) thành "tất cả hoặc không gì cả" — đây là chữ **A (Atomicity)** trong ACID. `InventoryService` khai `Propagation.MANDATORY` nên không ai gọi được hàm trừ/cộng tồn ở ngoài một transaction.
+- **Thêm một giá trị `type`, không thêm bảng.** Phiếu điều chuyển là `stock_document` với `type = 'TRANSFER'`: `warehouse_id` là kho nguồn, cột mới `target_warehouse_id` là kho đích. Mỗi dòng phiếu sinh **hai** `stock_transaction` cùng trỏ về một `document_item_id` — OUT ở kho nguồn, IN ở kho đích. Nhờ vậy lịch sử kho, báo cáo, đảo phiếu, CHECK không âm dùng lại nguyên cơ chế cũ. Bảng `stock_transfer` riêng chỉ đáng làm khi quy trình khác hẳn (yêu cầu → duyệt → xuất → nhận, có hàng đang đi đường).
+- **Deadlock và thứ tự khóa (lock ordering).** Mỗi câu `UPDATE inventory …` khóa dòng (SP, kho) đó đến hết transaction. Phiếu A chuyển Hà Nội → Bắc Ninh, phiếu B chuyển Bắc Ninh → Hà Nội, cả hai đều "trừ nguồn trước, cộng đích sau": A giữ dòng cám A ở Hà Nội và chờ dòng ở Bắc Ninh; B giữ dòng ở Bắc Ninh và chờ dòng ở Hà Nội. Hai bên chờ nhau mãi — **deadlock**; PostgreSQL phát hiện sau khoảng 1 giây và hủy một transaction (`ERROR: deadlock detected`). Cách tránh: mọi transaction đều xin khóa theo **cùng một thứ tự toàn cục**. Ở đây: kho có id nhỏ hơn trước, trong mỗi kho theo `product_id` tăng dần. Khi đó A và B cùng xếp hàng ở dòng đầu tiên, người đến sau chỉ phải *chờ*, không ai giữ thứ người kia cần.
+- **Hệ quả lạ nhưng đúng: có lúc cộng đích trước khi trừ nguồn.** Chuyển Bắc Ninh (id lớn) → Hà Nội (id nhỏ) thì theo thứ tự khóa, Hà Nội được cộng trước, Bắc Ninh bị trừ sau. Nếu Bắc Ninh không đủ hàng, bước trừ ném lỗi và bước cộng đã chạy bị rollback cùng transaction. Thứ tự *thực thi* trong một transaction không ảnh hưởng tính đúng — chỉ kết quả lúc commit mới tồn tại. Test `shouldRollbackTargetIncreaseWhenSourceIsShort` kiểm đúng ca này.
+- **Kiểm chứng rằng test bắt được lỗi.** Test `opposingTransfersShouldNotDeadlock` chạy 10 phiếu xuôi + 10 phiếu ngược cùng lúc. Thử sửa service thành luôn "trừ nguồn trước" → log đầy `deadlock detected`, test đỏ; trả lại thứ tự khóa → xanh. Một test chưa từng thấy đỏ thì chưa chắc đang kiểm điều mình nghĩ.
+- **Điều chuyển trong báo cáo nhập – xuất – tồn.** Lọc một kho: chuyển đến là nhập, chuyển đi là xuất của kho đó. Xem mọi kho: hàng chỉ đổi chỗ, không vào/ra hệ thống — nếu vẫn cộng thì một lần chuyển 100 bao hiện "nhập 100, xuất 100" dù không mua bán gì. Câu SQL bỏ giao dịch `TRANSFER` khỏi hai cột đó khi không lọc kho; tồn đầu kỳ không cần sửa vì OUT và IN của cùng phiếu tự triệt tiêu.
+- **Kho nguồn được phép đã ngừng, kho đích thì không.** Kho đóng cửa vẫn còn hàng trên sổ (BR-STK-01); điều chuyển chính là cách rút hàng ra. Vì thế chỉ kho đích bị kiểm `active`, và kiểm hai lần — lúc lưu nháp và lúc hoàn tất — vì kho có thể bị ngừng ở giữa.
+- **Lỗi đã gặp (lặp lại bài Kiểm kê):** (1) viết ca "dòng 2 thiếu tồn → dòng 1 được trả lại" trong lớp test `@Transactional` — transaction của test bao ngoài nên phần đã trừ vẫn nhìn thấy, không chứng minh được rollback; phải đặt ở `TransferConcurrencyTest` (không `@Transactional`, mỗi lời gọi service là một transaction thật). (2) DB test cục bộ đã áp `V28` của nhánh `feature/delivery-trip` nên Flyway báo "applied migration not resolved locally: 28" khi chạy test ở nhánh không có file đó → chạy test với DB riêng qua biến `POSTGRES_TEST_DB`. (3) `vitest` chạy từ Git Bash ở đường dẫn `/d/...` (ổ đĩa chữ thường) báo "failed to find the current suite" cho mọi file — vitest bị nạp hai lần dưới hai cách viết đường dẫn; chạy từ PowerShell ở `D:\...` thì qua.
+
+### Câu hỏi ôn tập (để cuối dự án)
+
+1. Nếu `TransferService.complete` không có `@Transactional` và bước cộng kho đích ném lỗi sau khi kho nguồn đã bị trừ, sổ sách sẽ ra sao? Cơ chế nào trong dự án khiến tình huống đó không thể xảy ra?
+2. Deadlock là gì? Mô tả từng bước hai phiếu Hà Nội → Bắc Ninh và Bắc Ninh → Hà Nội khóa nhau khi không có thứ tự khóa.
+3. Vì sao sắp thứ tự khóa theo (id kho, id sản phẩm) lại loại được deadlock? Điều kiện để cách này có tác dụng là gì?
+4. Chuyển từ kho id lớn sang kho id nhỏ thì kho đích được cộng trước khi kho nguồn bị trừ. Vì sao điều đó vẫn an toàn?
+5. Vì sao một dòng phiếu điều chuyển sinh hai `stock_transaction` nhưng không cần thêm cột nào vào bảng `stock_transaction`?
+6. Khi nào báo cáo nhập – xuất – tồn tính điều chuyển vào cột Nhập/Xuất, khi nào không? Vì sao tồn đầu kỳ không bị ảnh hưởng?
+7. Vì sao test rollback không được đặt trong lớp test có `@Transactional`?
+8. Làm sao biết một test đồng thời thật sự bắt được lỗi mà nó nhắm tới?

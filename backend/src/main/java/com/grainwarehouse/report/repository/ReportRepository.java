@@ -174,10 +174,19 @@ public class ReportRepository {
         MapSqlParameterSource params = new MapSqlParameterSource()
                 .addValue("start", Timestamp.from(start))
                 .addValue("end", Timestamp.from(end));
+        // BR-TRF-13: xem MỘT kho thì điều chuyển là nhập/xuất thật của kho đó. Xem MỌI kho thì hàng chỉ đổi chỗ trong
+        // hệ thống — bỏ khỏi cột Nhập/Xuất, nếu không một lần chuyển 100 bao sẽ hiện "nhập 100, xuất 100".
+        // Tồn đầu kỳ vẫn cộng cả giao dịch điều chuyển: OUT và IN của cùng một phiếu tự triệt tiêu.
         String warehouseFilter = "";
+        String internalMove = "FALSE";
+        String documentJoin = "";
         if (warehouseId != null) {
             warehouseFilter = " AND t.warehouse_id = :warehouseId";
             params.addValue("warehouseId", warehouseId);
+        } else {
+            internalMove = "d.type = 'TRANSFER'";
+            documentJoin = "JOIN stock_document_item di ON di.id = t.document_item_id"
+                    + " JOIN stock_document d ON d.id = di.document_id";
         }
         String filters = productFilters(categoryId, null, params);
         return jdbc.query("""
@@ -186,16 +195,17 @@ public class ReportRepository {
                            SUM(CASE WHEN t.created_at < :start
                                     THEN CASE t.type WHEN 'IN' THEN t.quantity ELSE -t.quantity END
                                     ELSE 0 END) AS opening,
-                           SUM(CASE WHEN t.created_at < :start THEN 0
+                           SUM(CASE WHEN t.created_at < :start OR %1$s THEN 0
                                     WHEN t.type = 'IN' AND t.reversal_of_id IS NULL THEN t.quantity
                                     WHEN t.type = 'OUT' AND t.reversal_of_id IS NOT NULL THEN -t.quantity
                                     ELSE 0 END) AS inbound,
-                           SUM(CASE WHEN t.created_at < :start THEN 0
+                           SUM(CASE WHEN t.created_at < :start OR %1$s THEN 0
                                     WHEN t.type = 'OUT' AND t.reversal_of_id IS NULL THEN t.quantity
                                     WHEN t.type = 'IN' AND t.reversal_of_id IS NOT NULL THEN -t.quantity
                                     ELSE 0 END) AS outbound
                     FROM stock_transaction t
-                    WHERE t.created_at < :end %s
+                    %2$s
+                    WHERE t.created_at < :end %3$s
                     GROUP BY t.product_id
                 )
                 SELECT p.id, p.code, p.name, c.name AS category_name, u.name AS unit_name, p.net_weight_kg, p.active,
@@ -204,10 +214,11 @@ public class ReportRepository {
                 JOIN product p ON p.id = m.product_id
                 JOIN category c ON c.id = p.category_id
                 JOIN product_unit u ON u.id = p.unit_id
-                WHERE TRUE %s
+                WHERE TRUE %4$s
                 ORDER BY p.code
-                """.formatted(warehouseFilter, filters), params, (rs, n) -> new MovementRow(productInfo(rs),
-                rs.getLong("opening"), rs.getLong("inbound"), rs.getLong("outbound")));
+                """.formatted(internalMove, documentJoin, warehouseFilter, filters), params,
+                (rs, n) -> new MovementRow(productInfo(rs),
+                        rs.getLong("opening"), rs.getLong("inbound"), rs.getLong("outbound")));
     }
 
     private static String productFilters(Long categoryId, String keyword, MapSqlParameterSource params) {

@@ -15,7 +15,7 @@ interface LoginValues {
  * gọi cửa hàng (BR-POR-Q01 — chưa có tự đăng ký).
  */
 export function PortalLoginPage() {
-  const { me, loading, sessionExpired, login } = usePortalAuth()
+  const { me, loading, signOutNotice, login } = usePortalAuth()
   const navigate = useNavigate()
   const { token } = theme.useToken()
   const [submitting, setSubmitting] = useState(false)
@@ -45,9 +45,7 @@ export function PortalLoginPage() {
           </Typography.Title>
           <Typography.Text type="secondary">Đăng nhập bằng số điện thoại đã đăng ký với cửa hàng</Typography.Text>
         </Flex>
-        {sessionExpired && (
-          <Alert type="info" showIcon title="Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại" style={{ marginBottom: 16 }} />
-        )}
+        {signOutNotice && <Alert type="info" showIcon title={signOutNotice} style={{ marginBottom: 16 }} />}
         {error && <Alert type="error" showIcon title={error} style={{ marginBottom: 16 }} />}
         <Form<LoginValues> layout="vertical" onFinish={submit} requiredMark={false} disabled={submitting}>
           <Form.Item name="phone" label="Số điện thoại" rules={[{ required: true, whitespace: true, message: 'Nhập số điện thoại' }]}>

@@ -27,7 +27,7 @@
 
 Ràng buộc đổi: `ck_employee_has_rate` (ít nhất một trong ba đơn giá), `ck_employee_rates`, `ck_attendance_tons`, `ck_attendance_absent_no_tons` (ngày nghỉ: cả hai loại tấn = 0), `ck_payroll_item_quantities`, `ck_payroll_item_amounts`, `ck_payroll_item_total` (`total = day + unload + delivery`). Dùng `RENAME` vì tấn cũ đã được xác nhận là tấn bốc xuống, nên ý nghĩa dữ liệu giữ nguyên; các bảng lương đã chốt giữ nguyên số tiền (phần giao hàng = 0, đơn giá = NULL). Đã kiểm chứng trên database tạm với dữ liệu kiểu cũ.
 | `inventory` | Tồn kho hiện tại (product × warehouse) | ✅ Đã duyệt 2026-10-19 (V6) |
-| `stock_document` | Chứng từ kho (phiếu nhập, phiếu bán/xuất, phiếu điều chuyển) | ✅ Đã duyệt 2026-10-19 (V6) — `INBOUND`; V13 (2026-10-20) mở `OUTBOUND` + `customer_id`, `paid_amount` |
+| `stock_document` | Chứng từ kho (phiếu nhập, phiếu bán/xuất, phiếu điều chuyển) | ✅ Đã duyệt 2026-10-19 (V6) — `INBOUND`; V13 (2026-10-20) mở `OUTBOUND` + `customer_id`, `paid_amount`; V30 (2026-11-12) mở `TRANSFER` + `target_warehouse_id` |
 | `stock_document_item` | Dòng chi tiết trong chứng từ | ✅ Đã duyệt 2026-10-19 (V6) |
 | `stock_transaction` | Lịch sử biến động tồn kho (bất biến) | ✅ Đã duyệt 2026-10-19 (V6) |
 | `customer_product_price` | Giá bán riêng hiện hành theo (khách, SP) — chỉ để điền sẵn | ✅ Đã duyệt 2026-10-20 (V13) |
@@ -129,9 +129,10 @@ erDiagram
     stock_document {
         bigint id PK
         varchar code UK "PN000001 / PX000001 (service sinh từ inbound_code_seq / outbound_code_seq)"
-        varchar type "INBOUND | OUTBOUND (TRANSFER mở sau)"
+        varchar type "INBOUND | OUTBOUND | TRANSFER (V30) | ..."
         varchar status "DRAFT | COMPLETED | CANCELLED | REVERSED"
-        bigint warehouse_id FK "Kho chính (nhập/xuất)"
+        bigint warehouse_id FK "Kho chính (nhập/xuất); kho NGUỒN khi TRANSFER"
+        bigint target_warehouse_id FK "kho ĐÍCH, chỉ khi TRANSFER (V30)"
         bigint supplier_id FK "bắt buộc khi INBOUND"
         bigint customer_id FK "bắt buộc khi OUTBOUND (V13)"
         date document_date "Ngày chứng từ, lùi được, không tương lai"
@@ -282,7 +283,7 @@ erDiagram
 
 ### stock_document (Chứng từ) (✅ đã duyệt — migration V6)
 
-- Dùng chung cho phiếu nhập / xuất / điều chuyển, phân biệt bằng `type`. V6 mở `INBOUND`; **V13 mở `OUTBOUND`** và thêm `customer_id`, `paid_amount`; **V20 mở `OPENING_STOCK`** (tồn đầu kỳ) và thêm `created_by`, `completed_by`; **V21** công nợ đầu kỳ (không kho); **V22 `STOCK_COUNT`** (kiểm kê). Điều chuyển sẽ nới CHECK và thêm `target_warehouse_id` sau (tiền tố mã nên khác `PC` — `PC` đã là phiếu chi của sổ quỹ).
+- Dùng chung cho phiếu nhập / xuất / điều chuyển, phân biệt bằng `type`. V6 mở `INBOUND`; **V13 mở `OUTBOUND`** và thêm `customer_id`, `paid_amount`; **V20 mở `OPENING_STOCK`** (tồn đầu kỳ) và thêm `created_by`, `completed_by`; **V21** công nợ đầu kỳ (không kho); **V22 `STOCK_COUNT`** (kiểm kê); **V30 `TRANSFER`** (điều chuyển) và thêm `target_warehouse_id` — xem mục riêng bên dưới.
 - `ck_stock_document_customer` (V13): phiếu nhập không có khách; phiếu bán bắt buộc có khách, không có NCC (BR-SAL-01).
 - `tracks_debt` (V16, `BOOLEAN NOT NULL DEFAULT TRUE`): phiếu có phát sinh công nợ hay không. Migration V16 đặt `FALSE` cho phiếu nhập đã `COMPLETED`/`REVERSED` trước module công nợ NCC (BR-SPAY-05). Chỉ migration đổi cột này; còn nợ của phiếu `tracks_debt = FALSE` luôn là 0.
 - `paid_amount` (V13, dùng chung từ V16): phiếu bán = tổng đã thu — **snapshot** của `sale_payment`; phiếu nhập = tổng đã trả NCC — snapshot của `supplier_payment`, giống `inventory` ↔ `stock_transaction`. `ck_stock_document_paid`: `0 <= paid_amount <= total_amount` (BR-SAL-11). Chỉ đổi khi thu/hoàn tiền, sau khi khóa phiếu `FOR UPDATE`. Còn nợ = `total_amount − paid_amount` (không lưu).
@@ -298,6 +299,7 @@ erDiagram
 - `status` thêm `PENDING` (Chờ xác nhận) — chỉ phiếu bán (`ck_stock_document_pending`). Bước chuyển thêm: `PENDING → DRAFT` (xác nhận), `PENDING → CANCELLED` (BR-SAL-16).
 - `ck_stock_document_warehouse` nới: phiếu bán `PENDING`, hoặc `CANCELLED` mà **chưa từng xác nhận** (`confirmed_at IS NULL`), được không có kho. Từ `DRAFT` trở đi bắt buộc kho như cũ.
 - Cột mới (chỉ phiếu bán): `order_channel VARCHAR(20)` (`DIRECT`/`PHONE`/`ZALO`/`APP`; phiếu bán cũ = `DIRECT`; `ck_stock_document_order_channel`: phiếu bán bắt buộc có kênh, loại khác NULL), `requested_delivery_date DATE` (ngày muốn giao, được ở tương lai), `confirmed_at TIMESTAMPTZ`, `confirmed_by VARCHAR(50)` (`ck_stock_document_confirmed`: hai cột đi cùng nhau). `created_by` (có từ V20) nay ghi cả cho phiếu bán mới.
+- **V29 (2026-11-04, BR-POR-11):** `customer_note VARCHAR(500)` — lời khách ghi trên app; `ck_stock_document_customer_note`: chỉ đơn `order_channel = 'APP'` mới có. `note` từ nay là ghi chú **nội bộ**. Dữ liệu cũ: chỉ đơn app còn `PENDING` được chuyển `note → customer_note` (chưa ai sửa nên chắc chắn là lời khách); đơn đã xác nhận không chép vì `note` có thể đã bị nhân viên ghi đè. Giới hạn 5 đơn chờ (BR-POR-12) đếm bằng `count(*)` sau khi khóa dòng `customer_account` — không cần index riêng ở quy mô một cửa hàng.
 - Phiếu `PENDING` **không có dòng `stock_document_item`** (service bảo đảm): nhờ vậy không phải nới `unit_price NOT NULL` hay CHECK nào của dòng phiếu.
 - **`sale_request_item`**: `document_id` FK, `product_id` FK, `quantity INTEGER > 0`, `UNIQUE (document_id, product_id)`. Sửa được khi phiếu `PENDING`, khóa từ lúc xác nhận (BR-SAL-20) — service kiểm tra sau khi khóa phiếu `FOR UPDATE`.
 - **Vì sao bảng riêng, không dùng `ordered_quantity` của dòng phiếu:** kho được **đổi SP** khi xác nhận (BR-SAL-19). `ordered_quantity` gắn với dòng của SP *mới* nên mất dấu SP khách đặt ban đầu.
@@ -412,9 +414,17 @@ erDiagram
 - **Bảng riêng, không gộp với `sale_payment`:** chiều tiền (chi/thu) và quyền khác nhau, và không phải sửa module bán hàng đã duyệt. Gộp thành một bảng `document_payment` chỉ đáng làm khi có thêm loại thanh toán thứ ba.
 - Công nợ NCC = `SUM(total_amount − paid_amount)` của phiếu `INBOUND` + `COMPLETED` + `tracks_debt` còn nợ, `GROUP BY supplier_id` (index `idx_stock_document_supplier`).
 
-Ví dụ (khi có module điều chuyển): phiếu điều chuyển 100 bao cám A từ kho K1 sang K2 tạo:
-1. StockTransaction: product=A, warehouse=K1, type=OUT, quantity=100
-2. StockTransaction: product=A, warehouse=K2, type=IN, quantity=100
+### Điều chuyển kho: stock_document type TRANSFER + target_warehouse_id (✅ đã duyệt 2026-11-12 — migration V30)
+
+- **Không thêm bảng.** Phiếu điều chuyển là `stock_document` với `type = 'TRANSFER'` (mã `DC` + 6 số, `transfer_code_seq`): `warehouse_id` = kho **nguồn**, cột mới `target_warehouse_id` (FK `warehouse`) = kho **đích**. Dòng hàng ở `stock_document_item` với `unit_price = 0`, `line_amount = 0`, `ordered_quantity` NULL.
+- **Mỗi dòng phiếu sinh hai `stock_transaction` cùng `document_item_id`:** OUT tại kho nguồn, IN tại kho đích; cột `warehouse_id` của giao dịch phân biệt hai bên. Bảng `stock_transaction` không đổi. Ví dụ phiếu chuyển 100 bao cám A từ K1 sang K2:
+  1. `product=A, warehouse=K1, type=OUT, quantity=100`
+  2. `product=A, warehouse=K2, type=IN, quantity=100`
+- **Ràng buộc:** `ck_stock_document_target_warehouse`: `(type = 'TRANSFER') = (target_warehouse_id IS NOT NULL)`; `ck_stock_document_transfer_distinct`: `target_warehouse_id <> warehouse_id`; `ck_stock_document_transfer`: không `supplier_id`, không `customer_id`, `tracks_debt = FALSE` (entity đặt `false` trong constructor). Kho nguồn bắt buộc nhờ `ck_stock_document_warehouse` (V21/V25).
+- **Vì sao không bảng `stock_transfer` riêng:** cùng lý do với tồn đầu kỳ (V20) — `stock_transaction.document_item_id` là `NOT NULL`, bảng riêng buộc phải nới cột đó hoặc nhân bản cơ chế tồn. Chỉ đáng tách khi điều chuyển có quy trình nhiều bước (yêu cầu → duyệt → xuất → nhận) và trạng thái "đang vận chuyển".
+- **Không thêm index cho `target_warehouse_id`:** lọc danh sách theo kho đích trên quy mô vài kho, vài phiếu mỗi ngày chưa cần; thêm khi `EXPLAIN ANALYZE` cho thấy cần.
+- **Đảo phiếu** dùng lại `InventoryService.reverse` cho cả hai giao dịch gốc của mỗi dòng (IN ở đích → OUT ở đích, OUT ở nguồn → IN ở nguồn), `reversal_of_id` UNIQUE như mọi chứng từ.
+- **Lịch sử kho:** `StockTransactionResponse` có thêm `counterpartWarehouseId/Name` (kho ở đầu kia của lần chuyển) — suy ra từ chứng từ, không lưu thêm cột.
 
 ## Kiểu dữ liệu cho tiền và số lượng (✅ chốt 2026-10-19)
 
@@ -477,6 +487,15 @@ Transfer K2→K1: lock K1 trước (ID nhỏ hơn), rồi K2
 ```
 
 Cả hai transaction đều lock theo thứ tự ID tăng dần → không deadlock.
+
+**Đã triển khai ở V30 (`TransferService.complete` / `reverse`):** khóa thật nằm trên dòng `inventory` (SP, kho), lấy bằng chính câu `UPDATE` / `INSERT … ON CONFLICT` cộng trừ tồn. Mọi phiếu chạy các câu đó theo `(warehouse_id, product_id)` tăng dần. Hệ quả: khi kho đích có id nhỏ hơn, tồn kho đích được **cộng trước** khi kho nguồn bị trừ — vẫn đúng vì cả hai nằm trong một transaction, bước trừ thất bại thì bước cộng rollback.
+
+| Tình huống | Cơ chế | Test kiểm chứng |
+|---|---|---|
+| 10 phiếu K1→K2 và 10 phiếu K2→K1 hoàn tất cùng lúc | Thứ tự khóa theo (id kho, id SP) | `TransferConcurrencyTest.opposingTransfersShouldNotDeadlock`. Đã thử bỏ thứ tự khóa (luôn trừ nguồn trước) → PostgreSQL báo `deadlock detected`, test fail |
+| Dòng 2 thiếu tồn sau khi dòng 1 đã trừ; nguồn thiếu sau khi đích đã cộng | Một `@Transactional` bao cả phiếu; `InventoryService` là `Propagation.MANDATORY` | `shouldRollbackEarlierLinesWhenLaterLineIsShort`, `shouldRollbackTargetIncreaseWhenSourceIsShort` |
+| 5 phiếu × 30 bao cùng rút từ tồn 100 | `UPDATE … WHERE quantity >= :q` | `concurrentTransfersShouldNotOverdrawSource`: đúng 3 thành công, nguồn còn 10, đích nhận 90 |
+| Bấm Hoàn tất nhiều lần một phiếu | Khóa phiếu `FOR UPDATE` rồi kiểm tra trạng thái | `concurrentCompleteOfSameDocumentShouldApplyOnce` |
 
 ### Đã triển khai ở V6 (phiếu nhập)
 

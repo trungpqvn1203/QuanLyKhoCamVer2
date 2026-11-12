@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { movementKind, signedQuantity, stockTransactionApi } from './stock-transaction-api'
+import { movementKind, partnerLabel, signedQuantity, stockTransactionApi } from './stock-transaction-api'
 
 function stubFetch() {
   const fetchMock = vi.fn().mockResolvedValue(
@@ -70,6 +70,19 @@ describe('movementKind', () => {
     expect(movementKind({ documentType: 'STOCK_COUNT', type: 'IN' })).toBe('COUNT_SURPLUS')
     expect(movementKind({ documentType: 'STOCK_COUNT', type: 'OUT' })).toBe('COUNT_SHORTAGE')
     expect(movementKind({ documentType: 'STOCK_COUNT', type: 'IN', reversalOfId: 1 })).toBe('COUNT_REVERSAL')
+    expect(movementKind({ documentType: 'TRANSFER', type: 'OUT' })).toBe('TRANSFER_OUT')
+    expect(movementKind({ documentType: 'TRANSFER', type: 'IN' })).toBe('TRANSFER_IN')
+    expect(movementKind({ documentType: 'TRANSFER', type: 'OUT', reversalOfId: 1 })).toBe('TRANSFER_REVERSAL')
+  })
+})
+
+describe('partnerLabel', () => {
+  it('điều chuyển: kho đầu kia kèm chiều hàng đi; loại khác: NCC / khách', () => {
+    expect(partnerLabel({ type: 'OUT', counterpartWarehouseName: 'Kho Bắc Ninh' })).toBe('→ Kho Bắc Ninh')
+    expect(partnerLabel({ type: 'IN', counterpartWarehouseName: 'Kho Hà Nội' })).toBe('← Kho Hà Nội')
+    expect(partnerLabel({ type: 'IN', supplierName: 'NCC A' })).toBe('NCC A')
+    expect(partnerLabel({ type: 'OUT', customerName: 'Đại lý B' })).toBe('Đại lý B')
+    expect(partnerLabel({ type: 'IN' })).toBeUndefined()
   })
 })
 

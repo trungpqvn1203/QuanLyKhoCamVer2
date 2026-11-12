@@ -4,8 +4,8 @@ import type { PortalMe } from './portal-api'
 export interface PortalAuthValue {
   me: PortalMe | null
   loading: boolean
-  /** Đang dùng app thì phiên hết hạn / bị khóa → trang đăng nhập hiện lý do */
-  sessionExpired: boolean
+  /** Đang dùng app thì phiên hết hạn / cửa hàng khóa tài khoản → trang đăng nhập hiện câu này */
+  signOutNotice: string | null
   login: (phone: string, password: string) => Promise<PortalMe>
   logout: () => Promise<void>
   /** Sau khi đổi mật khẩu: đọc lại để mustChangePassword = false */

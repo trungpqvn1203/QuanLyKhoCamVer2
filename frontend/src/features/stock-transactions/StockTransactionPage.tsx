@@ -19,11 +19,13 @@ import { productApi } from '../products/product-api'
 import type { Product } from '../products/product-api'
 import { SalesOrderDrawer } from '../sales-orders/SalesOrderDrawer'
 import { useSalesReferences } from '../sales-orders/use-sales-references'
+import { TransferDrawer } from '../transfers/TransferDrawer'
 import {
   DOCUMENT_TYPE_LABELS,
   MOVEMENT_LABELS,
   TRANSACTION_TYPE_LABELS,
   movementKind,
+  partnerLabel,
   signedQuantity,
   stockTransactionApi,
 } from './stock-transaction-api'
@@ -45,6 +47,9 @@ const MOVEMENT_COLORS: Record<MovementKind, string> = {
   COUNT_SURPLUS: 'cyan',
   COUNT_SHORTAGE: 'magenta',
   COUNT_REVERSAL: 'warning',
+  TRANSFER_OUT: 'geekblue',
+  TRANSFER_IN: 'geekblue',
+  TRANSFER_REVERSAL: 'warning',
 }
 
 const DOCUMENT_TYPE_OPTIONS = (Object.keys(DOCUMENT_TYPE_LABELS) as StockDocumentType[]).map((type) => ({
@@ -78,6 +83,7 @@ export function StockTransactionPage() {
   const canSeeInbound = useCan('inbound')
   const canSeeOpening = useCan('opening')
   const canSeeCount = useCan('stockcount')
+  const canSeeTransfer = useCan('transfer')
   const [searchParams] = useSearchParams()
   const receiptReferences = useReceiptReferences()
   const salesReferences = useSalesReferences()
@@ -180,7 +186,8 @@ export function StockTransactionPage() {
           {/* Không có quyền xem loại phiếu này (ADR-0003, BR-OPN-09) → hiện mã, không mở khung */}
           {(transaction.documentType === 'INBOUND' && !canSeeInbound) ||
           (transaction.documentType === 'OPENING_STOCK' && !canSeeOpening) ||
-          (transaction.documentType === 'STOCK_COUNT' && !canSeeCount) ? (
+          (transaction.documentType === 'STOCK_COUNT' && !canSeeCount) ||
+          (transaction.documentType === 'TRANSFER' && !canSeeTransfer) ? (
             <CodeText code={transaction.documentCode} />
           ) : (
             <CodeLink code={transaction.documentCode} onClick={() => openDocument(transaction)} />
@@ -192,7 +199,7 @@ export function StockTransactionPage() {
     {
       title: 'Đối tác',
       key: 'partner',
-      render: (_, transaction) => transaction.supplierName ?? transaction.customerName ?? EMPTY_TEXT,
+      render: (_, transaction) => partnerLabel(transaction) ?? EMPTY_TEXT,
     },
     {
       title: 'Thay đổi',
@@ -229,7 +236,7 @@ export function StockTransactionPage() {
     <>
       <PageHeader
         title="Lịch sử tồn kho"
-        description="Mọi lần tăng/giảm tồn do tồn đầu kỳ, nhập, bán hoặc đảo phiếu. Tồn trước/sau tính riêng tại từng kho — chọn một sản phẩm và một kho để dò tồn hiện tại từng bước"
+        description="Mọi lần tăng/giảm tồn do tồn đầu kỳ, nhập, bán, điều chuyển, kiểm kê hoặc đảo phiếu. Tồn trước/sau tính riêng tại từng kho — chọn một sản phẩm và một kho để dò tồn hiện tại từng bước"
       />
       <FilterBar<StockTransactionFilters> fields={filterFields} value={filters} onChange={applyFilters} />
       <DataTable<StockTransaction>
@@ -272,6 +279,16 @@ export function StockTransactionPage() {
           documentId={opened.id}
           // Lịch sử chỉ có phiếu đã xác nhận (chỉ xem) — dùng lại kho/SP đã tải cho ô lọc, không gọi thêm API
           references={{ warehouses: receiptReferences.warehouses, products }}
+          onClose={() => setDrawerOpen(false)}
+          onChanged={reload}
+        />
+      )}
+      {opened?.type === 'TRANSFER' && (
+        <TransferDrawer
+          key={drawerKey}
+          open={drawerOpen}
+          transferId={opened.id}
+          warehouses={receiptReferences.warehouses}
           onClose={() => setDrawerOpen(false)}
           onChanged={reload}
         />

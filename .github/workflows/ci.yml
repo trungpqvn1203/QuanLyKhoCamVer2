@@ -1,0 +1,106 @@
+# CI: mỗi lần push, tự build + test backend và frontend (lessons/5-van-hanh/04-ci-github-actions.md).
+# Không đụng tới server — deploy là workflow riêng (cd.yml), cd.yml gọi lại file này trước khi build image.
+name: CI
+
+on:
+  push:
+    # main do cd.yml gọi CI (workflow_call) → không chạy hai lần cho cùng một commit
+    branches-ignore: ["main"]
+    # Chỉ sửa tài liệu / bài học thì không tốn phút chạy (repo private: 2.000 phút miễn phí/tháng)
+    paths-ignore:
+      - "docs/**"
+      - "lessons/**"
+      - "**/*.md"
+  workflow_call: # cd.yml dùng lại toàn bộ CI làm bước đầu tiên
+  workflow_dispatch: # nút "Run workflow" trên tab Actions để chạy tay
+
+# Push liên tiếp lên cùng nhánh → hủy lần chạy cũ, chỉ giữ lần mới nhất
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+# Token mặc định của workflow chỉ được đọc code, không ghi được gì vào repo
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: Backend (mvn verify)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+
+    # Test chạy trên PostgreSQL thật (application-test.yml) → dựng container Postgres cạnh máy chạy job
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: grain_warehouse_test
+        ports:
+          - 5432:5432
+        # Chờ Postgres sẵn sàng rồi mới chạy các bước; không có thì test đầu tiên có thể kết nối hụt
+        options: >-
+          --health-cmd "pg_isready -U postgres -d grain_warehouse_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+
+    env:
+      # Khớp múi giờ prod (docker-compose.prod.yml) và máy dev; runner mặc định là UTC → test theo "hôm nay" lệch ngày
+      TZ: Asia/Ho_Chi_Minh
+      POSTGRES_HOST: localhost
+      POSTGRES_PORT: 5432
+      POSTGRES_TEST_DB: grain_warehouse_test
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven # cache ~/.m2 theo hash pom.xml → lần sau không tải lại dependency
+
+      - name: Compile + test
+        run: mvn -B -ntp clean verify
+
+      # Test đỏ → tải báo cáo Surefire về xem chi tiết (tab Summary của lần chạy)
+      - name: Upload test reports
+        if: failure()
+        uses: actions/upload-artifact@v5
+        with:
+          name: surefire-reports
+          path: backend/target/surefire-reports/
+          retention-days: 7
+
+  frontend:
+    name: Frontend (lint + test + build)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22" # cùng bản với frontend.Dockerfile (node:22-alpine)
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      # npm ci: cài đúng phiên bản trong package-lock.json, lock lệch package.json thì báo lỗi (khác npm install)
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+      # build = tsc -b (kiểm kiểu thật theo project references) + vite build
+      - run: npm run build

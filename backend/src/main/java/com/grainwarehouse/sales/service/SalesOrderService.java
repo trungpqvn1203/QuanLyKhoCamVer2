@@ -82,7 +82,8 @@ public class SalesOrderService {
     private static final String CODE_FORMAT = "PX%06d";
     private static final Locale VIETNAMESE = Locale.forLanguageTag("vi-VN");
     private static final String APP_CREATOR_PREFIX = "app:";
-    private static final String APP_CANCEL_REASON = "Khách hủy qua app";
+    /** Tiền tố lý do khi khách tự hủy trên app — app khách chỉ hiện lý do hủy bắt đầu bằng chuỗi này (BR-POR-11). */
+    public static final String APP_CANCEL_REASON = "Khách hủy qua app";
 
     private final StockDocumentRepository stockDocumentRepository;
     private final StockTransactionRepository stockTransactionRepository;
@@ -143,12 +144,19 @@ public class SalesOrderService {
         return toResponse(document);
     }
 
-    /** BR-SAL-18: chỉ đơn Chờ xác nhận được sửa phần khách đặt; không đổi khách. */
+    /**
+     * BR-SAL-18: chỉ đơn Chờ xác nhận được sửa phần khách đặt; không đổi khách.
+     * Đơn khách đặt qua app giữ kênh App (BR-POR-11): không đổi sang kênh khác, cũng không gán App cho đơn kho ghi.
+     */
     @Transactional
     public SalesOrderResponse updatePending(Long id, PendingOrderRequest request) {
         StockDocument document = lockForChange(id, PENDING, "sửa phần khách đặt");
         requireSameCustomer(document, request.customerId());
-        RequestReferences refs = resolve(request, false);
+        boolean appOrder = document.getOrderChannel() == OrderChannel.APP;
+        if (appOrder && request.orderChannel() != OrderChannel.APP) {
+            throw new InvalidRequestException("orderChannel", "Đơn khách đặt qua app giữ kênh App, không đổi được");
+        }
+        RequestReferences refs = resolve(request, appOrder);
         applyHeader(document, request, refs.customer());
         replaceRequestLines(document, request.lines(), refs.products());
         return toResponse(stockDocumentRepository.saveAndFlush(document));
@@ -156,28 +164,34 @@ public class SalesOrderService {
 
     // ===== Đơn khách tự đặt qua app (BR-POR-07, 09) — customerId luôn lấy từ token, không từ request =====
 
-    /** BR-POR-07: như createPending nhưng kênh APP; người lập ghi "app:<mã khách>". */
+    /**
+     * BR-POR-07: như createPending nhưng kênh APP; người lập ghi "app:<mã khách>".
+     * customerNote = lời khách → cột customer_note; ghi chú nội bộ (note) để trống cho cửa hàng (BR-POR-11).
+     */
     @Transactional
-    public SalesOrderResponse createAppOrder(Long customerId, LocalDate deliveryDate, String note,
+    public SalesOrderResponse createAppOrder(Long customerId, LocalDate deliveryDate, String customerNote,
                                              List<SaleRequestLineRequest> lines) {
-        PendingOrderRequest request = new PendingOrderRequest(customerId, OrderChannel.APP, deliveryDate, note, lines);
+        PendingOrderRequest request = new PendingOrderRequest(customerId, OrderChannel.APP, deliveryDate, null, lines);
         RequestReferences refs = resolve(request, true);
         StockDocument document = StockDocument.pendingSale(nextCode(), APP_CREATOR_PREFIX + refs.customer().getCode());
         document.setDocumentDate(today());
-        applyHeader(document, request, refs.customer());
+        applyAppHeader(document, refs.customer(), deliveryDate, customerNote);
         stockDocumentRepository.save(document);
         replaceRequestLines(document, request.lines(), refs.products());
         return toResponse(document);
     }
 
-    /** BR-POR-09: khách sửa đơn của mình khi còn Chờ xác nhận. Đơn của khách khác → 404 như không tồn tại. */
+    /**
+     * BR-POR-09: khách sửa đơn của mình khi còn Chờ xác nhận. Đơn của khách khác → 404 như không tồn tại.
+     * Chỉ đổi lời khách — ghi chú nội bộ cửa hàng đã ghi (nếu có) giữ nguyên (BR-POR-11).
+     */
     @Transactional
-    public SalesOrderResponse updateAppOrder(Long customerId, Long id, LocalDate deliveryDate, String note,
+    public SalesOrderResponse updateAppOrder(Long customerId, Long id, LocalDate deliveryDate, String customerNote,
                                              List<SaleRequestLineRequest> lines) {
         StockDocument document = lockOwnedPending(id, customerId, "sửa");
-        PendingOrderRequest request = new PendingOrderRequest(customerId, OrderChannel.APP, deliveryDate, note, lines);
+        PendingOrderRequest request = new PendingOrderRequest(customerId, OrderChannel.APP, deliveryDate, null, lines);
         RequestReferences refs = resolve(request, true);
-        applyHeader(document, request, refs.customer());
+        applyAppHeader(document, refs.customer(), deliveryDate, customerNote);
         replaceRequestLines(document, request.lines(), refs.products());
         return toResponse(stockDocumentRepository.saveAndFlush(document));
     }
@@ -581,6 +595,15 @@ public class SalesOrderService {
             item.setValues(null, line.quantity(), line.unitPrice());
         }
         document.recalculateTotal();
+    }
+
+    // Đơn app: khách đã cố định (lấy từ token), kênh luôn APP; KHÔNG đụng note (ghi chú nội bộ của cửa hàng)
+    private static void applyAppHeader(StockDocument document, Customer customer, LocalDate deliveryDate,
+                                       String customerNote) {
+        document.setCustomer(customer);
+        document.setOrderChannel(OrderChannel.APP);
+        document.setRequestedDeliveryDate(deliveryDate);
+        document.setCustomerNote(blankToNull(customerNote));
     }
 
     private static void applyHeader(StockDocument document, PendingOrderRequest request, Customer customer) {

@@ -24,6 +24,7 @@ import { StockReportPage } from './features/reports/StockReportPage'
 import { SalesOrderListPage } from './features/sales-orders/SalesOrderListPage'
 import { StockCountListPage } from './features/stock-counts/StockCountListPage'
 import { StockTransactionPage } from './features/stock-transactions/StockTransactionPage'
+import { TransferListPage } from './features/transfers/TransferListPage'
 import { SupplierDebtPage } from './features/supplier-debts/SupplierDebtPage'
 import { SupplierListPage } from './features/suppliers/SupplierListPage'
 import { UserListPage } from './features/users/UserListPage'
@@ -58,6 +59,7 @@ export const router = createBrowserRouter([
       // Xem: mọi vai trò (như phiếu bán); nút lập / xuất chuyến chỉ hiện với quyền 'delivery'
       { path: 'delivery-trips', element: <DeliveryTripListPage /> },
       { path: 'vehicles', element: <VehicleListPage /> },
+      { path: 'transfers', element: guarded('transfer', <TransferListPage />) },
       { path: 'customer-debts', element: guarded('debts', <CustomerDebtPage />) },
       { path: 'supplier-debts', element: guarded('inbound', <SupplierDebtPage />) },
       { path: 'stock-transactions', element: <StockTransactionPage /> },

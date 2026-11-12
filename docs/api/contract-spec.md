@@ -181,6 +181,7 @@ DELETE /api/products/:id          # Xóa (soft delete)
 | Tồn kho đầu kỳ | `GET/POST /api/opening-stocks`, `GET/PUT /api/opening-stocks/{id}`, `POST …/{id}/complete`, `POST …/{id}/cancel`, `POST …/{id}/reverse`, `GET /api/opening-stocks/products-with-movement?warehouseId=` | Chỉ `SYSTEM_ADMIN`. Xem mục **Tồn kho đầu kỳ** bên dưới |
 | Tạm ứng, trả lương, công nợ nhân viên | `GET/POST /api/employees/{id}/advances`, `POST …/advances/{advanceId}/reverse`; `GET /api/payrolls/{YYYY-MM}/items/{employeeId}`, `POST …/payments`, `POST …/payments/{paymentId}/reverse`; `GET /api/employee-debts?employeeId=` | Chỉ `SYSTEM_ADMIN`. Xem mục **Công nợ nhân viên** bên dưới |
 | Trả tiền NCC, công nợ NCC | `POST /api/inbound-receipts/{id}/payments`, `POST …/{id}/payments/{paymentId}/reverse`, `GET /api/supplier-debts?supplierId=` | Xem mục **Trả tiền và công nợ nhà cung cấp** bên dưới |
+| Điều chuyển kho | `GET/POST /api/transfers`, `GET/PUT /api/transfers/{id}`, `POST …/{id}/complete`, `POST …/{id}/cancel`, `POST …/{id}/reverse` | `WAREHOUSE_MANAGER` + `SYSTEM_ADMIN`. Xem mục **Điều chuyển kho** bên dưới |
 | Lịch sử biến động tồn | `GET /api/inventory/transactions` | Chỉ đọc (POST → 405). Xem mục **Lịch sử biến động tồn** bên dưới |
 | Xác thực | `GET /api/auth/csrf`, `POST /api/auth/login`, `…/refresh`, `…/logout`, `GET /api/auth/me`, `PUT /api/auth/me/password` | Xem mục **Xác thực & phân quyền** bên dưới |
 | Người dùng | `GET/POST /api/users`, `GET/PUT /api/users/{id}`, `POST /api/users/{id}/reset-password` | Chỉ `SYSTEM_ADMIN`. Không có DELETE (khóa = `active=false`) |
@@ -206,6 +207,22 @@ Lọc `GET /api/inbound-receipts` (tất cả tùy chọn):
 | `status` | `DRAFT` \| `COMPLETED` \| `CANCELLED` \| `REVERSED` | Sai giá trị → 400 |
 | `warehouseId`, `supplierId` | number | Kho nhận / NCC |
 | `documentDateFrom`, `documentDateTo` | `YYYY-MM-DD` | Ngày chứng từ trong khoảng, hai đầu đều tính |
+
+**Điều chuyển kho** (thêm 2026-11-12, BR-TRF-01..13) — `WAREHOUSE_MANAGER` + `SYSTEM_ADMIN`:
+
+| Endpoint | Body / tham số | Kết quả |
+|---|---|---|
+| `GET /api/transfers` | `keyword` (mã phiếu), `status`, `sourceWarehouseId`, `targetWarehouseId`, `documentDateFrom`, `documentDateTo`, phân trang (mặc định id giảm dần) | Trang `{ id, code, status, documentDate, sourceWarehouseId, sourceWarehouseCode, sourceWarehouseName, targetWarehouseId, targetWarehouseCode, targetWarehouseName, lineCount, totalQuantity, createdBy?, completedBy?, completedAt?, createdAt }` |
+| `GET /api/transfers/{id}` | — | `{ …như trên, note?, reason?, cancelledAt?, reversedAt?, updatedAt, lines: [{ id, productId, productCode, productName, unitName, netWeightKg, quantity }] }`. Id của phiếu loại khác → 404 |
+| `POST /api/transfers` | `{ sourceWarehouseId, targetWarehouseId, documentDate?, note?, lines: [{ productId, quantity }] }` | 201, Nháp, mã `DC…`, chưa đổi tồn. Kho đích trùng kho nguồn → 400 field `targetWarehouseId`; SL ≤ 0 / lẻ → 400 field `lines[i].quantity`; trùng SP → 400 field `lines[i].productId`; không dòng → 400 field `lines`; ngày tương lai → 400 field `documentDate`; kho đích ngừng → 409; kho / SP không có → 404. Kho nguồn đã ngừng, SP đã ngừng, SL vượt tồn vẫn lưu nháp được |
+| `PUT /api/transfers/{id}` | như POST | 200. Phiếu không còn Nháp → 409 |
+| `POST /api/transfers/{id}/complete` | — | 200, Hoàn tất: kho nguồn giảm, kho đích tăng. Một dòng không đủ tồn → 409 (thông báo nêu SP, kho, số còn), **không dòng nào được thực hiện**, phiếu vẫn Nháp; kho đích đã ngừng → 409; không còn Nháp → 409 |
+| `POST /api/transfers/{id}/cancel` | `{ reason? }` (body tùy chọn) | 200, Đã hủy. Không còn Nháp → 409 |
+| `POST /api/transfers/{id}/reverse` | `{ reason }` (bắt buộc) | 200, Đã đảo, hàng về kho nguồn. Kho đích không đủ tồn → 409; đã đảo → 409; thiếu lý do → 400 field `reason` |
+
+`GET /api/inventory/transactions`: `documentType` có thêm `TRANSFER` (OUT = chuyển đi tại kho nguồn, IN = chuyển đến tại kho đích); dòng của phiếu điều chuyển có thêm `counterpartWarehouseId`, `counterpartWarehouseName` — kho ở đầu kia của lần chuyển.
+
+`GET /api/reports/stock-movement`: không gửi `warehouseId` thì giao dịch điều chuyển không tính vào `inboundQuantity` / `outboundQuantity` (BR-TRF-13); có `warehouseId` thì tính như nhập / xuất của kho đó.
 
 **Tồn kho đầu kỳ** (thêm 2026-10-27, BR-OPN-01..10) — chỉ `SYSTEM_ADMIN`:
 
@@ -307,7 +324,7 @@ Response chi tiết phiếu nhập có thêm `paidAmount`, `outstandingAmount`, 
 | `POST …/{id}/payments` | `{ paymentDate?, cashAmount?, transferAmount?, note? }` | 201. Chỉ phiếu `COMPLETED`. Mỗi phần > 0 thành một dòng (`CASH` / `BANK_TRANSFER`). Cả hai trống/0 → 400 field `cashAmount`; số âm hoặc có phần lẻ → 400 field tương ứng; `paymentDate` không gửi = hôm nay, chọn ngày nào cũng được. Tổng vượt số còn nợ → 409 |
 | `POST …/{id}/payments/{paymentId}/reverse` | `{ reason }` (bắt buộc) | Ghi dòng `REVERSAL` cùng hình thức, cùng số tiền, ngày = hôm nay. Khoản thu của phiếu khác → 404; đã hoàn / là dòng hoàn → 409 |
 
-Response chi tiết phiếu bán: `id, code, status, documentDate, warehouseId/Code/Name, customerId/Code/Name, customerPhone, note, totalAmount, paidAmount, outstandingAmount, totalTons, reason, completedAt, cancelledAt, reversedAt, createdAt, updatedAt, lines: [{ id, productId, productCode, productName, unitName, quantity, unitPrice, lineAmount, tons }], payments: [{ id, type (PAYMENT|REVERSAL), method (CASH|BANK_TRANSFER), amount, paymentDate, note, reversalOfId?, reversed, createdAt }]`. `outstandingAmount` = `totalAmount − paidAmount` khi `COMPLETED`, còn lại luôn `0` (nháp/hủy/đảo không phát sinh nợ). Mọi hành động (complete, reverse, payments…) trả lại response này. Danh sách trả bản tóm tắt (không `lines`, `payments`, `note`, `reason`, `customerPhone`, `totalTons`), mặc định `id` giảm dần. `tons` = SL × khối lượng tịnh / 1000, làm tròn 3 chữ số lẻ; `totalTons` = cộng `tons` các dòng (in phiếu xuất kho, BR-PRT-03; thêm 2026-10-28).
+Response chi tiết phiếu bán: `id, code, status, documentDate, warehouseId/Code/Name, customerId/Code/Name, customerPhone, note (ghi chú nội bộ), customerNote? (lời khách trên app, chỉ đơn kênh App — thêm 2026-11-04), totalAmount, paidAmount, outstandingAmount, totalTons, reason, completedAt, cancelledAt, reversedAt, createdAt, updatedAt, lines: [{ id, productId, productCode, productName, unitName, quantity, unitPrice, lineAmount, tons }], payments: [{ id, type (PAYMENT|REVERSAL), method (CASH|BANK_TRANSFER), amount, paymentDate, note, reversalOfId?, reversed, createdAt }]`. `outstandingAmount` = `totalAmount − paidAmount` khi `COMPLETED`, còn lại luôn `0` (nháp/hủy/đảo không phát sinh nợ). Mọi hành động (complete, reverse, payments…) trả lại response này. Danh sách trả bản tóm tắt (không `lines`, `payments`, `note`, `reason`, `customerPhone`, `totalTons`), mặc định `id` giảm dần. `tons` = SL × khối lượng tịnh / 1000, làm tròn 3 chữ số lẻ; `totalTons` = cộng `tons` các dòng (in phiếu xuất kho, BR-PRT-03; thêm 2026-10-28).
 
 Lọc `GET /api/sales-orders`: `keyword` (mã phiếu), `status`, `warehouseId`, `customerId`, `documentDateFrom`, `documentDateTo` (như phiếu nhập) + `unpaidOnly=true` (chỉ phiếu `COMPLETED` còn nợ), `orderChannel`, `deliveryDateFrom`, `deliveryDateTo` (theo ngày khách muốn giao; phiếu không hẹn ngày bị loại khi có lọc).
 
@@ -316,7 +333,7 @@ Lọc `GET /api/sales-orders`: `keyword` (mã phiếu), `status`, `warehouseId`,
 | Endpoint | Body | Kết quả / lỗi |
 |---|---|---|
 | `POST /api/sales-orders/pending` | `{ customerId, orderChannel (DIRECT\|PHONE\|ZALO), requestedDeliveryDate?, note?, lines: [{ productId, quantity }] }` | 201, phiếu `PENDING` mã `PX…`: không kho, không giá, `lines` rỗng, `requestLines` = phần khách đặt; chưa đổi tồn. `orderChannel = APP` → 400 field `orderChannel` (để dành cho app khách). `requestedDeliveryDate` được ở tương lai. SP lặp → 400 field `lines[i].productId`. Khách/SP ngừng hoạt động → 409 |
-| `PUT /api/sales-orders/{id}/request` | như trên | Chỉ `PENDING` (khác → 409); cập nhật phần khách đặt tại chỗ theo SP. `customerId` khác khách của đơn → 400 field `customerId` |
+| `PUT /api/sales-orders/{id}/request` | như trên | Chỉ `PENDING` (khác → 409); cập nhật phần khách đặt tại chỗ theo SP. `customerId` khác khách của đơn → 400 field `customerId`. Đơn kênh `APP`: phải gửi `orderChannel = APP` (đổi kênh → 400 field `orderChannel`); kho ghi đơn thường không chọn được `APP` (BR-POR-11) |
 | `POST /api/sales-orders/{id}/confirm` | như `POST /api/sales-orders` | Chỉ `PENDING` → `DRAFT` (khác → 409): ghi kho, ngày bán, dòng hàng có giá (được đổi SL / đổi SP so với khách đặt), ghi `confirmedAt/By`; **chưa trừ tồn**. Kiểm tra như phiếu nháp (thiếu kho, ngày tương lai → 400; ngừng hoạt động → 409). Đổi khách → 400 field `customerId`. `requestLines` giữ nguyên, không sửa được nữa |
 
 Đơn `PENDING` không `complete` / `PUT /{id}` được (409). Phiếu `DRAFT` lập từ đơn khách đặt (`confirmedAt` có giá trị) không đổi được khách qua `PUT /{id}` (400 field `customerId`).
@@ -342,12 +359,12 @@ Vùng đăng nhập **riêng**: chuỗi filter riêng, cookie `GW_CAT` (Path=`/a
 | `GET /api/portal/me` · `PUT /api/portal/me/password` | `{ currentPassword, newPassword }` | Như nhân viên; đổi xong `mustChangePassword = false`, các thiết bị khác bị đăng xuất |
 | `GET /api/portal/products` | — | `[{ id, code, name, unitName, categoryName }]` — SP đang kinh doanh, **không giá, không tồn** |
 | `GET /api/portal/orders?status=&page=&size=` | — | Phân trang, chỉ đơn của khách: `{ id, code, status, orderChannel, orderDate, requestedDeliveryDate?, totalAmount?, createdAt }` |
-| `GET /api/portal/orders/{id}` | — | `{ id, code, status, orderChannel, orderDate, requestedDeliveryDate?, note?, createdAt, editable, requestLines, lines, totalAmount?, cancelReason? }`. `lines` (SL, đơn giá, thành tiền) và `totalAmount` **chỉ khi `DRAFT` / `COMPLETED`**. Không có kho, người lập / xác nhận, đã thu / còn nợ. Đơn của khách khác → **404** |
-| `POST /api/portal/orders` | `{ requestedDeliveryDate?, note?, lines: [{ productId, quantity }] }` | 201, phiếu bán `PENDING` kênh `APP`, `created_by = app:<mã khách>`. Validation như `POST /api/sales-orders/pending` |
-| `PUT /api/portal/orders/{id}` | như trên | Chỉ `PENDING` của chính khách (khác khách → 404, đã xác nhận → 409 "gọi cửa hàng") |
+| `GET /api/portal/orders/{id}` | — | `{ id, code, status, orderChannel, orderDate, requestedDeliveryDate?, note?, createdAt, editable, requestLines, lines, totalAmount?, cancelReason? }`. `note` = **lời khách** (`customerNote`), không bao giờ là ghi chú nội bộ. `cancelReason`: khách tự hủy → lý do của khách; cửa hàng hủy / hủy giao → câu chung (BR-POR-11). `lines` (SL, đơn giá, thành tiền) và `totalAmount` **chỉ khi `DRAFT` / `COMPLETED`**. Không có kho, người lập / xác nhận, đã thu / còn nợ. Đơn của khách khác → **404** |
+| `POST /api/portal/orders` | `{ requestedDeliveryDate?, note?, lines: [{ productId, quantity }] }` | 201, phiếu bán `PENDING` kênh `APP`, `created_by = app:<mã khách>`, `note` lưu vào `customerNote`. Giới hạn BR-POR-12: `lines` 1–50 (400 field `lines`), `quantity` nguyên 1–9.999 (400 field `lines[i].quantity`; số lẻ như `1.5` → 400, không làm tròn), `requestedDeliveryDate` hôm nay..+60 ngày (400). Đã có 5 đơn app `PENDING` → **409** `BUSINESS_RULE_VIOLATION` |
+| `PUT /api/portal/orders/{id}` | như trên | Chỉ `PENDING` của chính khách (khác khách → 404, đã xác nhận → 409 "gọi cửa hàng"). Cùng validation như tạo; chỉ đổi lời khách, ghi chú nội bộ giữ nguyên |
 | `POST /api/portal/orders/{id}/cancel` | `{ note? }` | Chỉ `PENDING` của chính khách; lý do = "Khách hủy qua app" (+ `: note`) |
 
-Lỗi riêng của portal: **403 `PASSWORD_CHANGE_REQUIRED`** (đặt / sửa / hủy đơn khi chưa đổi mật khẩu cửa hàng cấp), **403 `ACCOUNT_DISABLED`** (tài khoản bị khóa hoặc khách ngừng hoạt động trong lúc access token còn hạn — app đăng xuất).
+Lỗi riêng của portal: **429 `TOO_MANY_REQUESTS`** (Nginx: `POST /api/portal/auth/login` quá ~10 lần / phút mỗi IP — body đúng envelope lỗi; chạy `npm run dev` không qua Nginx thì không có), **403 `PASSWORD_CHANGE_REQUIRED`** (đặt / sửa / hủy đơn khi chưa đổi mật khẩu cửa hàng cấp), **403 `ACCOUNT_DISABLED`** (tài khoản bị khóa hoặc khách ngừng hoạt động trong lúc access token còn hạn — app đăng xuất).
 
 Phía cửa hàng (chuỗi nhân viên, quyền như ghi khách hàng — xem: mọi vai trò, ghi: bán hàng + quản lý hệ thống):
 

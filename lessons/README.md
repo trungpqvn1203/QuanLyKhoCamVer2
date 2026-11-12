@@ -25,6 +25,7 @@ lỗi đã gặp và câu hỏi ôn tập. Do AI ghi sau mỗi module (CLAUDE.md
 | [Kiểm kê kho](1-kho-hang/06-kiem-ke.md) | Chụp sổ sách, ghi phần chênh, không khóa kho |
 | [Báo cáo tồn kho và tổng quan](1-kho-hang/07-bao-cao-ton-kho.md) | Tính lại từ sổ, đảo bù cột gốc, tải lười biểu đồ |
 | [Xe và chuyến giao hàng](1-kho-hang/08-chuyen-giao-hang.md) | Bảng nối + thứ tự, UNIQUE `DEFERRABLE`, hoàn tất nhiều phiếu một transaction, thứ tự khóa chống deadlock, kéo thả HTML5 |
+| [Điều chuyển kho](1-kho-hang/09-dieu-chuyen-kho.md) | Một transaction hai kho, deadlock và thứ tự khóa, điều chuyển trong báo cáo |
 
 ### Tiền và công nợ
 
@@ -54,7 +55,7 @@ lỗi đã gặp và câu hỏi ôn tập. Do AI ghi sau mỗi module (CLAUDE.md
 | [Mã tự sinh](4-nen-tang-he-thong/03-ma-tu-sinh.md) | Sequence, lỗi mã bị cắt cụt |
 | [In phiếu (K80)](4-nen-tang-he-thong/04-in-phieu.md) | Phiếu bán K80, in qua iframe, số tiền bằng chữ, `tsc -b` |
 | [Ô thêm nhanh sản phẩm trên phiếu](4-nen-tang-he-thong/05-them-nhanh-san-pham.md) | Đếm thao tác chuột/phím, focus sau render, tìm không dấu (NFD) |
-| [App khách hàng — hai vùng đăng nhập](4-nen-tang-he-thong/06-app-khach-hang.md) | Một backend nhiều client, monorepo/polyrepo, tách khóa + `iss`, IDOR, khóa tạm sai mật khẩu |
+| [App khách hàng — hai vùng đăng nhập](4-nen-tang-he-thong/06-app-khach-hang.md) | Một backend nhiều client, monorepo/polyrepo, tách khóa + `iss`, IDOR, khóa tạm sai mật khẩu; rà soát: tách ghi chú khách / nội bộ, giới hạn đơn + khóa trước khi đếm, password spraying |
 
 ### Vận hành: đóng gói và triển khai
 
@@ -62,6 +63,9 @@ lỗi đã gặp và câu hỏi ôn tập. Do AI ghi sau mỗi module (CLAUDE.md
 |---|---|
 | [Bản chất deploy](5-van-hanh/01-ban-chat-deploy.md) | Code / cấu hình / dữ liệu, cập nhật và rollback |
 | [Đóng gói & triển khai: Docker Compose + Nginx](5-van-hanh/02-docker-compose-nginx.md) | Image hai giai đoạn, mạng nội bộ, reverse proxy |
+| [Nền tảng deploy: một request đi qua những tầng nào](5-van-hanh/03-nen-tang-mang-va-may-chu.md) | DNS → NSG → iptables → Nginx → backend → DB, đọc lỗi theo tầng, container = namespaces + cgroups, RAM/OOM, CI vs CD |
+| [CI với GitHub Actions](5-van-hanh/04-ci-github-actions.md) | Workflow/job/step, service Postgres, ghi rõ điều ngầm định (TZ, npm ci), quyền tối thiểu, `tsc --noEmit` không kiểm gì, DB test dùng chung giữa nhánh |
+| [CD với GitHub Actions](5-van-hanh/05-cd-github-actions.md) | Build trên GitHub vs trên VM, GHCR + tag commit, `workflow_call`, token qua stdin, known_hosts, backup → pull → `up --wait`, vì sao không tự rollback |
 
 ## Ghi bài mới
 
@@ -141,6 +145,16 @@ lỗi đã gặp và câu hỏi ôn tập. Do AI ghi sau mỗi module (CLAUDE.md
 3. Vẽ thứ tự khóa của Xuất chuyến và của Hoàn tất một phiếu. Cho một ví dụ deadlock xảy ra nếu Xuất chuyến khóa dòng tồn theo thứ tự phiếu thay vì theo (SP, kho).
 4. `requireEnoughStock` đọc tồn không khóa. Vì sao vậy vẫn không thể bán âm? Nó có thể báo sai theo hướng nào?
 5. Quản lý kho không bấm được Hoàn tất ở màn phiếu bán nhưng Xuất chuyến được. Quyền nên gắn với dữ liệu hay với hành động? Viết test nào để ngoại lệ này không bị "sửa nhầm" sau này?
+
+**[Điều chuyển kho](1-kho-hang/09-dieu-chuyen-kho.md)**
+
+1. Nếu `TransferService.complete` không có `@Transactional` và bước cộng kho đích ném lỗi sau khi kho nguồn đã bị trừ, sổ sách sẽ ra sao? Cơ chế nào khiến tình huống đó không thể xảy ra?
+2. Deadlock là gì? Mô tả từng bước hai phiếu Hà Nội → Bắc Ninh và Bắc Ninh → Hà Nội khóa nhau khi không có thứ tự khóa.
+3. Vì sao sắp thứ tự khóa theo (id kho, id sản phẩm) lại loại được deadlock? Điều kiện để cách này có tác dụng là gì?
+4. Chuyển từ kho id lớn sang kho id nhỏ thì kho đích được cộng trước khi kho nguồn bị trừ. Vì sao điều đó vẫn an toàn?
+5. Vì sao một dòng phiếu điều chuyển sinh hai `stock_transaction` nhưng không cần thêm cột nào vào bảng `stock_transaction`?
+6. Khi nào báo cáo nhập – xuất – tồn tính điều chuyển vào cột Nhập/Xuất, khi nào không?
+7. Làm sao biết một test đồng thời thật sự bắt được lỗi mà nó nhắm tới?
 
 **[Công nợ nhân viên: lương theo tấn, trả lương, tạm ứng](2-tien-va-cong-no/02-cong-no-nhan-vien.md)**
 
@@ -250,6 +264,9 @@ lỗi đã gặp và câu hỏi ôn tập. Do AI ghi sau mỗi module (CLAUDE.md
 3. Tại sao `noRollbackFor` là bắt buộc ở đăng nhập app khách, mà đăng nhập nhân viên lại không cần?
 4. Khi thêm app React Native, phần nào của backend phải sửa, và vì sao endpoint mới đó không cần CSRF?
 5. Monorepo và polyrepo khác nhau thế nào? Khi nào dự án này nên tách `mobile/` thành repo riêng?
+6. Vì sao chép từng trường ra `PortalOrderResponse` vẫn không chặn được lộ ghi chú nội bộ? Sửa ở tầng nào mới đúng?
+7. "Tối đa 5 đơn chờ": vẽ hai request song song khi không khóa dòng tài khoản. Vì sao khóa `customer_account` mà không khóa các phiếu bán?
+8. Password spraying khác dò mật khẩu một tài khoản thế nào? Vì sao không giới hạn `refresh` theo IP?
 
 **[Bản chất deploy](5-van-hanh/01-ban-chat-deploy.md)**
 
@@ -266,3 +283,32 @@ lỗi đã gặp và câu hỏi ôn tập. Do AI ghi sau mỗi module (CLAUDE.md
 4. Lộ `JWT_SECRET` nguy hiểm hơn lộ mật khẩu admin ở điểm nào? Phải làm gì ngay khi bị lộ?
 5. Sửa `POSTGRES_PASSWORD` trong `.env.prod` rồi `up -d` thì chuyện gì xảy ra, vì sao?
 6. Vì sao Let's Encrypt không cấp được chứng chỉ khi cổng 80 bị chặn?
+
+**[Nền tảng deploy: một request đi qua những tầng nào](5-van-hanh/03-nen-tang-mang-va-may-chu.md)**
+
+1. Khách báo "app không vào được". Hỏi lại đúng một câu nào để phân biệt lỗi NSG/VM tắt với lỗi container `web` chết?
+2. Vì sao healthcheck của backend gọi `localhost:8080`, còn Nginx phải gọi `backend:8080`?
+3. Ngay sau `up -d --build` thấy 502 khoảng nửa phút rồi tự hết — tầng nào đang làm gì?
+4. Backend lưu file Excel vào `/app/exports` trong container — sau lần deploy tiếp theo file đi đâu? Sửa thế nào?
+5. Vì sao thêm user vào nhóm `docker` gần như là cho user đó quyền root?
+6. Vì sao build image trên CI rồi đem lên server an toàn hơn `--build` trên server, ngoài chuyện RAM?
+
+**[CI với GitHub Actions](5-van-hanh/04-ci-github-actions.md)**
+
+1. Test xanh trên máy bạn nhưng đỏ trên CI lúc 6h sáng, xanh lúc 9h — nghi ngờ đầu tiên là gì, dòng nào trong `ci.yml` xử lý?
+2. Vì sao CI dùng `npm ci` mà không dùng `npm install`?
+3. Bỏ healthcheck của service Postgres thì chuyện gì có thể xảy ra, vì sao lúc có lúc không?
+4. `permissions: contents: read` bảo vệ trước kịch bản tấn công nào?
+5. Vì sao `npx tsc --noEmit` ở `frontend/` báo thành công dù có lỗi kiểu?
+6. "Detected applied migration not resolved locally: 28" nghĩa là gì? Vì sao CI không bao giờ gặp lỗi này?
+
+**[CD với GitHub Actions](5-van-hanh/05-cd-github-actions.md)**
+
+1. Vì sao tag image bằng mã commit mà không dùng `latest`?
+2. Build image trên VM thay vì trên GitHub thì mất những gì? Nêu ít nhất ba điểm.
+3. `ci.yml` có `cancel-in-progress: true`, `cd.yml` lại `false` — vì sao?
+4. Vì sao không dùng `ssh-keyscan` trong workflow để lấy host key của VM?
+5. Token GitHub đi từ đâu tới VM, dùng vào việc gì, vì sao VM không cần lưu Personal Access Token?
+6. Bỏ `pipefail` khỏi `deploy.sh` thì lỗi `pg_dump` bị che giấu thế nào?
+7. Deploy bản có migration V30 rồi mới thấy lỗi — vì sao pipeline không tự rollback? Các bước rollback tay?
+8. Mở cổng 22 cho mọi IP — rủi ro gì, đã bù bằng gì, hai phương án nào tránh được việc mở cổng?

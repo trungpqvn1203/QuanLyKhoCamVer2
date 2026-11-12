@@ -18,6 +18,10 @@ spring:
 grain:
   auth:
     jwt-secret: test-only-secret-key-at-least-32-bytes-long!!
+    # Tắt tạo admin đầu tiên khi test: application.yml nạp ../.env của máy dev, có BOOTSTRAP_ADMIN_* → DB test trống
+    # sẽ có thêm một SYSTEM_ADMIN được commit thật, làm UserApiTest "admin cuối cùng" đỏ ở máy dev mà xanh trên CI
+    bootstrap-admin-username: ""
+    bootstrap-admin-password: ""
 
 logging:
   level:

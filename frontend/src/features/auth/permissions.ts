@@ -9,6 +9,7 @@ export type Permission =
   | 'catalog.write' // danh mục, sản phẩm, kho: thêm / sửa / ngừng
   | 'suppliers' // nhà cung cấp, liên kết NCC–SP
   | 'inbound' // phiếu nhập
+  | 'transfer' // điều chuyển kho (BR-TRF-11)
   | 'customers.write' // khách hàng, bảng giá riêng
   | 'sales.write' // phiếu bán, thu tiền
   | 'debts' // công nợ
@@ -26,6 +27,7 @@ const GRANTS: Record<Permission, Role[]> = {
   'catalog.write': ['SYSTEM_ADMIN'],
   suppliers: ['WAREHOUSE_MANAGER', 'SYSTEM_ADMIN'],
   inbound: ['WAREHOUSE_MANAGER', 'SYSTEM_ADMIN'],
+  transfer: ['WAREHOUSE_MANAGER', 'SYSTEM_ADMIN'],
   'customers.write': ['SALES_STAFF', 'SYSTEM_ADMIN'],
   'sales.write': ['SALES_STAFF', 'SYSTEM_ADMIN'],
   debts: ['SALES_STAFF', 'SYSTEM_ADMIN'],

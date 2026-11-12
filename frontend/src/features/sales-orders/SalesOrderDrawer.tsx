@@ -576,7 +576,9 @@ export function SalesOrderDrawer({
                   description="Xác nhận xong phiếu thành Nháp, chưa trừ tồn. Phần khách đặt bên dưới được giữ nguyên để đối chiếu."
                 />
               )}
-              {order && order.requestLines.length > 0 && <RequestLinesTable lines={order.requestLines} />}
+              {order && order.requestLines.length > 0 && (
+                <RequestLinesTable lines={order.requestLines} customerNote={order.customerNote} />
+              )}
               <SalesOrderForm
                 form={form}
                 initialValues={initialValues}

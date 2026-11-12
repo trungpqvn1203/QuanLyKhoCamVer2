@@ -105,7 +105,7 @@ export function SalesOrderView({ order, onReversePayment }: SalesOrderViewProps)
             label: 'Ngày muốn giao',
             children: order.requestedDeliveryDate ? formatDate(order.requestedDeliveryDate) : EMPTY_TEXT,
           },
-          { key: 'note', label: 'Ghi chú', span: 'filled', children: orEmpty(order.note) },
+          { key: 'note', label: 'Ghi chú nội bộ', span: 'filled', children: orEmpty(order.note) },
           {
             key: 'createdAt',
             label: 'Ngày tạo',
@@ -117,7 +117,7 @@ export function SalesOrderView({ order, onReversePayment }: SalesOrderViewProps)
           { key: 'updatedAt', label: 'Cập nhật lần cuối', children: formatDateTime(order.updatedAt) },
         ]}
       />
-      {order.requestLines.length > 0 && <RequestLinesTable lines={order.requestLines} />}
+      {order.requestLines.length > 0 && <RequestLinesTable lines={order.requestLines} customerNote={order.customerNote} />}
       {order.lines.length > 0 && (
         <Table<SalesOrderLine>
           size="small"

@@ -175,17 +175,30 @@ _(Trả lời BR-SAL-Q01: có công nợ, chỉ ở mức phiếu bán + lịch 
 - **BR-TRF-01:** Một điều chuyển thành công phải: kho nguồn giảm, kho đích tăng đúng số lượng, lịch sử đủ, trong cùng transaction.
 - **BR-TRF-02:** Nếu bất kỳ bước nào thất bại, toàn bộ transaction rollback.
 - **BR-TRF-03:** Không được có trạng thái "hoàn tất" mà chỉ một kho được cập nhật.
-- **BR-TRF-04:** Xử lý thứ tự khóa (lock ordering) để giảm nguy cơ deadlock khi có nhiều giao dịch đồng thời.
+- **BR-TRF-04:** Xử lý thứ tự khóa (lock ordering) để giảm nguy cơ deadlock khi có nhiều giao dịch đồng thời. _(Triển khai: mọi phiếu cộng/trừ tồn theo id kho tăng dần, trong mỗi kho theo id sản phẩm tăng dần.)_
+
+### ✅ Đã xác nhận (2026-11-12, migration V30)
+
+_(Trả lời BR-TRF-Q01: kho nguồn được phép đã ngừng, kho đích phải đang hoạt động. BR-TRF-Q02: dùng vòng đời Nháp → Hoàn tất như phiếu nhập; quy trình yêu cầu → duyệt → xuất → nhận để sau.)_
+
+- **BR-TRF-05:** Phiếu điều chuyển ghi **kho nguồn**, **kho đích** (phải khác nhau), ngày chứng từ, ghi chú và nhiều dòng hàng. Mỗi dòng có SP và số lượng nguyên **> 0**; mỗi SP một dòng.
+- **BR-TRF-06:** Điều chuyển **không có giá, không có tiền**: không NCC, không khách, không phát sinh công nợ. Hàng chỉ đổi kho, tổng tồn của hệ thống không đổi.
+- **BR-TRF-07:** Mã phiếu tự sinh `DC` + 6 chữ số (`DC000001`), có thể nhảy số. (Không dùng `PC` — đã là phiếu chi của sổ quỹ.)
+- **BR-TRF-08:** Trạng thái **Nháp → Hoàn tất**, **Nháp → Đã hủy**, **Hoàn tất → Đã đảo**. Nháp **không ảnh hưởng tồn và không giữ chỗ tồn** (lập nháp vượt tồn vẫn được). Hoàn tất: với mỗi dòng ghi một `StockTransaction` OUT tại kho nguồn và một IN tại kho đích, tất cả trong một transaction; một dòng thiếu tồn → từ chối, rollback toàn bộ, phiếu vẫn là Nháp. Bảo vệ trạng thái như phiếu nhập (BR-IMP-11..14): khóa phiếu `FOR UPDATE` rồi mới kiểm tra; không xóa phiếu.
+- **BR-TRF-09:** Kho **đích** phải đang hoạt động — kiểm tra cả khi lưu nháp lẫn khi hoàn tất. Kho **nguồn** được phép đã ngừng hoạt động (để rút hết hàng ra, BR-STK-01). SP đã ngừng kinh doanh vẫn điều chuyển được.
+- **BR-TRF-10:** Ngày chứng từ như BR-IMP-08: mặc định hôm nay, ghi lùi được, không ở tương lai.
+- **BR-TRF-11:** Ai được lập, hoàn tất, hủy, đảo và xem phiếu điều chuyển: **Quản lý kho + Quản lý hệ thống** (như phiếu nhập).
+- **BR-TRF-12:** Chuyển nhầm → **đảo toàn phiếu** (lý do bắt buộc, mỗi phiếu một lần): hàng về lại kho nguồn, mỗi giao dịch gốc có một giao dịch đảo trỏ về nó. Kho đích không còn đủ hàng để trả về → từ chối, rollback toàn bộ.
 
 ### ⚠️ Giả định tạm thời
 
 - **BR-TRF-A01:** Điều chuyển diễn ra tức thời (không có trạng thái "đang vận chuyển" trong MVP).
 - **BR-TRF-A02:** Chỉ điều chuyển giữa các kho thuộc hệ thống.
+- **BR-TRF-13:** _(chưa xác nhận — đề xuất khi triển khai)_ Báo cáo **nhập – xuất – tồn** (BR-RPT-05): lọc **một kho** thì điều chuyển tính vào Nhập (kho đích) / Xuất (kho nguồn) của kho đó; xem **mọi kho** thì **không tính** vào Nhập/Xuất vì hàng không vào hay ra khỏi hệ thống. Tồn đầu / tồn cuối không bị ảnh hưởng.
 
 ### ❓ Câu hỏi mở
 
-- **BR-TRF-Q01:** Có kho nào bị hạn chế không được điều chuyển đến/từ không?
-- **BR-TRF-Q02:** Cần trạng thái phức tạp hơn cho điều chuyển không? (yêu cầu → duyệt → xuất → nhận)
+- **BR-TRF-Q03:** Khi nào cần quy trình yêu cầu → duyệt → xuất → nhận và trạng thái "đang vận chuyển"?
 
 ---
 
@@ -422,9 +435,18 @@ _(Trả lời BR-SAL-Q01: có công nợ, chỉ ở mức phiếu bán + lịch 
 - **BR-POR-05:** Phiên app hết hạn sau **30 ngày không dùng**, tối đa **90 ngày** từ lúc đăng nhập (khác nhân viên — BR-AUTH-06). Đăng xuất / đổi mật khẩu như BR-AUTH-06, 07.
 - **BR-POR-06:** Khách chỉ thấy **SP đang kinh doanh** (mã, tên, ĐVT, danh mục) — **không thấy giá, không thấy tồn**.
 - **BR-POR-07:** Khách đặt hàng = **đơn Chờ xác nhận kênh App** (BR-SAL-16..22): SP + SL theo ĐVT, ngày muốn giao, ghi chú. Cửa hàng xác nhận / hủy như đơn ghi từ điện thoại.
-- **BR-POR-08:** Khách chỉ thấy **đơn của chính mình**. Trạng thái hiển thị: Chờ cửa hàng xác nhận · Đã nhận đơn · Đã giao · Đã hủy · Đã hủy giao. **Giá chỉ hiện sau khi cửa hàng xác nhận** (dòng chốt: SL, đơn giá, thành tiền, tổng; luôn là giá mới nhất kể cả sau BR-SAL-23). Không hiện công nợ, kho xuất, người lập / xác nhận. Đơn bị hủy hiện lý do.
+- **BR-POR-08:** Khách chỉ thấy **đơn của chính mình**. Trạng thái hiển thị: Chờ cửa hàng xác nhận · Đã nhận đơn · Đã giao · Đã hủy · Đã hủy giao. **Giá chỉ hiện sau khi cửa hàng xác nhận** (dòng chốt: SL, đơn giá, thành tiền, tổng; luôn là giá mới nhất kể cả sau BR-SAL-23). Không hiện công nợ, kho xuất, người lập / xác nhận. Đơn bị hủy hiện lý do theo BR-POR-11.
 - **BR-POR-09:** Khách **sửa / tự hủy** đơn khi còn **Chờ xác nhận** (BR-SAL-18). Tự hủy ghi lý do "Khách hủy qua app" (+ ghi chú của khách nếu có). Đã nhận đơn thì phải gọi cửa hàng.
-- **BR-POR-10:** Cửa hàng **khóa** tài khoản (khách không đăng nhập, không gia hạn, không đặt hàng được ngay — đơn đã có giữ nguyên), **mở khóa** (xóa đếm sai mật khẩu), **đặt lại mật khẩu** (mọi phiên của khách bị thu hồi, BR-POR-03 áp dụng lại).
+- **BR-POR-10:** Cửa hàng **khóa** tài khoản (khách không đăng nhập, không gia hạn, không đặt hàng được ngay — đơn đã có giữ nguyên), **mở khóa** (xóa đếm sai mật khẩu), **đặt lại mật khẩu** (mọi phiên của khách bị thu hồi, BR-POR-03 áp dụng lại). Khách đang mở app khi bị khóa → app tự đăng xuất và hiện lý do.
+- **BR-POR-11 (chốt 2026-11-04):** Thông tin nội bộ không ra app khách.
+  - **Ghi chú tách đôi:** lời khách ghi trên app lưu riêng (`customer_note`), nhân viên chỉ đọc ("Khách ghi"). Ô "Ghi chú nội bộ" của cửa hàng khách **không bao giờ** thấy; khách sửa đơn cũng không xóa ghi chú nội bộ.
+  - **Lý do hủy:** khách tự hủy → hiện lý do của khách. Cửa hàng hủy / hủy giao → khách chỉ thấy câu chung "Cửa hàng đã hủy (giao) đơn này. Vui lòng liên hệ cửa hàng nếu cần".
+  - Đơn app luôn giữ kênh **App**: nhân viên sửa phần khách đặt không đổi sang kênh khác được.
+- **BR-POR-12 (chốt 2026-11-04):** Giới hạn đơn khách tự đặt qua app (nhân viên ghi đơn hộ không bị giới hạn) — chặn một tài khoản làm ngập danh sách Chờ xác nhận:
+  - Tối đa **5 đơn app đang Chờ xác nhận** mỗi khách (đơn thứ 6 → 409; hủy / được xác nhận bớt thì đặt tiếp).
+  - Tối đa **50 sản phẩm** một đơn; mỗi sản phẩm **1–9.999**, số nguyên.
+  - Ngày muốn giao: **từ hôm nay đến 60 ngày tới** (giờ VN), hoặc để trống.
+  - Đăng nhập app: tối đa khoảng **10 lần / phút mỗi IP** (Nginx, dồn được 10) — chống thử một mật khẩu cho nhiều SĐT.
 
 ### ❓ Câu hỏi mở
 

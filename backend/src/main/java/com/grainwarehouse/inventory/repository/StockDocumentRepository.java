@@ -1,6 +1,7 @@
 package com.grainwarehouse.inventory.repository;
 
 import com.grainwarehouse.inventory.entity.StockDocument;
+import com.grainwarehouse.inventory.entity.StockDocumentStatus;
 import com.grainwarehouse.inventory.entity.StockDocumentType;
 import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Page;
@@ -29,13 +30,23 @@ public interface StockDocumentRepository
     @Query("select d from StockDocument d where d.id = :id and d.type = :type")
     Optional<StockDocument> findForUpdate(@Param("id") Long id, @Param("type") StockDocumentType type);
 
+    /**
+     * BR-POR-12: đếm đơn app của một khách theo trạng thái (giới hạn số đơn đang chờ xác nhận).
+     * Gọi sau khi đã khóa dòng tài khoản app → hai request đặt cùng lúc không cùng đếm "còn chỗ".
+     */
+    @Query("select count(d) from StockDocument d where d.type = com.grainwarehouse.inventory.entity.StockDocumentType.OUTBOUND"
+            + " and d.customer.id = :customerId and d.orderChannel = com.grainwarehouse.sales.entity.OrderChannel.APP"
+            + " and d.status = :status")
+    long countAppOrders(@Param("customerId") Long customerId,
+                        @Param("status") StockDocumentStatus status);
+
     // Màn chi tiết: JOIN lấy luôn kho, NCC/khách, các dòng và SP của từng dòng — tránh N+1
-    @EntityGraph(attributePaths = {"warehouse", "supplier", "customer", "items", "items.product"})
+    @EntityGraph(attributePaths = {"warehouse", "targetWarehouse", "supplier", "customer", "items", "items.product"})
     Optional<StockDocument> findWithDetailsByIdAndType(Long id, StockDocumentType type);
 
-    // Danh sách: chỉ cần kho + NCC/khách (không tải dòng hàng)
+    // Danh sách: chỉ cần kho (nguồn + đích) + NCC/khách (không tải dòng hàng)
     @Override
-    @EntityGraph(attributePaths = {"warehouse", "supplier", "customer"})
+    @EntityGraph(attributePaths = {"warehouse", "targetWarehouse", "supplier", "customer"})
     Page<StockDocument> findAll(Specification<StockDocument> spec, Pageable pageable);
 
     // BR-IMP-07: sequence an toàn khi nhiều request tạo phiếu đồng thời (không bao giờ cấp trùng số)
@@ -53,6 +64,10 @@ public interface StockDocumentRepository
     // BR-CNT-01: mã phiếu kiểm kê KK
     @Query(value = "SELECT nextval('stock_count_code_seq')", nativeQuery = true)
     long nextStockCountCodeNumber();
+
+    // BR-TRF-07: mã phiếu điều chuyển DC
+    @Query(value = "SELECT nextval('transfer_code_seq')", nativeQuery = true)
+    long nextTransferCodeNumber();
 
     /** Phiếu kiểm đang dở của kho (BR-CNT-07) — để báo lỗi rõ mã phiếu trước khi đụng UNIQUE ở DB. */
     @Query("""
