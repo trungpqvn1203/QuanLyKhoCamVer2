@@ -1,6 +1,7 @@
-import { apiRequest, withQuery } from '../../api/client'
+import { apiDownload, apiRequest, withQuery } from '../../api/client'
 import type { PageQuery, PageResponse } from '../../api/types'
 import { toFilterParams } from '../../utils/filters'
+import type { ImportPreview } from '../imports/import-api'
 import type { ReceiptStatus } from '../inbound-receipts/inbound-receipt-api'
 
 export interface OpeningStockLine {
@@ -110,4 +111,37 @@ export const openingStockApi = {
   /** Hoàn tất → Đã đảo; lý do bắt buộc (BR-OPN-06). */
   reverse: (id: number, reason: string) =>
     apiRequest<OpeningStock>(`${BASE}/${id}/reverse`, { method: 'POST', body: JSON.stringify({ reason }) }),
+
+  downloadImportTemplate: () => apiDownload(`${BASE}/import/template`, 'mau-nhap-ton-dau-ky.xlsx'),
+
+  previewImport: (file: File) => {
+    const data = new FormData()
+    data.append('file', file)
+    return apiRequest<ImportPreview>(`${BASE}/import/preview`, { method: 'POST', body: data })
+  },
+
+  importNewDraft: ({
+    file,
+    warehouseId,
+    documentDate,
+    note,
+  }: {
+    file: File
+    warehouseId: number
+    documentDate?: string
+    note?: string
+  }) => {
+    const data = new FormData()
+    data.append('file', file)
+    data.append('warehouseId', String(warehouseId))
+    if (documentDate) data.append('documentDate', documentDate)
+    if (note?.trim()) data.append('note', note.trim())
+    return apiRequest<OpeningStock>(`${BASE}/import`, { method: 'POST', body: data })
+  },
+
+  importIntoDraft: (id: number, file: File) => {
+    const data = new FormData()
+    data.append('file', file)
+    return apiRequest<OpeningStock>(`${BASE}/${id}/import`, { method: 'POST', body: data })
+  },
 }

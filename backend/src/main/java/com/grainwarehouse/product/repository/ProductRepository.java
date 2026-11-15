@@ -27,6 +27,8 @@ public interface ProductRepository extends JpaRepository<Product, Long>, JpaSpec
     // Trả về bản ghi (thay vì boolean) để thông báo lỗi nêu được mã SP và trạng thái
     Optional<Product> findByNameIgnoreCase(String name);
 
+    Optional<Product> findByCodeIgnoreCase(String code);
+
     // App khách (BR-POR-06): SP đang kinh doanh kèm danh mục + ĐVT, một câu SQL, không phân trang (vài trăm SP)
     @EntityGraph(attributePaths = {"category", "unit"})
     List<Product> findByActiveTrueOrderByNameAsc();

@@ -27,6 +27,21 @@ public interface ImportDefinition<R, E> {
     /** Một dòng ví dụ in ở sheet "Hướng dẫn", theo đúng thứ tự columns(). */
     List<String> example();
 
+    /**
+     * Các dòng điền sẵn trong sheet "Dữ liệu" khi tải file mẫu (mặc định rỗng).
+     * Dùng cho mẫu dạng bảng kê (ví dụ tồn đầu kỳ: điền sẵn danh sách sản phẩm).
+     */
+    default List<List<String>> prefilledRows() {
+        return List.of();
+    }
+
+    /**
+     * Bỏ qua dòng chưa nhập số liệu (ví dụ dòng sản phẩm điền sẵn nhưng để trống cả số lượng lẫn đơn giá).
+     */
+    default boolean shouldSkipRow(ImportRow row) {
+        return false;
+    }
+
     /** Ép kiểu các ô thành request. Ô sai kiểu → row.error(...), field đó để null. */
     R parse(ImportRow row);
 

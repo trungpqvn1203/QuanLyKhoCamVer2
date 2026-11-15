@@ -30,6 +30,10 @@ public final class ImportRow {
         return number;
     }
 
+    public boolean hasValue(String key) {
+        return values.containsKey(key);
+    }
+
     /** Chuỗi đã cắt khoảng trắng; ô số (ví dụ SĐT bị Excel đổi sang số) được đọc lại thành chuỗi. */
     public String text(String key) {
         Object value = values.get(key);

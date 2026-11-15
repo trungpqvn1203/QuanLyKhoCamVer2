@@ -61,12 +61,13 @@ final class ExcelWorkbooks {
             textStyle.setDataFormat(workbook.createDataFormat().getFormat("@"));
 
             Row header = data.createRow(0);
+            int[] maxLengths = new int[columns.size()];
             for (int i = 0; i < columns.size(); i++) {
                 ImportColumn column = columns.get(i);
                 Cell cell = header.createCell(i);
                 cell.setCellValue(column.headerText());
                 cell.setCellStyle(headerStyle);
-                data.setColumnWidth(i, Math.max(column.headerText().length() + 6, 18) * 256);
+                maxLengths[i] = column.headerText().length() + 6;
                 if (column.text()) {
                     // Ô mới gõ trong cột này sẽ là Text: "0901234567" giữ nguyên số 0 đầu
                     data.setDefaultColumnStyle(i, textStyle);
@@ -74,6 +75,21 @@ final class ExcelWorkbooks {
                 if (!column.options().isEmpty()) {
                     addDropdown(data, meta, i, column, maxRows);
                 }
+            }
+            List<List<String>> prefilled = definition.prefilledRows();
+            for (int r = 0; r < prefilled.size(); r++) {
+                Row row = data.createRow(r + 1);
+                List<String> values = prefilled.get(r);
+                for (int c = 0; c < columns.size() && c < values.size(); c++) {
+                    String value = values.get(c);
+                    if (value != null && !value.isEmpty()) {
+                        row.createCell(c).setCellValue(value);
+                        maxLengths[c] = Math.max(maxLengths[c], Math.min(value.length() + 4, 60));
+                    }
+                }
+            }
+            for (int i = 0; i < columns.size(); i++) {
+                data.setColumnWidth(i, Math.max(maxLengths[i], 18) * 256);
             }
             data.createFreezePane(0, 1);
 

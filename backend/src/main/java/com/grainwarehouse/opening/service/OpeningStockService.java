@@ -112,6 +112,21 @@ public class OpeningStockService {
         return OpeningStockResponse.from(stockDocumentRepository.saveAndFlush(document));
     }
 
+    /** BR-OPN-Q01: thay toàn bộ dòng của một phiếu nháp từ file Excel đã kiểm tra. */
+    @Transactional
+    public OpeningStockResponse replaceLinesFromImport(Long id, Long warehouseId, LocalDate documentDate, String note,
+                                                       List<OpeningStockLineRequest> lines) {
+        StockDocument document = lockForChange(id, DRAFT, "nhập Excel");
+        OpeningStockRequest request = new OpeningStockRequest(
+                warehouseId != null ? warehouseId : document.getWarehouse().getId(),
+                documentDate != null ? documentDate : document.getDocumentDate(),
+                note != null ? note : document.getNote(),
+                lines);
+        References refs = resolve(request);
+        apply(document, request, refs);
+        return OpeningStockResponse.from(stockDocumentRepository.saveAndFlush(document));
+    }
+
     /**
      * Xác nhận: cộng tồn và ghi StockTransaction cho mọi dòng trong MỘT transaction; một dòng lỗi → rollback hết,
      * phiếu vẫn là Nháp.

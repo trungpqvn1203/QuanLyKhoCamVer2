@@ -14,6 +14,12 @@ interface ImportExcelModalProps {
   onClose: () => void
   /** Nhập xong — trang danh sách tải lại */
   onImported: () => void
+  /** Nội dung bổ sung phía trên (ví dụ chọn kho khi nhập tồn đầu kỳ) */
+  extraContent?: React.ReactNode
+  /** Cảnh báo hiển thị phía trên khi cần lưu ý (ví dụ thay thế toàn bộ dòng phiếu nháp) */
+  warningMessage?: string
+  /** Chặn bấm nút Nhập khi thiếu điều kiện ngoài file (ví dụ chưa chọn kho) */
+  commitDisabled?: boolean
 }
 
 const errorColumns: TableProps<ImportRowError>['columns'] = [
@@ -26,7 +32,16 @@ const errorColumns: TableProps<ImportRowError>['columns'] = [
  * Nhập hàng loạt từ Excel (BR-XLS): ① tải file mẫu → ② chọn file → hệ thống kiểm tra ngay, chưa ghi gì
  * → ③ không còn lỗi mới bấm được "Nhập". Có lỗi thì sửa trong Excel rồi chọn lại file.
  */
-export function ImportExcelModal({ open, noun, api, onClose, onImported }: ImportExcelModalProps) {
+export function ImportExcelModal({
+  open,
+  noun,
+  api,
+  onClose,
+  onImported,
+  extraContent,
+  warningMessage,
+  commitDisabled = false,
+}: ImportExcelModalProps) {
   const { message, notification } = App.useApp()
   const [file, setFile] = useState<File | null>(null)
   const [preview, setPreview] = useState<ImportPreview | null>(null)
@@ -111,12 +126,14 @@ export function ImportExcelModal({ open, noun, api, onClose, onImported }: Impor
         <Button key="cancel" onClick={close} disabled={importing}>
           Hủy
         </Button>,
-        <Button key="import" type="primary" disabled={!ready} loading={importing} onClick={runImport}>
+        <Button key="import" type="primary" disabled={!ready || commitDisabled} loading={importing} onClick={runImport}>
           {ready ? `Nhập ${preview.totalRows} ${noun}` : 'Nhập'}
         </Button>,
       ]}
     >
       <Flex vertical gap={16}>
+        {warningMessage && <Alert type="warning" showIcon title={warningMessage} />}
+        {extraContent}
         <Flex justify="space-between" align="center" gap={12}>
           <Typography.Text>
             <Typography.Text strong>Bước 1.</Typography.Text> Tải file mẫu, điền dữ liệu từ dòng 2 (xem sheet

@@ -1,4 +1,4 @@
-import { CheckOutlined, RollbackOutlined, SaveOutlined, StopOutlined } from '@ant-design/icons'
+import { CheckOutlined, FileExcelOutlined, RollbackOutlined, SaveOutlined, StopOutlined } from '@ant-design/icons'
 import { Alert, App, Button, Drawer, Flex, Form, Skeleton } from 'antd'
 import { useEffect, useMemo, useState } from 'react'
 import { ApiError } from '../../api/client'
@@ -11,6 +11,7 @@ import type { OpeningStock } from './opening-stock-api'
 import { draftTotalQuantity, emptyOpeningStockForm, toOpeningFormValues, toOpeningInput } from './opening-stock-form'
 import type { OpeningStockFormValues } from './opening-stock-form'
 import { OpeningStockForm } from './OpeningStockForm'
+import { OpeningStockImportModal } from './OpeningStockImportModal'
 import { OpeningStockView } from './OpeningStockView'
 import type { OpeningReferences } from './use-opening-references'
 
@@ -42,6 +43,7 @@ export function OpeningStockDrawer({ open, documentId, references, onClose, onCh
   const [busy, setBusy] = useState<'save' | 'complete' | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [reasonAction, setReasonAction] = useState<'cancel' | 'reverse' | null>(null)
+  const [importOpen, setImportOpen] = useState(false)
 
   useEffect(() => {
     if (documentId === null) return
@@ -224,6 +226,11 @@ export function OpeningStockDrawer({ open, documentId, references, onClose, onCh
     loading || loadError ? null : (
       <Flex justify="space-between" gap={8} wrap>
         <Flex gap={8}>
+          {showForm && (
+            <Button icon={<FileExcelOutlined />} disabled={busy !== null} onClick={() => setImportOpen(true)}>
+              Nhập từ Excel
+            </Button>
+          )}
           {document?.status === 'DRAFT' && (
             <Button danger icon={<StopOutlined />} disabled={busy !== null} onClick={() => setReasonAction('cancel')}>
               Hủy phiếu
@@ -303,6 +310,22 @@ export function OpeningStockDrawer({ open, documentId, references, onClose, onCh
           {...reasonTexts(document)}
           onSubmit={submitReason}
           onClose={() => setReasonAction(null)}
+        />
+      )}
+      {importOpen && (
+        <OpeningStockImportModal
+          open
+          warehouses={references.warehouses}
+          document={document}
+          initialWarehouseId={form.getFieldValue('warehouseId') as number | undefined}
+          initialDocumentDate={form.getFieldValue('documentDate') as string | undefined}
+          initialNote={form.getFieldValue('note') as string | undefined}
+          onClose={() => setImportOpen(false)}
+          onSuccess={(saved) => {
+            setDocument(saved)
+            setErrorMessage(null)
+            onChanged()
+          }}
         />
       )}
     </Drawer>

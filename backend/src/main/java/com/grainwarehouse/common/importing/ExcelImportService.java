@@ -77,6 +77,19 @@ public class ExcelImportService {
         return new ImportResult(result.prepared().size());
     }
 
+    /**
+     * Kiểm tra toàn bộ file như {@link #commit(ImportDefinition, MultipartFile)} rồi trả về danh sách dòng đã
+     * chuẩn bị để caller tự lưu (dùng khi đích lưu cần ngữ cảnh ngoài file, như phiếu tồn đầu kỳ của một kho).
+     */
+    @Transactional(readOnly = true)
+    public <R, E> List<E> validateAndCollect(ImportDefinition<R, E> definition, MultipartFile file) {
+        Evaluation<E> result = evaluate(definition, file);
+        if (!result.errors().isEmpty()) {
+            throw new ImportFailedException(result.errors());
+        }
+        return result.prepared();
+    }
+
     private <R, E> Evaluation<E> evaluate(ImportDefinition<R, E> definition, MultipartFile file) {
         List<ImportColumn> columns = definition.columns();
         List<ImportRow> rows;
@@ -91,7 +104,12 @@ public class ExcelImportService {
         // (field, khóa so trùng) → số dòng xuất hiện ĐẦU TIÊN, để báo "trùng với dòng 5"
         Map<String, Map<String, Integer>> seen = new HashMap<>();
 
+        int evaluatedRows = 0;
         for (ImportRow row : rows) {
+            if (definition.shouldSkipRow(row)) {
+                continue;
+            }
+            evaluatedRows++;
             R request = definition.parse(row);
             for (ConstraintViolation<R> violation : validator.validate(request)) {
                 String field = violation.getPropertyPath().toString();
@@ -108,7 +126,11 @@ public class ExcelImportService {
             }
             errors.addAll(row.errors());
         }
-        return new Evaluation<>(rows.size(), errors, prepared);
+        if (evaluatedRows == 0) {
+            throw new InvalidRequestException("file",
+                    "Chưa có dòng nào được nhập dữ liệu (điền số liệu cho ít nhất một dòng)");
+        }
+        return new Evaluation<>(evaluatedRows, errors, prepared);
     }
 
     private <R> void checkDuplicateInFile(ImportDefinition<R, ?> definition, R request, ImportRow row,

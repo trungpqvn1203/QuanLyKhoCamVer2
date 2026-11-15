@@ -1,12 +1,16 @@
 package com.grainwarehouse.opening.controller;
 
+import com.grainwarehouse.common.importing.ExcelImportService;
+import com.grainwarehouse.common.importing.ImportPreview;
 import com.grainwarehouse.common.response.ApiResponse;
 import com.grainwarehouse.common.response.PageResponse;
 import com.grainwarehouse.opening.dto.CancelOpeningStockRequest;
+import com.grainwarehouse.opening.dto.OpeningStockLineRequest;
 import com.grainwarehouse.opening.dto.OpeningStockRequest;
 import com.grainwarehouse.opening.dto.OpeningStockResponse;
 import com.grainwarehouse.opening.dto.OpeningStockSearchCriteria;
 import com.grainwarehouse.opening.dto.OpeningStockSummaryResponse;
+import com.grainwarehouse.opening.service.OpeningStockImportDefinition;
 import com.grainwarehouse.opening.service.OpeningStockService;
 import com.grainwarehouse.sales.dto.ReasonRequest;
 import jakarta.validation.Valid;
@@ -14,6 +18,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -26,7 +31,9 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.time.LocalDate;
 import java.util.List;
 
 /**
@@ -39,6 +46,48 @@ import java.util.List;
 public class OpeningStockController {
 
     private final OpeningStockService openingStockService;
+    private final OpeningStockImportDefinition openingStockImport;
+    private final ExcelImportService excelImportService;
+
+    @GetMapping("/import/template")
+    public ResponseEntity<byte[]> importTemplate() {
+        return excelImportService.template(openingStockImport);
+    }
+
+    @PostMapping("/import/preview")
+    public ResponseEntity<ApiResponse<ImportPreview>> previewImport(@RequestParam("file") MultipartFile file) {
+        return ResponseEntity.ok(ApiResponse.ok(excelImportService.preview(openingStockImport, file)));
+    }
+
+    @PostMapping("/import")
+    public ResponseEntity<ApiResponse<OpeningStockResponse>> importNewDraft(
+            @RequestParam("file") MultipartFile file,
+            @RequestParam("warehouseId") Long warehouseId,
+            @RequestParam(value = "documentDate", required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate documentDate,
+            @RequestParam(value = "note", required = false) String note,
+            Authentication authentication) {
+        List<OpeningStockLineRequest> lines = excelImportService.validateAndCollect(openingStockImport, file);
+        OpeningStockResponse created = openingStockService.create(
+                new OpeningStockRequest(warehouseId, documentDate, note, lines), authentication.getName());
+        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(
+                created, "Đã nhập " + created.lineCount() + " dòng tồn đầu kỳ (phiếu nháp " + created.code() + ")"));
+    }
+
+    @PostMapping("/{id}/import")
+    public ResponseEntity<ApiResponse<OpeningStockResponse>> importIntoDraft(
+            @PathVariable Long id,
+            @RequestParam("file") MultipartFile file,
+            @RequestParam(value = "warehouseId", required = false) Long warehouseId,
+            @RequestParam(value = "documentDate", required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate documentDate,
+            @RequestParam(value = "note", required = false) String note) {
+        List<OpeningStockLineRequest> lines = excelImportService.validateAndCollect(openingStockImport, file);
+        OpeningStockResponse updated = openingStockService.replaceLinesFromImport(
+                id, warehouseId, documentDate, note, lines);
+        return ResponseEntity.ok(ApiResponse.ok(
+                updated, "Đã nhập " + updated.lineCount() + " dòng tồn đầu kỳ vào phiếu " + updated.code()));
+    }
 
     @GetMapping
     public ResponseEntity<ApiResponse<PageResponse<OpeningStockSummaryResponse>>> list(

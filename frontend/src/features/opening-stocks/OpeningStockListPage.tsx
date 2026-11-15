@@ -1,4 +1,4 @@
-import { PlusOutlined } from '@ant-design/icons'
+import { FileExcelOutlined, PlusOutlined } from '@ant-design/icons'
 import { Button, Flex, Typography } from 'antd'
 import type { TableProps } from 'antd'
 import { useState } from 'react'
@@ -18,6 +18,7 @@ import { ReceiptStatusTag } from '../inbound-receipts/ReceiptStatusTag'
 import { openingStockApi } from './opening-stock-api'
 import type { OpeningStockFilters, OpeningStockSummary } from './opening-stock-api'
 import { OpeningStockDrawer } from './OpeningStockDrawer'
+import { OpeningStockImportModal } from './OpeningStockImportModal'
 import { useOpeningReferences } from './use-opening-references'
 
 const STATUS_OPTIONS = (Object.keys(RECEIPT_STATUS_LABELS) as ReceiptStatus[]).map((status) => ({
@@ -36,6 +37,7 @@ export function OpeningStockListPage() {
   const [openedId, setOpenedId] = useState<number | null>(null)
   // Tăng mỗi lần mở → Drawer tạo mới hoàn toàn (state sạch)
   const [drawerKey, setDrawerKey] = useState(0)
+  const [importOpen, setImportOpen] = useState(false)
 
   const openDocument = (id: number | null) => {
     setOpenedId(id)
@@ -120,9 +122,14 @@ export function OpeningStockListPage() {
         title="Tồn kho đầu kỳ"
         description="Khai số hàng đang có sẵn trong kho khi bắt đầu quản lý trên phần mềm. Mỗi sản phẩm tại mỗi kho chỉ khai một lần, khi chưa có nhập/xuất"
         actions={
-          <Button type="primary" icon={<PlusOutlined />} onClick={() => openDocument(null)}>
-            Lập phiếu tồn đầu kỳ
-          </Button>
+          <Flex gap={8}>
+            <Button icon={<FileExcelOutlined />} onClick={() => setImportOpen(true)}>
+              Nhập từ Excel
+            </Button>
+            <Button type="primary" icon={<PlusOutlined />} onClick={() => openDocument(null)}>
+              Lập phiếu tồn đầu kỳ
+            </Button>
+          </Flex>
         }
       />
       <FilterBar<OpeningStockFilters> fields={filterFields} value={filters} onChange={applyFilters} />
@@ -153,6 +160,17 @@ export function OpeningStockListPage() {
         onClose={() => setDrawerOpen(false)}
         onChanged={reload}
       />
+      {importOpen && (
+        <OpeningStockImportModal
+          open
+          warehouses={references.warehouses}
+          onClose={() => setImportOpen(false)}
+          onSuccess={(saved) => {
+            reload()
+            openDocument(saved.id)
+          }}
+        />
+      )}
     </>
   )
 }
