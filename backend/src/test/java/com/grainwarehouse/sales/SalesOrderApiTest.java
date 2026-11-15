@@ -217,14 +217,12 @@ class SalesOrderApiTest {
     }
 
     @Test
-    @DisplayName("BR-INV-01: hoàn tất vượt tồn - 409 nêu SP và tồn hiện tại")
-    void completeShouldRejectInsufficientStock() throws Exception {
+    @DisplayName("Hoàn tất vượt tồn - cho phép tồn kho âm (xuất trước nhập sau)")
+    void completeShouldAllowNegativeStock() throws Exception {
         long id = createDraft(line(chickenFeed.getId(), 51, "1000")).get("id").asLong();
 
-        complete(id)
-                .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.error.message").value(containsString(chickenFeed.getCode())))
-                .andExpect(jsonPath("$.error.message").value(containsString("còn 50")));
+        complete(id).andExpect(status().isOk());
+        assertThat(stock(chickenFeed)).isEqualTo(-1);
     }
 
     @Test

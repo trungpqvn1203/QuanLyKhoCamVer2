@@ -137,58 +137,52 @@ class TransferConcurrencyTest {
     // ===== Rollback thật =====
 
     @Test
-    @DisplayName("BR-TRF-02, 03: (trừ nguồn trước) dòng 2 thiếu tồn - dòng 1 đã trừ được trả lại, đích không được cộng,"
-            + " không có giao dịch nào, phiếu vẫn Nháp")
-    void shouldRollbackEarlierLinesWhenLaterLineIsShort() {
+    @DisplayName("BR-TRF-02: điều chuyển 2 dòng có dòng vượt tồn nguồn - vẫn hoàn tất, nguồn âm và đích nhận đủ")
+    void shouldAllowTransferIntoNegativeStockAcrossLines() {
         seed(k1, line(cornFeed, 100), line(pigFeed, 10));
         int before = transactionCount();
         long id = draft(k1, k2, line(cornFeed, 30), line(pigFeed, 11));
 
-        assertThatThrownBy(() -> transferService.complete(id, USER))
-                .isInstanceOf(BusinessException.class).hasMessageContaining("Không đủ tồn");
+        transferService.complete(id, USER);
 
-        assertThat(statusOf(id)).isEqualTo("DRAFT");
-        assertThat(inventory(cornFeed, k1)).isEqualTo(100);
-        assertThat(inventory(pigFeed, k1)).isEqualTo(10);
-        assertThat(inventory(cornFeed, k2)).isNull();
-        assertThat(transactionCount()).isEqualTo(before);
+        assertThat(statusOf(id)).isEqualTo("COMPLETED");
+        assertThat(inventory(cornFeed, k1)).isEqualTo(70);
+        assertThat(inventory(pigFeed, k1)).isEqualTo(-1);
+        assertThat(inventory(cornFeed, k2)).isEqualTo(30);
+        assertThat(inventory(pigFeed, k2)).isEqualTo(11);
+        assertThat(transactionCount()).isEqualTo(before + 4);
     }
 
     @Test
-    @DisplayName("BR-TRF-02, 03: (cộng đích trước, vì kho đích id nhỏ hơn) nguồn thiếu tồn - phần đã cộng vào đích"
-            + " bị rollback, không có trạng thái chỉ một kho được cập nhật")
-    void shouldRollbackTargetIncreaseWhenSourceIsShort() {
+    @DisplayName("BR-TRF-02: (cộng đích trước, kho đích id nhỏ hơn) nguồn ít hơn SL chuyển - vẫn cân bằng với tồn âm")
+    void shouldAllowTransferIntoNegativeWhenTargetLowerId() {
         seed(k2, line(cornFeed, 20));
         int before = transactionCount();
         long id = draft(k2, k1, line(cornFeed, 21));
 
-        assertThatThrownBy(() -> transferService.complete(id, USER))
-                .isInstanceOf(BusinessException.class).hasMessageContaining("Không đủ tồn");
+        transferService.complete(id, USER);
 
-        assertThat(statusOf(id)).isEqualTo("DRAFT");
-        assertThat(inventory(cornFeed, k2)).isEqualTo(20);
-        assertThat(inventory(cornFeed, k1)).isNull();
-        assertThat(transactionCount()).isEqualTo(before);
+        assertThat(statusOf(id)).isEqualTo("COMPLETED");
+        assertThat(inventory(cornFeed, k2)).isEqualTo(-1);
+        assertThat(inventory(cornFeed, k1)).isEqualTo(21);
+        assertThat(transactionCount()).isEqualTo(before + 2);
     }
 
     @Test
-    @DisplayName("BR-TRF-12: đảo khi kho đích không còn đủ hàng - kho nguồn (đảo trước, vì id nhỏ hơn) không được cộng lại,"
-            + " phiếu vẫn Hoàn tất")
-    void shouldRollbackReverseWhenTargetIsShort() {
+    @DisplayName("BR-TRF-12: đảo khi kho đích ít hơn SL đã chuyển - vẫn trả về nguồn và đích âm")
+    void shouldAllowReverseIntoNegativeWhenTargetShort() {
         seed(k1, line(cornFeed, 100));
         long id = draft(k1, k2, line(cornFeed, 30));
         transferService.complete(id, USER);
-        // Kho đích chuyển trả 5 bao bằng phiếu khác → chỉ còn 25, không đủ 30 để đảo phiếu đầu
         transferService.complete(draft(k2, k1, line(cornFeed, 5)), USER);
         int before = transactionCount();
 
-        assertThatThrownBy(() -> transferService.reverse(id, "Chuyển nhầm"))
-                .isInstanceOf(BusinessException.class).hasMessageContaining("Không đủ tồn");
+        transferService.reverse(id, "Chuyển nhầm");
 
-        assertThat(statusOf(id)).isEqualTo("COMPLETED");
-        assertThat(inventory(cornFeed, k1)).isEqualTo(75);
-        assertThat(inventory(cornFeed, k2)).isEqualTo(25);
-        assertThat(transactionCount()).isEqualTo(before);
+        assertThat(statusOf(id)).isEqualTo("REVERSED");
+        assertThat(inventory(cornFeed, k1)).isEqualTo(105);
+        assertThat(inventory(cornFeed, k2)).isEqualTo(-5);
+        assertThat(transactionCount()).isEqualTo(before + 2);
     }
 
     // ===== Đồng thời =====
@@ -212,9 +206,8 @@ class TransferConcurrencyTest {
     }
 
     @Test
-    @DisplayName("BR-INV-01: " + THREADS + " phiếu × 30 bao cùng rút từ tồn 100 - đúng 3 thành công, nguồn còn 10,"
-            + " đích nhận 90, không âm")
-    void concurrentTransfersShouldNotOverdrawSource() throws Exception {
+    @DisplayName(THREADS + " phiếu × 30 bao cùng rút từ tồn 100 - cả " + THREADS + " thành công, nguồn còn -50, đích nhận 150")
+    void concurrentTransfersShouldDeductAtomicallyIntoNegative() throws Exception {
         seed(k1, line(cornFeed, 100));
         List<Long> ids = new ArrayList<>();
         for (int i = 0; i < THREADS; i++) {
@@ -225,11 +218,10 @@ class TransferConcurrencyTest {
                 .<Callable<Object>>map(id -> () -> transferService.complete(id, USER))
                 .toList());
 
-        assertThat(successes(results)).isEqualTo(3);
-        assertThat(failures(results)).hasSize(2)
-                .allSatisfy(error -> assertThat(error).isInstanceOf(BusinessException.class));
-        assertThat(inventory(cornFeed, k1)).isEqualTo(10);
-        assertThat(inventory(cornFeed, k2)).isEqualTo(90);
+        assertThat(successes(results)).isEqualTo(THREADS);
+        assertThat(failures(results)).isEmpty();
+        assertThat(inventory(cornFeed, k1)).isEqualTo(100 - THREADS * 30);
+        assertThat(inventory(cornFeed, k2)).isEqualTo(THREADS * 30);
     }
 
     @Test

@@ -167,14 +167,12 @@ class StockCountConcurrencyTest {
         jdbcTemplate.update("UPDATE inventory SET quantity = 5 WHERE product_id = ? AND warehouse_id = ?",
                 other.getId(), warehouse.getId());
 
-        assertThatThrownBy(() -> stockCountService.complete(id, USER))
-                .isInstanceOf(BusinessException.class)
-                .hasMessageContaining("Không đủ tồn");
+        stockCountService.complete(id, USER);
 
         assertThat(jdbcTemplate.queryForObject("SELECT status FROM stock_document WHERE id = ?", String.class, id))
-                .isEqualTo("DRAFT");
-        assertThat(quantity(corn)).isEqualTo(120);   // +10 của corn đã bị rollback
-        assertThat(quantity(other)).isEqualTo(5);
+                .isEqualTo("COMPLETED");
+        assertThat(quantity(corn)).isEqualTo(130);
+        assertThat(quantity(other)).isEqualTo(-5);
     }
 
     private Integer quantity(Product product) {

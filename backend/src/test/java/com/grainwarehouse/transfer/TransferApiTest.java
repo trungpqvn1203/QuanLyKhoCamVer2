@@ -277,18 +277,16 @@ class TransferApiTest {
     // Rollback khi phiếu NHIỀU bước thất bại giữa chừng (BR-TRF-02, 03) được kiểm ở TransferConcurrencyTest: ở đây
     // cả test nằm trong một transaction, phần đã trừ trước khi lỗi vẫn còn nhìn thấy nên không chứng minh được gì.
     @Test
-    @DisplayName("BR-INV-01: kho nguồn không đủ tồn - 409 báo rõ còn bao nhiêu, phiếu vẫn Nháp")
-    void shouldRejectWhenSourceIsShort() throws Exception {
+    @DisplayName("Kho nguồn ít hơn SL chuyển - vẫn hoàn tất, nguồn âm và đích tăng đủ")
+    void shouldAllowTransferWhenSourceIsShort() throws Exception {
         seedStock(hanoi, cornFeed, 10);
         long id = createDraft(hanoi, bacNinh, line(cornFeed, 11));
 
-        complete(id)
-                .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.error.message").value(containsString("Không đủ tồn")))
-                .andExpect(jsonPath("$.error.message").value(containsString("còn 10")));
+        complete(id).andExpect(status().isOk());
 
-        assertThat(statusOf(id)).isEqualTo("DRAFT");
-        assertThat(inventory(cornFeed, hanoi)).isEqualTo(10);
+        assertThat(statusOf(id)).isEqualTo("COMPLETED");
+        assertThat(inventory(cornFeed, hanoi)).isEqualTo(-1);
+        assertThat(inventory(cornFeed, bacNinh)).isEqualTo(11);
     }
 
     @Test
@@ -363,18 +361,18 @@ class TransferApiTest {
     }
 
     @Test
-    @DisplayName("BR-TRF-12: kho đích đã bán bớt, không đủ để trả về - 409, phiếu vẫn Hoàn tất")
-    void shouldRejectReverseWhenTargetSold() throws Exception {
+    @DisplayName("BR-TRF-12: kho đích đã bán bớt, đảo phiếu vẫn hoàn hàng về nguồn và đích âm")
+    void shouldAllowReverseWhenTargetSold() throws Exception {
         seedStock(hanoi, cornFeed, 100);
         long id = createDraft(hanoi, bacNinh, line(cornFeed, 30));
         complete(id).andExpect(status().isOk());
         completeSale(bacNinh, cornFeed, 5).andExpect(status().isOk());
 
-        reverse(id, "Chuyển nhầm")
-                .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.error.message").value(containsString("Không đủ tồn")));
+        reverse(id, "Chuyển nhầm").andExpect(status().isOk());
 
-        assertThat(statusOf(id)).isEqualTo("COMPLETED");
+        assertThat(statusOf(id)).isEqualTo("REVERSED");
+        assertThat(inventory(cornFeed, hanoi)).isEqualTo(100);
+        assertThat(inventory(cornFeed, bacNinh)).isEqualTo(-5);
     }
 
     @Test

@@ -484,18 +484,15 @@ class InboundReceiptApiTest {
     }
 
     @Test
-    @DisplayName("BR-IMP-06: đảo phiếu khi tồn không đủ (hàng đã xuất bớt) - 409, phiếu vẫn Hoàn tất")
-    void shouldRejectReverseWhenStockInsufficient() throws Exception {
+    @DisplayName("BR-IMP-06: đảo phiếu khi tồn hiện tại nhỏ hơn SL nhập - vẫn cho phép và đưa tồn về âm")
+    void shouldAllowReverseIntoNegativeStock() throws Exception {
         long id = createDraft(line(pigFeed.getId(), 10, null, "1000")).get("id").asLong();
         complete(id);
-        // Giả lập đã xuất 7 bao (module xuất kho chưa có)
+        // Giả lập đã xuất 7 bao trước khi đảo phiếu nhập
         jdbcTemplate.update("UPDATE inventory SET quantity = 3 WHERE product_id = ?", pigFeed.getId());
 
-        reverse(id, "Nhập nhầm")
-                .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.error.message").value(containsString("Không đủ tồn")))
-                .andExpect(jsonPath("$.error.message").value(containsString("còn 3, cần trừ 10")));
-        assertThat(inventory(pigFeed)).isEqualTo(3);
+        reverse(id, "Nhập nhầm").andExpect(status().isOk());
+        assertThat(inventory(pigFeed)).isEqualTo(-7);
     }
 
     @Test

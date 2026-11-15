@@ -184,24 +184,20 @@ class InboundReceiptConcurrencyTest {
     }
 
     @Test
-    @DisplayName("BR-IMP-06: đảo phiếu 2 dòng, dòng thứ 2 không đủ tồn - rollback toàn bộ, dòng 1 không bị trừ")
-    void reverseShouldRollBackAllLinesWhenOneFails() {
+    @DisplayName("BR-IMP-06: đảo phiếu 2 dòng khi một dòng tồn ít hơn SL nhập - vẫn trừ đủ và cho phép tồn âm")
+    void reverseShouldAllowNegativeStock() {
         long id = createDraft(line(pigFeed, 10), line(chickenFeed, 20));
         inboundReceiptService.complete(id);
-        // Giả lập đã xuất 15 bao gà (module xuất kho chưa có) — commit ngay
         jdbcTemplate.update("UPDATE inventory SET quantity = 5 WHERE product_id = ? AND warehouse_id = ?",
                 chickenFeed.getId(), warehouse.getId());
 
-        // Heo (id nhỏ hơn) được trừ trước và thành công, rồi gà thất bại
-        assertThatThrownBy(() -> inboundReceiptService.reverse(id, "Nhập nhầm"))
-                .isInstanceOf(BusinessException.class)
-                .hasMessageContaining(chickenFeed.getCode());
+        inboundReceiptService.reverse(id, "Nhập nhầm");
 
-        assertThat(inventory(pigFeed)).isEqualTo(10);   // phần trừ heo đã bị rollback
-        assertThat(inventory(chickenFeed)).isEqualTo(5);
-        assertThat(transactionCount(id)).isEqualTo(2);  // chỉ còn 2 giao dịch IN, không có OUT nào
+        assertThat(inventory(pigFeed)).isZero();
+        assertThat(inventory(chickenFeed)).isEqualTo(-15);
+        assertThat(transactionCount(id)).isEqualTo(4);
         assertThat(jdbcTemplate.queryForObject("SELECT status FROM stock_document WHERE id = ?", String.class, id))
-                .isEqualTo("COMPLETED");
+                .isEqualTo("REVERSED");
     }
 
     // ===== Helpers =====

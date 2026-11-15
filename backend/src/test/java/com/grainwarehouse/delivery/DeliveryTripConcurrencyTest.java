@@ -239,19 +239,18 @@ class DeliveryTripConcurrencyTest {
             dispatchWaiting.countDown();
             blocker.get(30, TimeUnit.SECONDS);
 
-            assertThat(dispatch.get(30, TimeUnit.SECONDS))
-                    .isInstanceOf(BusinessException.class).hasMessageContaining("Không đủ tồn");
+            assertThat(dispatch.get(30, TimeUnit.SECONDS)).isNull();
         } finally {
             pool.shutdownNow();
         }
 
-        assertThat(stock(premix)).isEqualTo(1000);
-        assertThat(stock(pigFeed)).isEqualTo(50);
-        assertThat(transactionCount(premixOrder) + transactionCount(pigOrder)).isZero();
+        assertThat(stock(premix)).isEqualTo(990);
+        assertThat(stock(pigFeed)).isEqualTo(-10);
+        assertThat(transactionCount(premixOrder) + transactionCount(pigOrder)).isEqualTo(2);
         assertThat(jdbcTemplate.queryForObject("SELECT status FROM stock_document WHERE id = ?", String.class, premixOrder))
-                .isEqualTo("DRAFT");
+                .isEqualTo("COMPLETED");
         assertThat(jdbcTemplate.queryForObject("SELECT status FROM delivery_trip WHERE id = ?", String.class, tripId))
-                .isEqualTo("PLANNED");
+                .isEqualTo("DISPATCHED");
     }
 
     // ===== Helpers =====

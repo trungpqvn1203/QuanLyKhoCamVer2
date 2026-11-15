@@ -155,8 +155,8 @@ class SalesOrderConcurrencyTest {
     }
 
     @Test
-    @DisplayName("BR-INV-01: " + THREADS + " phiếu cùng bán 30 bao khi tồn 100 - đúng 3 thành công, tồn không âm")
-    void concurrentSalesShouldNeverOversell() throws Exception {
+    @DisplayName(THREADS + " phiếu cùng bán 30 bao khi tồn 100 - cả " + THREADS + " thành công, tồn còn -50 không mất lượt trừ")
+    void concurrentSalesShouldDeductAtomicallyIntoNegative() throws Exception {
         setStock(pigFeed, 100);
         List<Callable<Object>> actions = new ArrayList<>();
         for (int i = 0; i < THREADS; i++) {
@@ -166,28 +166,25 @@ class SalesOrderConcurrencyTest {
 
         List<Throwable> results = runConcurrently(actions);
 
-        assertThat(successes(results)).isEqualTo(3);
-        assertThat(failures(results)).hasSize(THREADS - 3)
-                .allSatisfy(error -> assertThat(error).hasMessageContaining("Không đủ tồn"));
-        assertThat(stock(pigFeed)).isEqualTo(10);
+        assertThat(successes(results)).isEqualTo(THREADS);
+        assertThat(failures(results)).isEmpty();
+        assertThat(stock(pigFeed)).isEqualTo(100 - THREADS * 30);
     }
 
     @Test
-    @DisplayName("BR-SAL-02: phiếu 2 dòng, dòng 2 thiếu tồn - rollback toàn bộ, dòng 1 không bị trừ, phiếu vẫn Nháp")
-    void completeShouldRollBackAllLinesWhenOneFails() {
+    @DisplayName("Phiếu 2 dòng có dòng vượt tồn - vẫn hoàn tất và đưa tồn dòng thiếu về âm")
+    void completeShouldAllowNegativeStockAcrossLines() {
         setStock(pigFeed, 100);
         setStock(chickenFeed, 5);
         long id = createDraft(line(pigFeed, 10), line(chickenFeed, 20));
 
-        assertThatThrownBy(() -> salesOrderService.complete(id))
-                .isInstanceOf(BusinessException.class)
-                .hasMessageContaining(chickenFeed.getCode());
+        salesOrderService.complete(id);
 
-        assertThat(stock(pigFeed)).isEqualTo(100);
-        assertThat(stock(chickenFeed)).isEqualTo(5);
-        assertThat(transactionCount(id)).isZero();
+        assertThat(stock(pigFeed)).isEqualTo(90);
+        assertThat(stock(chickenFeed)).isEqualTo(-15);
+        assertThat(transactionCount(id)).isEqualTo(2);
         assertThat(jdbcTemplate.queryForObject("SELECT status FROM stock_document WHERE id = ?", String.class, id))
-                .isEqualTo("DRAFT");
+                .isEqualTo("COMPLETED");
     }
 
     @Test
