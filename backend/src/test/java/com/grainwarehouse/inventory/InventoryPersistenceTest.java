@@ -10,6 +10,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
@@ -45,16 +46,18 @@ class InventoryPersistenceTest {
     }
 
     @Test
-    @DisplayName("BR-INV-03: DB chặn tồn âm (CHECK quantity >= 0), kể cả khi code Java quên kiểm tra")
-    void dbShouldRejectNegativeInventory() {
+    @DisplayName("Cho phép tồn kho âm (xuất trước khi kịp nhập hóa đơn)")
+    void dbShouldAllowNegativeInventory() {
         jdbcTemplate.update("INSERT INTO inventory (product_id, warehouse_id, quantity) VALUES (?, ?, 5)",
                 productId, warehouseId);
-
-        assertThatThrownBy(() -> jdbcTemplate.update(
+        jdbcTemplate.update(
                 "UPDATE inventory SET quantity = quantity - 6 WHERE product_id = ? AND warehouse_id = ?",
-                productId, warehouseId))
-                .isInstanceOf(DataIntegrityViolationException.class)
-                .hasMessageContaining("ck_inventory_quantity_non_negative");
+                productId, warehouseId);
+
+        Integer quantity = jdbcTemplate.queryForObject(
+                "SELECT quantity FROM inventory WHERE product_id = ? AND warehouse_id = ?",
+                Integer.class, productId, warehouseId);
+        assertThat(quantity).isEqualTo(-1);
     }
 
     @Test
@@ -147,12 +150,14 @@ class InventoryPersistenceTest {
     }
 
     @Test
-    @DisplayName("SL thực nhận trên dòng phiếu không được âm")
-    void dbShouldRejectNegativeItemQuantity() {
-        assertThatThrownBy(() -> jdbcTemplate.update("UPDATE stock_document_item SET quantity = -1 WHERE id = ?",
-                itemId))
+    @DisplayName("Phiếu nhập/xuất không cho phép tổng tiền âm (chỉ OPENING_STOCK được âm)")
+    void dbShouldRejectNegativeTotalForInbound() {
+        assertThatThrownBy(() -> jdbcTemplate.update(
+                "INSERT INTO stock_document (code, type, warehouse_id, supplier_id, document_date, total_amount)"
+                        + " VALUES ('PN-TEST-NEG', 'INBOUND', ?, ?, current_date, -100)",
+                warehouseId, supplierId))
                 .isInstanceOf(DataIntegrityViolationException.class)
-                .hasMessageContaining("ck_stock_document_item_quantity");
+                .hasMessageContaining("ck_stock_document_paid");
     }
 
     private Long insertTransaction(String type, int quantity, int before, int after, Long reversalOf) {

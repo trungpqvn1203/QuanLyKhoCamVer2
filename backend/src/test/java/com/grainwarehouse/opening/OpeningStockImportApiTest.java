@@ -169,13 +169,35 @@ class OpeningStockImportApiTest {
     }
 
     @Test
+    @DisplayName("Cho phép nhập số lượng tồn đầu kỳ âm và xác nhận tạo tồn âm")
+    void shouldAllowNegativeOpeningStock() throws Exception {
+        byte[] template = ExcelTestFiles.downloadTemplate(mockMvc, BASE + "/import/template");
+        byte[] file = ExcelTestFiles.fill(template, List.of(
+                Arrays.asList(activeA.getCode() + " · " + activeA.getName(), -20, 100000)
+        ));
+
+        String createdJson = mockMvc.perform(multipart(BASE + "/import")
+                        .file(upload(file))
+                        .param("warehouseId", String.valueOf(warehouse.getId())))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.totalQuantity").value(-20))
+                .andExpect(jsonPath("$.data.totalAmount").value(-2000000))
+                .andReturn().getResponse().getContentAsString();
+
+        long id = objectMapper.readTree(createdJson).get("data").get("id").asLong();
+        mockMvc.perform(post(BASE + "/{id}/complete", id))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("COMPLETED"));
+    }
+
+    @Test
     @DisplayName("Preview kiểm tra toàn bộ dòng, gom lỗi theo dòng và cột, không tạo phiếu")
     void shouldPreviewAndCollectAllErrors() throws Exception {
         byte[] template = ExcelTestFiles.downloadTemplate(mockMvc, BASE + "/import/template");
         byte[] file = ExcelTestFiles.fill(template, List.of(
                 Arrays.asList(activeA.getCode() + " · " + activeA.getName(), 50, 250000),
                 Arrays.asList(activeA.getCode(), 10, null), // trùng SP với dòng 2
-                Arrays.asList("SP_KHONG_TON_TAI", 0, -5), // SP không tồn tại, SL <= 0, đơn giá âm
+                Arrays.asList("SP_KHONG_TON_TAI", 0, -5), // SP không tồn tại, SL = 0, đơn giá âm
                 Arrays.asList(stopped.getCode(), 12.5, null) // SP ngừng kinh doanh, SL không nguyên
         ));
 
@@ -189,7 +211,7 @@ class OpeningStockImportApiTest {
                 .andExpect(jsonPath("$.data.errors[*].message", hasItems(
                         containsString("Trùng với dòng 2"),
                         containsString("không tồn tại"),
-                        containsString("lớn hơn 0"),
+                        containsString("khác 0"),
                         containsString("không được âm"),
                         containsString("ngừng kinh doanh"),
                         containsString("số nguyên")
@@ -240,7 +262,7 @@ class OpeningStockImportApiTest {
         byte[] template = ExcelTestFiles.downloadTemplate(mockMvc, BASE + "/import/template");
         byte[] file = ExcelTestFiles.fill(template, List.of(
                 Arrays.asList(activeA.getCode(), 100, 250000),
-                Arrays.asList(activeB.getCode(), -1, null)
+                Arrays.asList(activeB.getCode(), 0, null)
         ));
 
         long beforeCount = stockDocumentRepository.count();

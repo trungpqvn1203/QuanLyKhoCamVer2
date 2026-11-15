@@ -151,7 +151,10 @@ public class OpeningStockService {
         document.getItems().stream()
                 .sorted(Comparator.comparing((StockDocumentItem item) -> item.getProduct().getId()))
                 .forEach(item -> {
-                    StockTransaction transaction = inventoryService.stockIn(item, warehouse, item.getQuantity());
+                    int qty = item.getQuantity();
+                    StockTransaction transaction = qty >= 0
+                            ? inventoryService.stockIn(item, warehouse, qty)
+                            : inventoryService.stockOut(item, warehouse, -qty);
                     if (transaction.getQuantityBefore() != 0) {
                         throw new BusinessException("Sản phẩm " + productLabel(item.getProduct())
                                 + " vừa phát sinh tồn tại kho này. Tồn đầu kỳ chỉ dùng cho sản phẩm chưa có biến động");
@@ -223,11 +226,15 @@ public class OpeningStockService {
         return requested;
     }
 
-    // BR-OPN-02: mỗi SP một dòng
+    // BR-OPN-02: mỗi SP một dòng, số lượng khác 0
     private static List<Long> distinctProductIds(List<OpeningStockLineRequest> lines) {
         Set<Long> seen = new HashSet<>();
         for (int i = 0; i < lines.size(); i++) {
-            if (!seen.add(lines.get(i).productId())) {
+            OpeningStockLineRequest line = lines.get(i);
+            if (line.quantity() != null && line.quantity() == 0) {
+                throw new InvalidRequestException("lines[" + i + "].quantity", "Số lượng phải khác 0");
+            }
+            if (!seen.add(line.productId())) {
                 throw new InvalidRequestException("lines[" + i + "].productId",
                         "Sản phẩm này đã có ở một dòng khác của phiếu");
             }

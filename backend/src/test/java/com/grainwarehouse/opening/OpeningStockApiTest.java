@@ -138,14 +138,14 @@ class OpeningStockApiTest {
     }
 
     @Test
-    @DisplayName("BR-OPN-02: SL 0, SL âm, SL lẻ, thiếu SP, trùng SP trong phiếu, không có dòng - 400 kèm field")
+    @DisplayName("BR-OPN-02: SL 0, SL lẻ, thiếu SP, trùng SP trong phiếu, không có dòng - 400; SL âm được phép")
     void shouldValidateLines() throws Exception {
         create(body(hanoi, null, line(cornFeed, 0, null)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error.details[0].field").value("lines[0].quantity"));
         create(body(hanoi, null, line(cornFeed, -5, null)))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.error.details[0].field").value("lines[0].quantity"));
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.totalQuantity").value(-5));
         create("{\"warehouseId\": " + hanoi.getId() + ", \"lines\": [{\"productId\": " + cornFeed.getId()
                 + ", \"quantity\": 2.5}]}")
                 .andExpect(status().isBadRequest());
@@ -297,17 +297,15 @@ class OpeningStockApiTest {
     }
 
     @Test
-    @DisplayName("Sau khởi tạo: bán trong tồn được, bán vượt tồn bị chặn; nhập thêm cộng tiếp từ số đầu kỳ")
+    @DisplayName("Sau khởi tạo: bán vượt tồn cho phép âm; nhập thêm cộng tiếp từ số âm")
     void stockShouldContinueFromOpening() throws Exception {
         complete(createDraft(hanoi, line(cornFeed, 500, null))).andExpect(status().isOk());
 
         completeSale(hanoi, cornFeed, 120).andExpect(status().isOk());
-        completeSale(hanoi, cornFeed, 381)
-                .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.error.message").value(containsString("còn 380")));
+        completeSale(hanoi, cornFeed, 381).andExpect(status().isOk());
         completeInbound(hanoi, cornFeed, 20);
 
-        assertThat(inventory(cornFeed, hanoi)).isEqualTo(400);
+        assertThat(inventory(cornFeed, hanoi)).isEqualTo(19);
     }
 
     // ===== Hủy, đảo =====
@@ -346,18 +344,18 @@ class OpeningStockApiTest {
     }
 
     @Test
-    @DisplayName("BR-OPN-06: đã bán bớt, không đủ tồn để đảo - 409, phiếu vẫn Hoàn tất")
-    void shouldRejectReverseWhenStockSold() throws Exception {
+    @DisplayName("BR-OPN-06: đã bán bớt, đảo phiếu vẫn trừ lại và cho phép tồn âm")
+    void shouldAllowReverseWhenStockSold() throws Exception {
         long id = createDraft(hanoi, line(cornFeed, 500, null));
         complete(id).andExpect(status().isOk());
         completeSale(hanoi, cornFeed, 100).andExpect(status().isOk());
 
         reverse(id, "Đếm nhầm")
-                .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.error.message").value(containsString("Không đủ tồn")));
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("REVERSED"));
 
-        assertThat(statusOf(id)).isEqualTo("COMPLETED");
-        assertThat(inventory(cornFeed, hanoi)).isEqualTo(400);
+        assertThat(statusOf(id)).isEqualTo("REVERSED");
+        assertThat(inventory(cornFeed, hanoi)).isEqualTo(-100);
     }
 
     @Test

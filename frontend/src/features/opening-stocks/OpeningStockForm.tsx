@@ -135,11 +135,18 @@ export function OpeningStockForm({ form, initialValues, warehouses, products, do
       render: (_, field) => (
         <Form.Item
           name={[field.name, 'quantity']}
-          rules={[{ required: true, message: 'Nhập SL' }, { type: 'number', min: 1, message: 'Tối thiểu 1' }, integerRule]}
+          rules={[
+            { required: true, message: 'Nhập SL' },
+            {
+              validator: async (_, value?: number | null) => {
+                if (value === 0) throw new Error('Số lượng phải khác 0')
+              },
+            },
+            integerRule,
+          ]}
           style={NO_MARGIN}
         >
           <InputNumber
-            min={1}
             style={{ width: '100%' }}
             aria-label={`Số lượng dòng ${field.name + 1}`}
             onPressEnter={focusQuickAdd}

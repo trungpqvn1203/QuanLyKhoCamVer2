@@ -33,17 +33,17 @@ public interface InventoryRepository extends JpaRepository<Inventory, Long> {
                  @Param("quantity") int quantity);
 
     /**
-     * Trừ tồn chỉ khi đủ (BR-INV-01, BR-INV-02): kiểm tra và trừ trong cùng một câu lệnh.
-     * Rỗng = không đủ tồn (hoặc chưa có dòng tồn) → service báo lỗi, transaction rollback.
+     * Trừ tồn (cho phép tồn kho âm); chưa có dòng thì tạo mới với giá trị âm.
      */
     @Query(value = """
-            UPDATE inventory
-            SET quantity = quantity - :quantity, updated_at = now()
-            WHERE product_id = :productId AND warehouse_id = :warehouseId AND quantity >= :quantity
+            INSERT INTO inventory (product_id, warehouse_id, quantity)
+            VALUES (:productId, :warehouseId, -:quantity)
+            ON CONFLICT (product_id, warehouse_id)
+            DO UPDATE SET quantity = inventory.quantity - :quantity, updated_at = now()
             RETURNING quantity
             """, nativeQuery = true)
-    Optional<Integer> decreaseIfEnough(@Param("productId") Long productId, @Param("warehouseId") Long warehouseId,
-                                       @Param("quantity") int quantity);
+    int decrease(@Param("productId") Long productId, @Param("warehouseId") Long warehouseId,
+                 @Param("quantity") int quantity);
 
     @Query(value = "SELECT quantity FROM inventory WHERE product_id = :productId AND warehouse_id = :warehouseId",
             nativeQuery = true)

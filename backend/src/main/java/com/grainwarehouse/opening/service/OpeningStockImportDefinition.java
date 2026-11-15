@@ -47,7 +47,8 @@ public class OpeningStockImportDefinition implements ImportDefinition<OpeningSto
                 ImportColumn.required("productId", "Sản phẩm",
                                 "Đã điền sẵn sản phẩm đang kinh doanh; dòng để trống Số lượng và Đơn giá sẽ bỏ qua")
                         .withOptions(products),
-                ImportColumn.required("quantity", "Số lượng tồn", "Số nguyên > 0"),
+                ImportColumn.required("quantity", "Số lượng tồn",
+                        "Số nguyên khác 0 (có thể âm nếu đã xuất trước khi nhập)"),
                 ImportColumn.optional("unitPrice", "Đơn giá", "Không bắt buộc (để trống = 0), chỉ để tham khảo"));
     }
 
@@ -74,7 +75,11 @@ public class OpeningStockImportDefinition implements ImportDefinition<OpeningSto
 
     @Override
     public OpeningStockLineRequest parse(ImportRow row) {
-        return new OpeningStockLineRequest(productId(row), row.integer("quantity"), row.decimal("unitPrice"));
+        Integer quantity = row.integer("quantity");
+        if (quantity != null && quantity == 0) {
+            row.error("quantity", "Số lượng phải khác 0 (để trống nếu không có tồn đầu kỳ)");
+        }
+        return new OpeningStockLineRequest(productId(row), quantity, row.decimal("unitPrice"));
     }
 
     private Long productId(ImportRow row) {
