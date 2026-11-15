@@ -325,24 +325,20 @@ class DeliveryTripApiTest {
     }
 
     @Test
-    @DisplayName("BR-DLV-06: thiếu hàng tính theo TỔNG cả chuyến (30 + 40 > 50) → 409 nêu từng phiếu; không phiếu nào bị trừ")
+    @DisplayName("BR-DLV-06: tổng cả chuyến vượt tồn hiện có (30 + 40 > 50) vẫn cho phép xuất âm tồn")
     void shouldRejectDispatchWhenTripTotalExceedsStock() throws Exception {
         jdbcTemplate.update("UPDATE inventory SET quantity = 50 WHERE product_id = ? AND warehouse_id = ?",
                 pigFeed.getId(), warehouseA.getId());
         long first = draft(farm, warehouseA, line(chickenFeed, 10), line(pigFeed, 30));
         long second = draft(dealer, warehouseA, line(pigFeed, 40));
         long tripId = data(createTrip(truckId, first, second)).get("id").asLong();
-        String firstCode = code(first);
-        String secondCode = code(second);
 
         mockMvc.perform(post(TRIPS + "/{id}/dispatch", tripId))
-                .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.error.message").value(containsString("còn 50, chuyến cần 70")))
-                .andExpect(jsonPath("$.error.message").value(containsString(firstCode + ": 30")))
-                .andExpect(jsonPath("$.error.message").value(containsString(secondCode + ": 40")));
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("DISPATCHED"));
 
-        assertThat(stock(pigFeed, warehouseA)).isEqualTo(50);
-        assertThat(stock(chickenFeed, warehouseA)).isEqualTo(500);
+        assertThat(stock(pigFeed, warehouseA)).isEqualTo(-20);
+        assertThat(stock(chickenFeed, warehouseA)).isEqualTo(490);
     }
 
     @Test

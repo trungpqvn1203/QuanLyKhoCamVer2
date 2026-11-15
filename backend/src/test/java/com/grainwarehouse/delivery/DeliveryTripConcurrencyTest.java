@@ -179,7 +179,7 @@ class DeliveryTripConcurrencyTest {
     }
 
     @Test
-    @DisplayName("Quy tắc cứng 1, 4: hai chuyến tranh 100 bao, mỗi chuyến cần 60 - đúng 1 xuất được; chuyến thua không trừ lẻ dòng nào")
+    @DisplayName("Quy tắc cứng 1, 4: hai chuyến cùng xuất từ 100 bao, mỗi chuyến cần 60 - cả 2 xuất thành công và trừ đúng về -20")
     void competingTripsShouldNeverOversellOrPartiallyDeduct() throws Exception {
         setStock(premix, 1000);
         setStock(pigFeed, 100);
@@ -189,14 +189,12 @@ class DeliveryTripConcurrencyTest {
         List<Throwable> results = runConcurrently(List.of(
                 () -> tripService.dispatch(tripA, "test"), () -> tripService.dispatch(tripB, "test")));
 
-        assertThat(successes(results)).isEqualTo(1);
-        assertThat(failures(results)).singleElement().satisfies(error -> assertThat(error)
-                .isInstanceOf(BusinessException.class).hasMessageContaining("Không đủ tồn"));
-        assertThat(stock(pigFeed)).isEqualTo(40);
-        // Chuyến thua có thể đã trừ premix trước khi thiếu cám heo — rollback phải trả lại: chỉ trừ 10, không phải 20
-        assertThat(stock(premix)).isEqualTo(990);
-        assertThat(jdbcTemplate.queryForObject("SELECT count(*) FROM delivery_trip WHERE id IN (?, ?) AND status = 'PLANNED'",
-                Integer.class, tripA, tripB)).isEqualTo(1);
+        assertThat(successes(results)).isEqualTo(2);
+        assertThat(failures(results)).isEmpty();
+        assertThat(stock(pigFeed)).isEqualTo(-20);
+        assertThat(stock(premix)).isEqualTo(980);
+        assertThat(jdbcTemplate.queryForObject("SELECT count(*) FROM delivery_trip WHERE id IN (?, ?) AND status = 'DISPATCHED'",
+                Integer.class, tripA, tripB)).isEqualTo(2);
     }
 
     /**

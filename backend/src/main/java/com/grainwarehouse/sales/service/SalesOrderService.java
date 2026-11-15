@@ -11,7 +11,6 @@ import com.grainwarehouse.inventory.entity.StockDocument;
 import com.grainwarehouse.inventory.entity.StockDocumentItem;
 import com.grainwarehouse.inventory.entity.StockDocumentStatus;
 import com.grainwarehouse.inventory.entity.StockDocumentType;
-import com.grainwarehouse.inventory.repository.InventoryRepository;
 import com.grainwarehouse.inventory.repository.StockDocumentRepository;
 import com.grainwarehouse.inventory.repository.StockTransactionRepository;
 import com.grainwarehouse.inventory.service.InventoryService;
@@ -94,7 +93,6 @@ public class SalesOrderService {
     private final CustomerRepository customerRepository;
     private final ProductRepository productRepository;
     private final InventoryService inventoryService;
-    private final InventoryRepository inventoryRepository;
 
     public PageResponse<SalesOrderSummaryResponse> list(SalesOrderSearchCriteria criteria, Pageable pageable) {
         return PageResponse.from(
@@ -279,7 +277,6 @@ public class SalesOrderService {
         }
         documents.forEach(document -> checkUsable(document.getWarehouse(), document.getCustomer(),
                 document.getItems().stream().map(StockDocumentItem::getProduct).toList()));
-        requireEnoughStock(documents, tripCode);
 
         documents.stream().flatMap(document -> document.getItems().stream())
                 .sorted(Comparator.comparing((StockDocumentItem item) -> item.getProduct().getId())
@@ -290,35 +287,6 @@ public class SalesOrderService {
         Instant now = Instant.now();
         documents.forEach(document -> document.markCompleted(now));
         stockDocumentRepository.saveAllAndFlush(documents);
-    }
-
-    /**
-     * Báo thiếu hàng theo TỔNG của cả chuyến: hai phiếu cùng lấy cám heo ở kho A (30 + 40) mà kho còn 50 thì báo
-     * "còn 50, chuyến cần 70 (PX1: 30, PX2: 40)". Không có bước này, lỗi trừ tồn của phiếu thứ hai sẽ ghi "còn 20,
-     * cần trừ 40" — số 20 là tồn sau khi đã trừ phiếu thứ nhất, sẽ rollback, người dùng nhìn kho thấy 50 không hiểu.
-     * Đây chỉ là kiểm tra để báo lỗi dễ hiểu; chặn tồn âm thật vẫn là UPDATE có điều kiện trong InventoryService.
-     */
-    private void requireEnoughStock(List<StockDocument> documents, String tripCode) {
-        record Key(Product product, Warehouse warehouse) {
-        }
-        Map<Key, List<StockDocumentItem>> demand = documents.stream().flatMap(document -> document.getItems().stream())
-                .collect(Collectors.groupingBy(item -> new Key(item.getProduct(), item.getDocument().getWarehouse()),
-                        LinkedHashMap::new, Collectors.toList()));
-        List<String> shortages = new ArrayList<>();
-        demand.forEach((key, items) -> {
-            int needed = items.stream().mapToInt(StockDocumentItem::getQuantity).sum();
-            int current = inventoryRepository.findQuantity(key.product().getId(), key.warehouse().getId()).orElse(0);
-            if (current < needed) {
-                String breakdown = items.size() == 1 ? "" : " (" + items.stream()
-                        .map(item -> item.getDocument().getCode() + ": " + item.getQuantity())
-                        .collect(Collectors.joining(", ")) + ")";
-                shortages.add("'" + key.product().getName() + "' (" + key.product().getCode() + ") tại kho '"
-                        + key.warehouse().getName() + "' còn " + current + ", chuyến cần " + needed + breakdown);
-            }
-        });
-        if (!shortages.isEmpty()) {
-            throw new BusinessException("Không đủ tồn để xuất chuyến " + tripCode + ": " + String.join("; ", shortages));
-        }
     }
 
     /** Hủy phiếu Nháp (lý do tùy chọn) hoặc đơn Chờ xác nhận (lý do bắt buộc — BR-SAL-21). */
