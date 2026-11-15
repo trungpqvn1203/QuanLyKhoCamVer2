@@ -1,4 +1,4 @@
-import type { ApiEnvelope, FieldErrorDetail } from './types'
+import type { ApiEnvelope, FieldErrorDetail, PageQuery, PageResponse } from './types'
 
 /**
  * Lỗi đã chuẩn hóa từ envelope thất bại của backend.
@@ -215,4 +215,24 @@ export function withQuery(path: string, params: Record<string, string | number |
   }
   const text = query.toString()
   return text ? `${path}?${text}` : path
+}
+
+const MAX_PAGE_SIZE = 100
+
+/**
+ * Tải trọn bộ danh sách qua nhiều trang (mỗi trang tối đa 100 bản ghi theo giới hạn `max-page-size` của backend):
+ * gọi trang 0 trước để biết `totalPages`, sau đó tải song song các trang còn lại và ghép đúng thứ tự.
+ *
+ * Dùng cho ô chọn tham chiếu có vài trăm đến vài nghìn bản ghi (ví dụ khách hàng trên phiếu bán / công nợ đầu kỳ).
+ * Ghi chú mở rộng (Phương án 2): khi danh mục tăng lên hàng chục nghìn bản ghi, cân nhắc chuyển ô chọn sang
+ * tìm kiếm từ xa (Remote Search: debounce gõ phím → `GET /api/...?keyword=...&size=50` + tải lẻ bản ghi đang chọn khi sửa).
+ */
+export async function fetchAllPages<T>(fetchPage: (query: PageQuery) => Promise<PageResponse<T>>): Promise<T[]> {
+  const firstPage = await fetchPage({ page: 0, size: MAX_PAGE_SIZE })
+  const { totalPages } = firstPage.pagination
+  if (totalPages <= 1) return firstPage.items
+  const restPages = await Promise.all(
+    Array.from({ length: totalPages - 1 }, (_, index) => fetchPage({ page: index + 1, size: MAX_PAGE_SIZE })),
+  )
+  return [firstPage, ...restPages].flatMap((page) => page.items)
 }

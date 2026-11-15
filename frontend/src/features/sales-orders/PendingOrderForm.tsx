@@ -2,7 +2,7 @@ import { DeleteOutlined } from '@ant-design/icons'
 import { App, Button, Col, Form, Input, InputNumber, Radio, Row, Select, Table, Typography } from 'antd'
 import type { FormInstance, FormListFieldData, RefSelectProps, FormRule as Rule, TableProps } from 'antd'
 import { useEffect, useRef, useState } from 'react'
-import { focusLineField, resolveQuickAdd } from '../../components/ui/product-quick-add'
+import { focusLineField, matchesSearch, resolveQuickAdd } from '../../components/ui/product-quick-add'
 import { ProductLabel, ProductQuickAdd } from '../../components/ui/ProductQuickAdd'
 import { EMPTY_TEXT } from '../../utils/format'
 import { productStockApi } from '../products/product-stock-api'
@@ -167,7 +167,7 @@ export function PendingOrderForm({ form, initialValues, references, order, disab
             <Select<number>
               placeholder="Tìm theo mã, tên hoặc SĐT"
               options={customerOptions}
-              showSearch={{ optionFilterProp: 'label' }}
+              showSearch={{ filterOption: (input, option) => matchesSearch(String(option?.label ?? ''), input) }}
               disabled={order !== null}
             />
           </Form.Item>

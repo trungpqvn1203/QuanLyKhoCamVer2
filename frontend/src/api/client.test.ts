@@ -1,5 +1,13 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { ApiError, apiRequest, onPortalAccountDisabled, onPortalSessionExpired, onSessionExpired, withQuery } from './client'
+import {
+  ApiError,
+  apiRequest,
+  fetchAllPages,
+  onPortalAccountDisabled,
+  onPortalSessionExpired,
+  onSessionExpired,
+  withQuery,
+} from './client'
 
 function mockFetchResponse(status: number, body?: unknown) {
   const response =
@@ -117,6 +125,39 @@ describe('withQuery', () => {
 
   it('không có tham số - giữ nguyên đường dẫn', () => {
     expect(withQuery('/api/products', {})).toBe('/api/products')
+  })
+})
+
+describe('fetchAllPages', () => {
+  it('chỉ có 1 trang - chỉ gọi trang 0 và trả luôn items', async () => {
+    const fetchPage = vi.fn().mockResolvedValue({
+      items: [{ id: 1 }, { id: 2 }],
+      pagination: { page: 0, size: 100, totalElements: 2, totalPages: 1, isFirst: true, isLast: true },
+    })
+
+    const result = await fetchAllPages(fetchPage)
+
+    expect(result).toEqual([{ id: 1 }, { id: 2 }])
+    expect(fetchPage).toHaveBeenCalledOnce()
+    expect(fetchPage).toHaveBeenCalledWith({ page: 0, size: 100 })
+  })
+
+  it('nhiều trang (ví dụ > 600 khách) - gọi trang 0 rồi tải song song các trang còn lại và ghép đúng thứ tự', async () => {
+    const fetchPage = vi.fn(({ page, size }: { page: number; size: number }) =>
+      Promise.resolve({
+        items: [{ id: page * size + 1 }, { id: page * size + 2 }],
+        pagination: { page, size, totalElements: 202, totalPages: 3, isFirst: page === 0, isLast: page === 2 },
+      }),
+    )
+
+    const result = await fetchAllPages(fetchPage)
+
+    expect(result).toEqual([{ id: 1 }, { id: 2 }, { id: 101 }, { id: 102 }, { id: 201 }, { id: 202 }])
+    expect(fetchPage.mock.calls.map(([q]) => q)).toEqual([
+      { page: 0, size: 100 },
+      { page: 1, size: 100 },
+      { page: 2, size: 100 },
+    ])
   })
 })
 

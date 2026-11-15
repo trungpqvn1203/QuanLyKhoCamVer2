@@ -1,4 +1,4 @@
-import { apiRequest, withQuery } from '../../api/client'
+import { apiRequest, fetchAllPages, withQuery } from '../../api/client'
 import type { PageQuery, PageResponse } from '../../api/types'
 import { toFilterParams } from '../../utils/filters'
 import { createImportApi } from '../imports/import-api'
@@ -61,6 +61,9 @@ export const customerImportApi = createImportApi(BASE, 'mau-nhap-khach-hang.xlsx
 export const customerApi = {
   list: ({ page, size }: PageQuery, filters: CustomerFilters = {}) =>
     apiRequest<PageResponse<Customer>>(withQuery(BASE, { page, size, sort: 'id,asc', ...toFilterParams(filters) })),
+
+  /** Tải trọn bộ khách hàng qua nhiều trang (mỗi trang 100 bản ghi) cho các ô chọn tham chiếu (phiếu bán, công nợ đầu kỳ). */
+  listAll: (filters: CustomerFilters = {}) => fetchAllPages((query) => customerApi.list(query, filters)),
 
   create: (input: CreateCustomerInput) =>
     apiRequest<Customer>(BASE, { method: 'POST', body: JSON.stringify(input) }),

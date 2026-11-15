@@ -129,6 +129,9 @@ Ví dụ: module Khách hàng cần tìm theo tên/SĐT, loại khách, ngày t�
 - **Lọc ngày trên cột `Instant` bằng `between`** → mất bản ghi của ngày cuối và lệch 7 tiếng. Dùng `instantWithinDates`.
 - **Khai báo `XxxFilters` bằng `interface`** → không gán được vào `FilterValues` (lỗi TS). Dùng `type`.
 - **Truyền hàm tải dữ liệu tạo mới mỗi lần render vào `useFilteredList`** → gọi API liên tục. Truyền `xxxApi.list` (ổn định).
+- **Ô chọn tham chiếu (`<Select>`) bị cắt ở 100 bản ghi khi danh mục vượt `max-page-size: 100`**:
+  - **Phương án 1 (đang dùng cho Khách hàng ở Phiếu bán & Công nợ đầu kỳ):** giữ nguyên giới hạn `max-page-size: 100` ở backend, phía frontend dùng `fetchAllPages` (`customerApi.listAll`) gọi trang 0 rồi tải song song các trang còn lại và lọc không dấu tại trình duyệt (`matchesSearch` + virtual scroll của Ant Design `<Select>`). Phù hợp quy mô vài trăm đến vài nghìn bản ghi.
+  - **Phương án 2 (đề xuất khi danh sách khách hàng tăng lên hàng chục nghìn bản ghi):** chuyển sang **Remote Search** — không tải toàn bộ khi mở trang mà debounce 300ms khi gõ trong `<Select>` (`filterOption={false}`, `onSearch`) để gọi `GET /api/customers?keyword=...&active=true&size=50`, đồng thời khi mở sửa phiếu cũ thì gọi lẻ `GET /api/customers/{id}` (hoặc lấy từ thông tin phiếu) để hiển thị nhãn khách đang chọn.
 - **Tìm nhanh trên bảng lớn**: `LIKE '%...%'` không dùng được B-tree. Khi bảng lên hàng chục nghìn dòng: `pg_trgm` + GIN trên `lower(immutable_unaccent(cột))` (xem [database.md](database.md)).
 
 ## 6. Phương án đã cân nhắc

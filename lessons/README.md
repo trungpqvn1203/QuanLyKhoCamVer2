@@ -109,6 +109,7 @@ lỗi đã gặp và câu hỏi ôn tập. Do AI ghi sau mỗi module (CLAUDE.md
 7. Vì sao điều chỉnh giá phiếu đã giao không cần ghi `stock_transaction`, còn đảo phiếu thì phải ghi?
 8. Nếu đọc `paid_amount` rồi mới khóa phiếu khi điều chỉnh giá, kịch bản nào khiến số đã thu vượt tổng phiếu? Tuyến phòng thủ nào còn lại?
 9. `new BigDecimal("1.0").equals(new BigDecimal("1.00"))` trả gì, vì sao? Chỗ nào trong dự án so tiền phải dùng `compareTo`?
+10. Vì sao dù frontend gửi `?size=1000` thì backend vẫn chỉ trả về 100 bản ghi? Khi nào nên dùng `fetchAllPages` và khi nào cần chuyển sang Remote Search cho ô chọn khách hàng?
 
 **[Lịch sử biến động tồn kho](1-kho-hang/04-lich-su-ton-kho.md)**
 

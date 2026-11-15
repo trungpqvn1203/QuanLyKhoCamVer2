@@ -3,6 +3,7 @@ import { Button, DatePicker, Flex, Input, Select } from 'antd'
 import { useEffect, useState } from 'react'
 import type { FilterValues } from '../../utils/filters'
 import { DISPLAY_DATE_FORMAT, displayDateToIso, hasActiveFilters } from '../../utils/filters'
+import { matchesSearch } from './product-quick-add'
 
 /** Ô tìm theo từ khóa (mã hoặc tên). Mỗi thanh lọc chỉ có tối đa một ô này. */
 interface KeywordField<F> {
@@ -128,7 +129,7 @@ export function FilterBar<F extends FilterValues>({ fields, value, onChange }: F
               <Select<string | number>
                 key={field.name}
                 allowClear
-                showSearch={{ optionFilterProp: 'label' }}
+                showSearch={{ filterOption: (input, option) => matchesSearch(String(option?.label ?? ''), input) }}
                 placeholder={field.placeholder}
                 aria-label={field.placeholder}
                 options={field.options}

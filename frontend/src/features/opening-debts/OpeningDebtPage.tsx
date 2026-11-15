@@ -2,6 +2,7 @@ import { PlusOutlined } from '@ant-design/icons'
 import { App, Button, Typography } from 'antd'
 import type { TableProps } from 'antd'
 import { useEffect, useState } from 'react'
+import { fetchAllPages } from '../../api/client'
 import { PageHeader } from '../../components/layout/PageHeader'
 import { CodeLink } from '../../components/ui/CodeLink'
 import { DataTable } from '../../components/ui/DataTable'
@@ -23,8 +24,8 @@ import { OpeningDebtDrawer } from './OpeningDebtDrawer'
 import { OpeningDebtEntryModal } from './OpeningDebtEntryModal'
 import type { PartyOption } from './OpeningDebtEntryModal'
 
-/** Tối đa 100 khách / NCC và 100 khoản nợ còn hiệu lực cho ô chọn (giới hạn size backend) — đủ cho MVP. */
-const REFERENCE_SIZE = 100
+/** Tối đa 100 NCC cho ô chọn (giới hạn size backend); khách hàng có thể > 100 nên dùng `customerApi.listAll`. */
+const SUPPLIER_REFERENCE_SIZE = 100
 
 // Phiếu nợ đầu kỳ không có Nháp / Đã hủy: tạo thẳng Hoàn tất, chỉ đảo được
 const STATUS_OPTIONS = (['COMPLETED', 'REVERSED'] as ReceiptStatus[]).map((status) => ({
@@ -38,15 +39,15 @@ function usePartyOptions(party: OpeningDebtParty, version: number): PartyOption[
 
   useEffect(() => {
     let ignore = false
-    const query = { page: 0, size: REFERENCE_SIZE }
     const parties =
       party === 'CUSTOMER'
-        ? customerApi.list(query, { active: true }).then((page) => page.items)
-        : supplierApi.list(query, { active: true }).then((page) => page.items)
-    Promise.all([parties, OPENING_DEBT_APIS[party].list(query, { status: 'COMPLETED' })])
+        ? customerApi.listAll({ active: true })
+        : supplierApi.list({ page: 0, size: SUPPLIER_REFERENCE_SIZE }, { active: true }).then((page) => page.items)
+    const activeDebts = fetchAllPages((query) => OPENING_DEBT_APIS[party].list(query, { status: 'COMPLETED' }))
+    Promise.all([parties, activeDebts])
       .then(([items, debts]) => {
         if (ignore) return
-        const withDebt = new Set(debts.items.map((debt) => debt.partyId))
+        const withDebt = new Set(debts.map((debt) => debt.partyId))
         setOptions(items.map((item) => ({ id: item.id, code: item.code, name: item.name, hasDebt: withDebt.has(item.id) })))
       })
       .catch(() => {

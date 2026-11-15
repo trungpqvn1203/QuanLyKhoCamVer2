@@ -2,6 +2,7 @@ import { DeleteOutlined, PlusOutlined } from '@ant-design/icons'
 import { Button, Form, Input, InputNumber, Select, Table, Typography } from 'antd'
 import type { FormListFieldData, FormRule as Rule, TableProps } from 'antd'
 import { FormModal } from '../../components/ui/FormModal'
+import { matchesSearch } from '../../components/ui/product-quick-add'
 import { todayIso } from '../../utils/format'
 import { formatPriceInput, formatVnd, parsePriceInput } from '../../utils/money'
 import { OPENING_DEBT_APIS, PARTY_TEXT } from './opening-debt-api'
@@ -70,7 +71,7 @@ export function OpeningDebtEntryModal({ party, parties, onSaved, onClose }: Open
           <Select<number>
             placeholder={`Chọn ${text.party.toLowerCase()}`}
             options={options(field.name)}
-            showSearch={{ optionFilterProp: 'label' }}
+            showSearch={{ filterOption: (input, option) => matchesSearch(String(option?.label ?? ''), input) }}
             aria-label={`${text.party} dòng ${field.name + 1}`}
           />
         </Form.Item>

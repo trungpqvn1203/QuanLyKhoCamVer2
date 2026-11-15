@@ -2,7 +2,7 @@ import { DeleteOutlined } from '@ant-design/icons'
 import { App, Button, Col, Form, Input, InputNumber, Row, Select, Table, Tooltip, Typography } from 'antd'
 import type { FormInstance, FormListFieldData, RefSelectProps, FormRule as Rule, TableProps } from 'antd'
 import { useEffect, useRef, useState } from 'react'
-import { focusLineField, resolveQuickAdd } from '../../components/ui/product-quick-add'
+import { focusLineField, matchesSearch, resolveQuickAdd } from '../../components/ui/product-quick-add'
 import { ProductLabel, ProductQuickAdd } from '../../components/ui/ProductQuickAdd'
 import { EMPTY_TEXT, todayIso } from '../../utils/format'
 import { formatPriceInput, formatVnd, hasAtMostTwoDecimals, parsePriceInput } from '../../utils/money'
@@ -291,14 +291,18 @@ export function SalesOrderForm({ form, initialValues, references, order, disable
             <Select<number>
               placeholder="Tìm theo mã, tên hoặc SĐT"
               options={customerOptions}
-              showSearch={{ optionFilterProp: 'label' }}
+              showSearch={{ filterOption: (input, option) => matchesSearch(String(option?.label ?? ''), input) }}
               disabled={lockCustomer}
             />
           </Form.Item>
         </Col>
         <Col xs={24} md={9}>
           <Form.Item name="warehouseId" label="Kho xuất" rules={[{ required: true, message: 'Chọn kho xuất' }]}>
-            <Select<number> placeholder="Chọn kho xuất" options={warehouseOptions} showSearch={{ optionFilterProp: 'label' }} />
+            <Select<number>
+              placeholder="Chọn kho xuất"
+              options={warehouseOptions}
+              showSearch={{ filterOption: (input, option) => matchesSearch(String(option?.label ?? ''), input) }}
+            />
           </Form.Item>
         </Col>
         <Col xs={24} md={6}>

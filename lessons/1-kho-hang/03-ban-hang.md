@@ -71,3 +71,23 @@ Tình huống: giao 10 bao cám heo giá 300.000 xong, khách kêu đắt, chủ
 1. Vì sao điều chỉnh giá không cần ghi `stock_transaction`, còn đảo phiếu thì phải ghi? Quy tắc cứng nào phân định ranh giới đó?
 2. Nếu đọc `paid_amount` rồi mới gọi `findForUpdate`, kịch bản nào khiến khách bị ghi nợ âm (đã trả nhiều hơn tổng phiếu)? Tuyến phòng thủ nào còn lại?
 3. `new BigDecimal("1.0").equals(new BigDecimal("1.00"))` trả gì, vì sao? Trong dự án còn chỗ nào so tiền mà cần `compareTo`?
+
+## Sửa lỗi: Ô chọn khách hàng trên phiếu bán bị cắt ở 100 người (2026-11-15)
+
+Tình huống trên production: cửa hàng đã nhập hơn 600 khách hàng, nhưng khi lập phiếu bán (hoặc ghi đơn khách đặt, lọc phiếu bán theo khách, ghi công nợ khách đầu kỳ) chỉ hiển thị và tìm được 100 khách đầu (`KH0001` → `KH0100`).
+
+- **Nguyên nhân kép (Frontend + Backend)** — Backend cấu hình `spring.data.web.pageable.max-page-size: 100` để chặn một request kéo toàn bộ bảng lớn về làm nghẽn RAM. Trong khi đó, `useSalesReferences()` ở frontend chỉ gọi `customerApi.list({ page: 0, size: 100 })` một lần duy nhất rồi truyền vào `<Select showSearch>` (vốn chỉ lọc trên mảng `options` đã có trong bộ nhớ trình duyệt, không gọi lại server khi gõ).
+- **Phương án 1 (đã triển khai — tải trọn bộ qua nhiều trang `fetchAllPages` + lọc không dấu `matchesSearch`)**:
+  - Giữ nguyên trần `max-page-size: 100` ở backend để bảo vệ API.
+  - Ở frontend thêm helper `fetchAllPages` (`customerApi.listAll`): gọi trang `0` (`size: 100`), đọc `pagination.totalPages`, nếu `> 1` thì dùng `Promise.all` gọi song song các trang `1..totalPages-1` rồi ghép lại theo đúng thứ tự.
+  - Kết hợp `matchesSearch` (chuẩn hóa NFD + đổi `đ -> d` + khớp từng từ không phụ thuộc thứ tự) cho `<Select>` khách hàng, kho và `FilterBar`, giúp gõ `"minh 091"` hay `"trai heo"` đều tìm thấy ngay trong 600+ khách mà không có độ trễ mạng. Ant Design `<Select>` có sẵn virtual list nên chỉ vẽ ~10 dòng đang nhìn thấy trong DOM.
+- **Đề xuất Phương án 2 (ghi chú để nâng cấp khi số khách lên hàng chục nghìn)**:
+  - Khi danh sách khách vượt ngưỡng vài nghìn đến hàng chục nghìn bản ghi, việc tải hết các trang lúc mở màn hình sẽ tốn băng thông. Khi đó cần chuyển `<Select>` chọn khách sang **Remote Search (tìm kiếm từ xa)**:
+    1. Bật `filterOption={false}` và gắn `onSearch` có debounce (~300ms) gọi `GET /api/customers?keyword=...&active=true&size=50`.
+    2. Khi mở sửa một phiếu nháp / đơn đặt đã có sẵn `customerId`, chèn thông tin khách đang chọn (từ chính response của phiếu hoặc gọi `GET /api/customers/{id}`) vào `options` để `<Select>` luôn hiện đúng tên khách dù khách đó không nằm trong 50 kết quả đầu.
+
+### Câu hỏi ôn tập bổ sung
+
+1. Vì sao dù frontend gửi `?size=1000` thì backend Spring Boot vẫn chỉ trả về 100 bản ghi? Giới hạn đó nằm ở đâu và bảo vệ hệ thống khỏi điều gì?
+2. Khi nào cách `fetchAllPages` (tải song song mọi trang rồi lọc trên trình duyệt) tốt hơn Remote Search, và đến ngưỡng nào thì bắt buộc phải đổi sang Remote Search?
+3. Nếu sau này đổi sang Remote Search (chỉ tải 50 khách khớp từ khóa), chuyện gì xảy ra khi mở sửa một phiếu nháp của khách thứ 500 mà chưa gõ tìm kiếm? Cần xử lý thế nào?
