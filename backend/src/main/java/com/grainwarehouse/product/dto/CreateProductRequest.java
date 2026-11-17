@@ -34,6 +34,11 @@ public record CreateProductRequest(
         @PositiveOrZero(message = "Tồn tối thiểu không được âm")
         Integer minStockQuantity,
 
+        // BR-PRD-07: đơn giá bán mặc định, tùy chọn; ≥ 0, tối đa 2 chữ số lẻ (BR-MON-04)
+        @DecimalMin(value = "0", message = "Đơn giá bán không được âm")
+        @Digits(integer = 13, fraction = 2, message = "Đơn giá bán tối đa 13 chữ số nguyên và 2 chữ số thập phân")
+        BigDecimal salePrice,
+
         // BR-PRD-10: NCC được phép cung cấp SP, tùy chọn. PUT không gửi (null) = giữ nguyên liên kết, [] = gỡ hết
         List<@NotNull Long> supplierIds) {
 }

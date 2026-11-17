@@ -1,10 +1,14 @@
 package com.grainwarehouse.customer.entity;
 
 import com.grainwarehouse.common.entity.AuditableEntity;
+import com.grainwarehouse.pricelist.entity.PriceList;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -43,6 +47,11 @@ public class Customer extends AuditableEntity {
 
     @Column(length = 1000)
     private String note;
+
+    // BR-PRC-04: bảng giá áp dụng cho khách (tùy chọn). EAGER giống Product.unit vì chỉ có vài bảng giá
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "price_list_id")
+    private PriceList priceList;
 
     @Column(nullable = false)
     private boolean active = true;

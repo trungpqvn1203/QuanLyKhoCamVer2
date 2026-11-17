@@ -42,8 +42,9 @@ public class ProductImportDefinition implements ImportDefinition<CreateProductRe
 
     @Override
     public String templateId() {
-        // v2 (2026-10-28): thêm cột Nhà cung cấp → file mẫu cũ bị từ chối, tải mẫu mới
-        return "PRODUCT_v2";
+        // v2 (2026-10-28): thêm cột Nhà cung cấp; v3 (2026-11-15): thêm cột Giá bán
+        // → file mẫu cũ bị từ chối, tải mẫu mới
+        return "PRODUCT_v3";
     }
 
     @Override
@@ -82,12 +83,16 @@ public class ProductImportDefinition implements ImportDefinition<CreateProductRe
                 ImportColumn.optional("supplierId", "Nhà cung cấp",
                                 "Chọn NCC đang hoạt động; để trống = gán sau ở màn Nhà cung cấp")
                         .withOptions(suppliers),
-                ImportColumn.optional("description", "Mô tả", "Tối đa 1000 ký tự"));
+                ImportColumn.optional("description", "Mô tả", "Tối đa 1000 ký tự"),
+                // BR-PRD-07: cột cuối để không xáo thứ tự các cột cũ
+                ImportColumn.optional("salePrice", "Giá bán (đ)",
+                        "Đơn giá bán mặc định ≥ 0, tối đa 2 chữ số lẻ; để trống = nhập giá tay khi bán"));
     }
 
     @Override
     public List<String> example() {
-        return List.of("Cám heo con 25kg", "Cám heo", "Bao", "25", "50", "NCC001 · Công ty A", "Cho heo con 7–15kg");
+        return List.of("Cám heo con 25kg", "Cám heo", "Bao", "25", "50", "NCC001 · Công ty A", "Cho heo con 7–15kg",
+                "350000");
     }
 
     @Override
@@ -100,7 +105,8 @@ public class ProductImportDefinition implements ImportDefinition<CreateProductRe
             netWeightKg = unit.getFixedNetWeightKg();
         }
         return new CreateProductRequest(row.text("name"), categoryId(row), unit == null ? null : unit.getId(),
-                netWeightKg, row.text("description"), row.integer("minStockQuantity"), supplierIds(row));
+                netWeightKg, row.text("description"), row.integer("minStockQuantity"), row.decimal("salePrice"),
+                supplierIds(row));
     }
 
     /**

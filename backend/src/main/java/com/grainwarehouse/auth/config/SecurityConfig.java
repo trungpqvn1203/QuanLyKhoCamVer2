@@ -114,6 +114,8 @@ public class SecurityConfig {
 
                 // NCC của một SP thuộc quyền nhà cung cấp — đứng trước quy tắc chung của /api/products/**
                 .requestMatchers(HttpMethod.GET, "/api/products/*/suppliers").hasAnyRole(WAREHOUSE, ADMIN)
+                // Bảng giá bán sản phẩm (BR-PRD-07): nhân viên bán hàng và quản lý hệ thống đặt/bỏ giá
+                .requestMatchers(HttpMethod.PUT, "/api/products/*/sale-price").hasAnyRole(SALES, ADMIN)
                 .requestMatchers(HttpMethod.GET, "/api/categories/**", "/api/product-units/**", "/api/products/**",
                         "/api/warehouses/**")
                 .authenticated()
@@ -126,9 +128,11 @@ public class SecurityConfig {
                 // Điều chuyển kho (BR-TRF-11): cùng quyền với phiếu nhập
                 .requestMatchers("/api/transfers", "/api/transfers/**").hasAnyRole(WAREHOUSE, ADMIN)
 
-                // Khách hàng (gồm bảng giá riêng) và phiếu bán: ai cũng xem được, bán hàng + quản trị mới ghi
-                .requestMatchers(HttpMethod.GET, "/api/customers/**", "/api/sales-orders/**").authenticated()
-                .requestMatchers("/api/customers/**", "/api/sales-orders/**").hasAnyRole(SALES, ADMIN)
+                // Khách hàng (gồm bảng giá riêng), bảng giá bán và phiếu bán: ai cũng xem được, bán hàng + quản trị mới ghi
+                .requestMatchers(HttpMethod.GET, "/api/customers/**", "/api/price-lists", "/api/price-lists/**",
+                        "/api/sales-orders/**").authenticated()
+                .requestMatchers("/api/customers/**", "/api/price-lists", "/api/price-lists/**", "/api/sales-orders/**")
+                .hasAnyRole(SALES, ADMIN)
                 .requestMatchers("/api/customer-debts/**").hasAnyRole(SALES, ADMIN)
 
                 // Tồn kho chỉ có API đọc; phương thức khác → 405 từ Spring MVC

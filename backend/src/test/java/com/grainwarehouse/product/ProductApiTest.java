@@ -357,6 +357,68 @@ class ProductApiTest {
                 .andExpect(jsonPath("$.error.details[0].field").value("minStockQuantity"));
     }
 
+    @Test
+    @DisplayName("BR-PRD-07: đơn giá bán - tùy chọn khi tạo, sửa được, PUT không gửi = bỏ giá; có ở danh sách tồn kho")
+    void shouldManageSalePrice() throws Exception {
+        createProduct(productJson("Cám vịt 25kg", bagId, "25"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.salePrice").doesNotExist());
+
+        Long id = createdId(createProduct("""
+                {"name": "Cám heo con 25kg", "categoryId": %d, "unitId": %d, "netWeightKg": 25, "salePrice": 350000.5}
+                """.formatted(categoryId, bagId))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.salePrice").value(350000.5)));
+
+        mockMvc.perform(put("/api/products/{id}", id).contentType(MediaType.APPLICATION_JSON).content("""
+                        {"name": "Cám heo con 25kg", "categoryId": %d, "unitId": %d, "netWeightKg": 25,
+                         "active": true, "salePrice": 0}
+                        """.formatted(categoryId, bagId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.salePrice").value(0));
+        // Màn Sản phẩm và form phiếu bán đọc giá từ danh sách SP kèm tồn
+        mockMvc.perform(get("/api/inventory/products").param("keyword", "Cám heo con 25kg"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items[0].salePrice").value(0));
+        mockMvc.perform(put("/api/products/{id}", id).contentType(MediaType.APPLICATION_JSON).content("""
+                        {"name": "Cám heo con 25kg", "categoryId": %d, "unitId": %d, "netWeightKg": 25, "active": true}
+                        """.formatted(categoryId, bagId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.salePrice").doesNotExist());
+
+        // Đặt giá nhanh từ trang Bảng giá bán (PUT /api/products/{id}/sale-price) + lọc hasSalePrice
+        mockMvc.perform(put("/api/products/{id}/sale-price", id).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"salePrice\": 345000}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.salePrice").value(345000));
+        mockMvc.perform(get("/api/products").param("hasSalePrice", "true"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items.length()").value(1))
+                .andExpect(jsonPath("$.data.items[0].id").value(id));
+        mockMvc.perform(get("/api/products").param("hasSalePrice", "false"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items[0].name").value("Cám vịt 25kg"));
+        mockMvc.perform(put("/api/products/{id}/sale-price", id).contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.salePrice").doesNotExist());
+    }
+
+    @Test
+    @DisplayName("BR-PRD-07: đơn giá bán âm - 400; quá 2 chữ số lẻ - 400")
+    void shouldValidateSalePrice() throws Exception {
+        createProduct("""
+                {"name": "Cám heo", "categoryId": %d, "unitId": %d, "netWeightKg": 25, "salePrice": -1}
+                """.formatted(categoryId, bagId))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.details[0].field").value("salePrice"));
+        createProduct("""
+                {"name": "Cám heo", "categoryId": %d, "unitId": %d, "netWeightKg": 25, "salePrice": 1000.555}
+                """.formatted(categoryId, bagId))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.details[0].field").value("salePrice"));
+    }
+
     private Category saveCategory(String name, boolean active) {
         Category category = new Category();
         category.setName(name);

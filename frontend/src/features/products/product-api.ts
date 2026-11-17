@@ -17,6 +17,8 @@ export interface Product {
   description?: string // field null bị bỏ khỏi JSON (NON_NULL)
   /** BR-STK-03: mức tồn tối thiểu; không có = không cảnh báo Sắp hết */
   minStockQuantity?: number
+  /** BR-PRD-07: đơn giá bán mặc định (đ) — điền sẵn khi khách không có giá riêng; không có = chưa đặt */
+  salePrice?: number
   active: boolean
   createdAt: string
   updatedAt: string
@@ -46,6 +48,8 @@ export interface CreateProductInput {
   description?: string
   // null: người dùng xóa ô → gửi null → backend bỏ mức tối thiểu
   minStockQuantity?: number | null
+  // null: xóa ô → backend bỏ đơn giá bán mặc định (PUT = cập nhật toàn bộ)
+  salePrice?: number | null
   /**
    * BR-PRD-10: NCC được phép cung cấp SP. Không gửi = giữ nguyên liên kết (sửa) / chưa gán NCC nào (tạo);
    * [] = gỡ hết.
@@ -62,6 +66,8 @@ export type ProductFilters = {
   keyword?: string
   categoryId?: number
   active?: boolean
+  hasSalePrice?: boolean
+  prioritizePriceListId?: number
 }
 
 const BASE = '/api/products'
@@ -78,6 +84,13 @@ export const productApi = {
 
   update: (id: number, input: UpdateProductInput) =>
     apiRequest<Product>(`${BASE}/${id}`, { method: 'PUT', body: JSON.stringify(input) }),
+
+  /** Đặt hoặc bỏ đơn giá bán chung (salePrice = null → bỏ giá) mà không phải gửi lại cả SP (BR-PRD-07). */
+  updateSalePrice: (id: number, salePrice: number | null) =>
+    apiRequest<Product>(`${BASE}/${id}/sale-price`, {
+      method: 'PUT',
+      body: JSON.stringify({ salePrice }),
+    }),
 
   /** Không xóa cứng: backend đặt active = false (BR-PRD-08). */
   deactivate: (id: number) => apiRequest<void>(`${BASE}/${id}`, { method: 'DELETE' }),

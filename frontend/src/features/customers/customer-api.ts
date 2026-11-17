@@ -28,6 +28,9 @@ export interface Customer {
   contactName?: string
   address?: string
   note?: string
+  /** BR-PRC-04: bảng giá áp dụng cho khách (ví dụ "Giá lẻ", "Giá đại lý") */
+  priceListId?: number
+  priceListName?: string
   active: boolean
   createdAt: string
   updatedAt: string
@@ -40,6 +43,7 @@ export interface CreateCustomerInput {
   contactName?: string
   address?: string
   note?: string
+  priceListId?: number | null
 }
 
 export interface UpdateCustomerInput extends CreateCustomerInput {

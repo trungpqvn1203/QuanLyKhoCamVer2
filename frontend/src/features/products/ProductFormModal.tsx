@@ -1,7 +1,9 @@
 import { App, Form, Input, InputNumber, Select, Switch, Typography } from 'antd'
+import type { FormRule } from 'antd'
 import { useEffect, useState } from 'react'
 import { ApiError } from '../../api/client'
 import { FormModal } from '../../components/ui/FormModal'
+import { formatPriceInput, hasAtMostTwoDecimals, parsePriceInput } from '../../utils/money'
 import { supplierApi } from '../suppliers/supplier-api'
 import type { ProductSupplierLink, Supplier } from '../suppliers/supplier-api'
 import { categoryApi, productApi, productUnitApi } from './product-api'
@@ -21,6 +23,13 @@ interface ProductFormModalProps {
  * mà không phải đổi backend.
  */
 type ProductFormValues = Omit<UpdateProductInput, 'supplierIds'> & { supplierId?: number | null }
+
+// BR-MON-04: đơn giá tối đa 2 chữ số lẻ
+const salePriceRule: FormRule = {
+  validator: async (_, value?: number | null) => {
+    if (value !== undefined && value !== null && !hasAtMostTwoDecimals(value)) throw new Error('Tối đa 2 chữ số lẻ')
+  },
+}
 
 export function ProductFormModal({ open, editing, onClose, onSaved }: ProductFormModalProps) {
   const { message } = App.useApp()
@@ -157,6 +166,20 @@ export function ProductFormModal({ open, editing, onClose, onSaved }: ProductFor
         extra="Báo Sắp hết khi tổng tồn mọi kho ≤ mức này. Để trống nếu không cần cảnh báo."
       >
         <InputNumber min={0} style={{ width: '100%' }} placeholder="Ví dụ: 50" />
+      </Form.Item>
+      <Form.Item
+        name="salePrice"
+        label="Đơn giá bán (đ, tùy chọn)"
+        rules={[{ type: 'number', min: 0, message: 'Không được âm' }, salePriceRule]}
+        extra="Điền sẵn khi lập phiếu bán nếu khách không có giá riêng; vẫn sửa được trên từng phiếu."
+      >
+        <InputNumber<number>
+          min={0}
+          style={{ width: '100%' }}
+          placeholder="Ví dụ: 350.000"
+          formatter={formatPriceInput}
+          parser={(text) => Number(parsePriceInput(text))}
+        />
       </Form.Item>
       {linkedItems != null && linkedItems.length > 1 ? (
         <Form.Item label="Nhà cung cấp" extra="Sản phẩm có nhiều NCC — thêm / gỡ ở màn Nhà cung cấp.">

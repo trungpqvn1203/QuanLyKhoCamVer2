@@ -37,6 +37,11 @@ public record UpdateProductRequest(
         @PositiveOrZero(message = "Tồn tối thiểu không được âm")
         Integer minStockQuantity,
 
+        // BR-PRD-07: PUT = cập nhật toàn bộ → không gửi nghĩa là bỏ đơn giá bán mặc định
+        @DecimalMin(value = "0", message = "Đơn giá bán không được âm")
+        @Digits(integer = 13, fraction = 2, message = "Đơn giá bán tối đa 13 chữ số nguyên và 2 chữ số thập phân")
+        BigDecimal salePrice,
+
         // BR-PRD-10: NCC được phép cung cấp SP, tùy chọn. PUT không gửi (null) = giữ nguyên liên kết, [] = gỡ hết
         List<@NotNull Long> supplierIds) {
 }

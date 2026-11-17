@@ -94,13 +94,14 @@ class ProductImportApiTest {
             assertThat(header.getCell(4).getStringCellValue()).isEqualTo("Tồn tối thiểu");
             assertThat(header.getCell(5).getStringCellValue()).isEqualTo("Nhà cung cấp");
             assertThat(header.getCell(6).getStringCellValue()).isEqualTo("Mô tả");
+            assertThat(header.getCell(7).getStringCellValue()).isEqualTo("Giá bán (đ)");
 
             List<? extends DataValidation> dropdowns = workbook.getSheet("Dữ liệu").getDataValidations();
             assertThat(dropdowns).hasSize(3); // Danh mục, Đơn vị, Nhà cung cấp
 
             Sheet meta = workbook.getSheet("_meta");
             assertThat(workbook.getSheetVisibility(workbook.getSheetIndex(meta))).isEqualTo(SheetVisibility.VERY_HIDDEN);
-            assertThat(meta.getRow(0).getCell(0).getStringCellValue()).isEqualTo("PRODUCT_v2");
+            assertThat(meta.getRow(0).getCell(0).getStringCellValue()).isEqualTo("PRODUCT_v3");
             // Danh mục đã ngừng dùng không có trong dropdown
             List<String> categories = new ArrayList<>();
             for (Row row : meta) {
@@ -147,7 +148,7 @@ class ProductImportApiTest {
                 row("Cám C", "Cám heo", "Tấn", "25kg"),           // dòng 5: đơn vị không tồn tại + khối lượng không phải số
                 row("cám heo NÁI", "Cám heo", "Bao", 25),        // dòng 6: trùng SP đã có trong DB
                 row("Cám D", "Cám heo", "Kg", 25),               // dòng 7: đơn vị Kg phải 1 kg (BR-UNIT-03)
-                row("Cám E", "Cám heo", "Bao", 25, 10.5),        // dòng 8: tồn tối thiểu không nguyên
+                row("Cám E", "Cám heo", "Bao", 25, 10.5, null, null, -1), // dòng 8: tồn tối thiểu không nguyên + giá âm
                 row("Cám F", "Cám heo", "Bao", 25),              // dòng 9: hợp lệ
                 row("cám f ", "Cám heo", "Bao", 25)))            // dòng 10: trùng dòng 9 trong file
                 .andExpect(status().isOk())
@@ -163,7 +164,7 @@ class ProductImportApiTest {
                         .value(hasItems(containsString("đã tồn tại"))))
                 .andExpect(jsonPath("$.data.errors[?(@.row == 7)].message")
                         .value(hasItems("Sản phẩm đơn vị Kg phải có khối lượng tịnh bằng 1 kg")))
-                .andExpect(jsonPath("$.data.errors[?(@.row == 8)].field").value(hasItems("minStockQuantity")))
+                .andExpect(jsonPath("$.data.errors[?(@.row == 8)].field").value(hasItems("minStockQuantity", "salePrice")))
                 .andExpect(jsonPath("$.data.errors[?(@.row == 10)].message")
                         .value(hasItems("Trùng với dòng 9 trong file")));
     }
@@ -174,7 +175,7 @@ class ProductImportApiTest {
         long before = productRepository.count();
 
         mockMvc.perform(multipart(BASE).file(upload(file(
-                        row("Cám heo con 25kg", "Cám heo", "Bao", 25, 50, null, "Heo con"),
+                        row("Cám heo con 25kg", "Cám heo", "Bao", 25, 50, null, "Heo con", 350000.5),
                         row("Cám xá", "Cám heo", "Kg", null)))))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.data.importedCount").value(2))
@@ -185,6 +186,10 @@ class ProductImportApiTest {
         assertThat(bulk.getCode()).matches("SP\\d{6}");
         assertThat(bulk.getUnit().getName()).isEqualTo("Kg");
         assertThat(bulk.getNetWeightKg()).isEqualByComparingTo("1");
+        assertThat(bulk.getSalePrice()).isNull(); // để trống = chưa đặt giá bán
+        // BR-PRD-07: cột Giá bán
+        assertThat(productRepository.findByNameIgnoreCase("Cám heo con 25kg").orElseThrow().getSalePrice())
+                .isEqualByComparingTo("350000.5");
     }
 
     @Test

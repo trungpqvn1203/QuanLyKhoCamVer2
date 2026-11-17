@@ -39,7 +39,10 @@ public class ProductService {
     /** Tham số lọc đều tùy chọn; null = không lọc theo tiêu chí đó. */
     public PageResponse<ProductResponse> list(ProductSearchCriteria criteria, Pageable pageable) {
         return PageResponse.from(
-                productRepository.findAll(ProductSpecifications.from(criteria), pageable), ProductResponse::from);
+                productRepository.findAll(
+                        ProductSpecifications.from(criteria, pageable.getSort()),
+                        ProductSpecifications.toPageable(criteria, pageable)),
+                ProductResponse::from);
     }
 
     public ProductResponse get(Long id) {
@@ -73,6 +76,7 @@ public class ProductService {
         product.setNetWeightKg(request.netWeightKg());
         product.setDescription(request.description());
         product.setMinStockQuantity(request.minStockQuantity());
+        product.setSalePrice(request.salePrice());
         supplierLinks.validate(product, supplierIds(request.supplierIds()));
         return product;
     }
@@ -95,6 +99,7 @@ public class ProductService {
         product.setNetWeightKg(request.netWeightKg());
         product.setDescription(request.description());
         product.setMinStockQuantity(request.minStockQuantity());
+        product.setSalePrice(request.salePrice());
         product.setActive(request.active());
         // null = client không gửi (ví dụ nút "Mở bán lại") → giữ nguyên liên kết NCC
         if (request.supplierIds() != null) {
@@ -107,6 +112,14 @@ public class ProductService {
     @Transactional
     public void deactivate(Long id) {
         findOrThrow(id).setActive(false);
+    }
+
+    /** Đặt hoặc bỏ đơn giá bán chung (BR-PRD-07) — dùng cho trang Bảng giá bán mà không phải gửi lại cả SP. */
+    @Transactional
+    public ProductResponse updateSalePrice(Long id, BigDecimal salePrice) {
+        Product product = findOrThrow(id);
+        product.setSalePrice(salePrice);
+        return ProductResponse.from(productRepository.saveAndFlush(product));
     }
 
     /**

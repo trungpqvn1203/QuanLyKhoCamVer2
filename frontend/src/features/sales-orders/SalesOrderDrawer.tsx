@@ -16,6 +16,8 @@ import { ReasonModal } from '../../components/ui/ReasonModal'
 import { formatDate, formatDateTime } from '../../utils/format'
 import { formatVnd } from '../../utils/money'
 import { useCan } from '../auth/auth-context'
+import { priceListApi } from '../products/price-list-api'
+import { productStockApi } from '../products/product-stock-api'
 import { storeInfoApi } from '../store/store-info-api'
 import {
   confirmationFormValues,
@@ -26,7 +28,7 @@ import {
 import type { PendingOrderFormValues } from './pending-order-form'
 import { PAYMENT_METHOD_LABELS, customerPriceApi, salesOrderApi } from './sales-order-api'
 import type { PaymentInput, PriceAdjustmentInput, SalePayment, SalesOrder } from './sales-order-api'
-import { emptySalesOrderForm, toSalesFormValues, toSalesOrderInput } from './sales-order-form'
+import { emptySalesOrderForm, mergePriceLists, productPriceMap, toSalesFormValues, toSalesOrderInput } from './sales-order-form'
 import type { SalesOrderFormValues } from './sales-order-form'
 import { PaymentModal } from './PaymentModal'
 import { PendingOrderForm } from './PendingOrderForm'
@@ -36,6 +38,9 @@ import { SalesOrderForm } from './SalesOrderForm'
 import { SalesOrderView } from './SalesOrderView'
 import { SalesStatusTag } from './SalesStatusTag'
 import type { SalesReferences } from './use-sales-references'
+
+/** Như form phiếu bán: tối đa 100 SP đang kinh doanh (giới hạn size backend) để lấy đơn giá bán mặc định. */
+const PRODUCT_PRICE_SIZE = 100
 
 interface SalesOrderDrawerProps {
   open: boolean
@@ -286,10 +291,25 @@ export function SalesOrderDrawer({
       current = await savePending()
       if (!current) return
     }
-    const prices = await customerPriceApi
-      .list(current.customerId)
-      .then((list) => new Map(list.map((price) => [price.productId, price.unitPrice])))
-      .catch(() => new Map<number, number>())
+    // BR-SAL-07, BR-PRC-05: giá riêng của khách → bảng giá của khách → đơn giá bán của SP. Lỗi tải → để trống
+    const customerPriceListId = references.customers.find((c) => c.id === current.customerId)?.priceListId
+    const [customerPrices, tierPrices, productPrices] = await Promise.all([
+      customerPriceApi
+        .list(current.customerId)
+        .then((list) => new Map(list.map((price) => [price.productId, price.unitPrice])))
+        .catch(() => new Map<number, number>()),
+      customerPriceListId
+        ? priceListApi
+            .listItems(customerPriceListId)
+            .then((items) => new Map(items.map((item) => [item.productId, item.unitPrice])))
+            .catch(() => new Map<number, number>())
+        : Promise.resolve(new Map<number, number>()),
+      productStockApi
+        .list({ page: 0, size: PRODUCT_PRICE_SIZE }, { active: true })
+        .then((page) => productPriceMap(page.items))
+        .catch(() => new Map<number, number>()),
+    ])
+    const prices = mergePriceLists(customerPrices, productPrices, tierPrices)
     const activeWarehouses = references.warehouses.filter((warehouse) => warehouse.active)
     setErrorMessage(null)
     setConfirmValues(

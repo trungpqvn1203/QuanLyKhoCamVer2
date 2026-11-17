@@ -5,6 +5,7 @@ import {
   PlusOutlined,
   SettingOutlined,
   ShopOutlined,
+  TagsOutlined,
 } from '@ant-design/icons'
 import { App, Button, Flex, Typography } from 'antd'
 import type { TableProps } from 'antd'
@@ -23,6 +24,7 @@ import { RowActions } from '../../components/ui/RowActions'
 import { STATUS_COLUMN_WIDTH, StatusTag } from '../../components/ui/StatusTag'
 import { useFilteredList } from '../../hooks/use-filtered-list'
 import { EMPTY_TEXT, formatDateTime, formatQuantity, formatTons, orEmpty } from '../../utils/format'
+import { formatVnd } from '../../utils/money'
 import { useCan } from '../auth/auth-context'
 import { ProductSuppliersPanel } from '../suppliers/ProductSuppliersPanel'
 import { warehouseApi } from '../warehouses/warehouse-api'
@@ -189,6 +191,7 @@ export function ProductListPage() {
           description: product.description,
           // PUT = cập nhật toàn bộ: thiếu trường này thì mức tồn tối thiểu bị xóa
           minStockQuantity: product.minStockQuantity,
+          salePrice: product.salePrice,
           active: true,
         }),
       'Đã mở bán lại sản phẩm',
@@ -210,6 +213,19 @@ export function ProductListPage() {
       align: 'right',
       width: 110,
       render: (kg: number) => <span style={{ fontVariantNumeric: 'tabular-nums' }}>{weightFormat.format(kg)}</span>,
+    },
+    {
+      // BR-PRD-07: giá gợi ý khi lập phiếu bán; khách có giá riêng thì giá riêng được ưu tiên
+      title: 'Giá bán',
+      dataIndex: 'salePrice',
+      align: 'right',
+      width: 130,
+      render: (price?: number) =>
+        price == null ? (
+          EMPTY_TEXT
+        ) : (
+          <span style={{ fontVariantNumeric: 'tabular-nums' }}>{formatVnd(price)}</span>
+        ),
     },
     {
       // Tiêu đề ghi rõ kho đang xem để số "0" không bị hiểu là hết hàng toàn hệ thống
@@ -339,6 +355,11 @@ export function ProductListPage() {
                   ? 'Không đặt'
                   : `${formatQuantity(viewing.minStockQuantity)} ${unitText(viewing)}`,
             },
+            {
+              key: 'salePrice',
+              label: 'Đơn giá bán',
+              children: viewing.salePrice == null ? 'Chưa đặt' : `${formatVnd(viewing.salePrice)} / ${unitText(viewing)}`,
+            },
             { key: 'description', label: 'Mô tả', children: orEmpty(viewing.description) },
           ],
         },
@@ -372,19 +393,24 @@ export function ProductListPage() {
         title="Sản phẩm"
         description="Thông tin sản phẩm và số lượng đang có ở các kho"
         actions={
-          canWrite && (
-            <Flex gap={8}>
-              <Button icon={<SettingOutlined />} onClick={() => setConfigOpen(true)}>
-                Cấu hình
-              </Button>
-              <Button icon={<FileExcelOutlined />} onClick={() => setImportOpen(true)}>
-                Nhập từ Excel
-              </Button>
-              <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
-                Thêm sản phẩm
-              </Button>
-            </Flex>
-          )
+          <Flex gap={8}>
+            <Button icon={<TagsOutlined />} onClick={() => navigate('/product-prices')}>
+              Bảng giá bán
+            </Button>
+            {canWrite && (
+              <>
+                <Button icon={<SettingOutlined />} onClick={() => setConfigOpen(true)}>
+                  Cấu hình
+                </Button>
+                <Button icon={<FileExcelOutlined />} onClick={() => setImportOpen(true)}>
+                  Nhập từ Excel
+                </Button>
+                <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
+                  Thêm sản phẩm
+                </Button>
+              </>
+            )}
+          </Flex>
         }
       />
       <FilterBar<ProductStockFilters> fields={filterFields} value={filters} onChange={applyFilters} />

@@ -6,11 +6,12 @@ import { focusLineField, matchesSearch, resolveQuickAdd } from '../../components
 import { ProductLabel, ProductQuickAdd } from '../../components/ui/ProductQuickAdd'
 import { EMPTY_TEXT, todayIso } from '../../utils/format'
 import { formatPriceInput, formatVnd, hasAtMostTwoDecimals, parsePriceInput } from '../../utils/money'
+import { priceListApi } from '../products/price-list-api'
 import { productStockApi } from '../products/product-stock-api'
 import type { ProductStock } from '../products/product-stock-api'
 import { customerPriceApi } from './sales-order-api'
 import type { SalesOrder } from './sales-order-api'
-import { applyPriceList, draftSalesLineAmount, draftSalesTotal } from './sales-order-form'
+import { applyPriceList, draftSalesLineAmount, draftSalesTotal, mergePriceLists, productPriceMap, suggestPrice } from './sales-order-form'
 import type { SalesLineFormValues, SalesOrderFormValues } from './sales-order-form'
 import type { SalesReferences } from './use-sales-references'
 
@@ -53,8 +54,8 @@ interface ProductInfo {
 /**
  * Form phiếu bán (thông tin chung + bảng dòng hàng động). Dùng cho tạo mới và sửa phiếu Nháp.
  * - Thêm SP bằng ô thêm nhanh trên bảng; Enter ở ô SL → sang ô giá nếu còn trống, không thì về ô thêm nhanh.
- * - Chọn SP → đơn giá điền sẵn từ bảng giá riêng của khách (BR-SAL-07); sửa tay được. Ô giá có dấu "Giá riêng"
- *   khi đúng bằng bảng giá.
+ * - Chọn SP → đơn giá điền sẵn từ bảng giá riêng của khách (BR-SAL-07), không có thì đơn giá bán của SP
+ *   (BR-PRD-07); sửa tay được. Ô giá ghi "Giá riêng" / "Giá bán" khi đúng bằng giá gợi ý.
  * - Cột "Tồn kho" theo kho đã chọn: chỉ để tham khảo, phiếu nháp không giữ chỗ tồn (BR-SAL-02); vượt tồn thì
  *   cảnh báo, việc chặn thật do backend làm lúc hoàn tất.
  * - Thành tiền / tổng là số tạm (cùng quy tắc HALF_UP); số chính thức do backend tính khi lưu.
@@ -68,9 +69,19 @@ export function SalesOrderForm({ form, initialValues, references, order, disable
 
   // Kết quả kèm khóa (kho / khách) đã tải: "đang tải" suy ra từ việc khóa có khớp hay chưa
   const [products, setProducts] = useState<{ warehouseId?: number; items: ProductStock[] } | null>(null)
-  const [prices, setPrices] = useState<{ customerId: number; map: Map<number, number> } | null>(null)
+  const [prices, setPrices] = useState<{
+    customerId: number
+    customerMap: Map<number, number>
+    tierMap: Map<number, number>
+  } | null>(null)
   const loadingProducts = products === null || products.warehouseId !== warehouseId
-  const priceMap = customerId && prices?.customerId === customerId ? prices.map : new Map<number, number>()
+  const selectedCustomer = customerId ? references.customers.find((c) => c.id === customerId) : undefined
+  const customerPriceListId = selectedCustomer?.priceListId
+  const customerPriceListName = selectedCustomer?.priceListName
+  const priceMap = customerId && prices?.customerId === customerId ? prices.customerMap : new Map<number, number>()
+  const tierPriceMap = customerId && prices?.customerId === customerId ? prices.tierMap : new Map<number, number>()
+  // BR-PRD-07: đơn giá bán mặc định của SP — dùng khi khách không có giá riêng và bảng giá không có SP đó
+  const productPrices = productPriceMap(products?.items ?? [])
 
   useEffect(() => {
     let ignore = false
@@ -89,25 +100,33 @@ export function SalesOrderForm({ form, initialValues, references, order, disable
   useEffect(() => {
     if (!customerId) return
     let ignore = false
-    customerPriceApi
-      .list(customerId)
-      .then((list) => new Map(list.map((price) => [price.productId, price.unitPrice])))
-      .catch(() => new Map<number, number>())
-      .then((map) => {
-        if (ignore) return
-        setPrices({ customerId, map })
-        // Đổi khách sau khi đã có dòng → điền lại giá theo bảng giá của khách mới
-        const current = (form.getFieldValue('lines') as SalesLineFormValues[] | undefined) ?? []
-        const repriced = applyPriceList(current, map)
-        if (form.isFieldTouched('customerId') && repriced.some((line, index) => line !== current[index])) {
-          form.setFieldValue('lines', repriced)
-          message.info('Đã điền lại đơn giá theo bảng giá riêng của khách')
-        }
-      })
+    Promise.all([
+      customerPriceApi
+        .list(customerId)
+        .then((list) => new Map(list.map((price) => [price.productId, price.unitPrice])))
+        .catch(() => new Map<number, number>()),
+      customerPriceListId
+        ? priceListApi
+            .listItems(customerPriceListId)
+            .then((items) => new Map(items.map((item) => [item.productId, item.unitPrice])))
+            .catch(() => new Map<number, number>())
+        : Promise.resolve(new Map<number, number>()),
+    ]).then(([customerMap, tierMap]) => {
+      if (ignore) return
+      setPrices({ customerId, customerMap, tierMap })
+      // Đổi khách sau khi đã có dòng → điền lại giá theo bảng giá riêng + bảng giá của khách mới
+      const combined = mergePriceLists(customerMap, new Map(), tierMap)
+      const current = (form.getFieldValue('lines') as SalesLineFormValues[] | undefined) ?? []
+      const repriced = applyPriceList(current, combined)
+      if (form.isFieldTouched('customerId') && repriced.some((line, index) => line !== current[index])) {
+        form.setFieldValue('lines', repriced)
+        message.info('Đã điền lại đơn giá theo bảng giá của khách')
+      }
+    })
     return () => {
       ignore = true
     }
-  }, [customerId, form, message])
+  }, [customerId, customerPriceListId, form, message])
 
   const customerOptions = references.customers
     .filter((customer) => customer.active || customer.id === order?.customerId)
@@ -138,10 +157,10 @@ export function SalesOrderForm({ form, initialValues, references, order, disable
   const productLabels = new Map([...productInfo].map(([productId, info]) => [productId, info.label]))
   const quickAddOptions = [...productInfo].map(([productId, info]) => ({ value: productId, label: info.label }))
 
-  // Mỗi SP một dòng: SP đã có thì chỉ đưa con trỏ về dòng đó. BR-SAL-07: điền giá riêng nếu khách có
+  // Mỗi SP một dòng: SP đã có thì chỉ đưa con trỏ về dòng đó. BR-SAL-07: điền giá riêng → bảng giá khách → giá SP
   const pickProduct = (productId: number, add: (line: SalesLineFormValues) => void) => {
     const target = resolveQuickAdd(form.getFieldValue('lines'), productId)
-    const price = priceMap.get(productId)
+    const price = suggestPrice(productId, priceMap, productPrices, tierPriceMap)?.price
     if (target.action === 'focus') {
       message.info(`Sản phẩm đã có ở dòng ${target.index + 1}`)
     } else if (target.action === 'append') {
@@ -225,12 +244,20 @@ export function SalesOrderForm({ form, initialValues, references, order, disable
       width: 170,
       render: (_, field) => {
         const line = lines?.[field.name]
-        const listPrice = line?.productId === undefined ? undefined : priceMap.get(line.productId)
+        const suggested = suggestPrice(line?.productId, priceMap, productPrices, tierPriceMap)
+        const label =
+          suggested?.source === 'CUSTOMER'
+            ? 'Giá riêng'
+            : suggested?.source === 'PRICE_LIST'
+              ? (customerPriceListName ?? 'Bảng giá')
+              : 'Giá bán'
         const hint =
-          listPrice === undefined ? undefined : line?.unitPrice === listPrice ? (
-            <Typography.Text type="secondary">Giá riêng</Typography.Text>
+          suggested === undefined ? undefined : line?.unitPrice === suggested.price ? (
+            <Typography.Text type="secondary">{label}</Typography.Text>
           ) : (
-            <Typography.Text type="warning">Giá riêng {formatVnd(listPrice)}</Typography.Text>
+            <Typography.Text type="warning">
+              {label} {formatVnd(suggested.price)}
+            </Typography.Text>
           )
         return (
           <Form.Item

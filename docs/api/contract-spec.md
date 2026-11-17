@@ -441,7 +441,7 @@ Item: `id, createdAt, type, quantity, quantityBefore, quantityAfter, reversalOfI
 
 Response người dùng: `id, username, fullName, roles (sắp theo thứ tự WAREHOUSE_MANAGER, SALES_STAFF, SYSTEM_ADMIN), active, lastLoginAt?, createdAt, updatedAt` — không bao giờ có mật khẩu. Lọc `GET /api/users`: `keyword` (tên đăng nhập / họ tên), `role`, `active`; mặc định sắp theo `username`.
 
-`/api/products` (POST/PUT) có thêm `minStockQuantity` (số nguyên ≥ 0, tùy chọn). PUT không gửi trường này = bỏ mức tối thiểu.
+`/api/products` (POST/PUT) có thêm `minStockQuantity` (số nguyên ≥ 0, tùy chọn) và `salePrice` (số ≥ 0, tối đa 2 chữ số lẻ, tùy chọn — BR-PRD-07). PUT không gửi trường nào = bỏ mức / giá đó. `PUT /api/products/{id}/sale-price` (`{ salePrice: number | null }`, quyền `SALES_STAFF` hoặc `SYSTEM_ADMIN`) đặt hoặc bỏ đơn giá bán trực tiếp trên trang Bảng giá bán mà không phải gửi lại toàn bộ SP. Response của `/api/products` và `/api/inventory/products` trả kèm `salePrice` khi sản phẩm có đặt giá; `GET /api/products` hỗ trợ lọc thêm `hasSalePrice` (`true` đã đặt giá, `false` chưa đặt giá).
 
 Danh sách nhận `page`, `size` (tối đa 100), `sort` (ví dụ `sort=name,asc`). `sort` sai thuộc tính → 400.
 

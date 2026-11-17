@@ -42,7 +42,8 @@ export function toPendingOrderInput(values: PendingOrderFormValues): PendingOrde
 
 /**
  * BR-SAL-19: form xác nhận điền sẵn từ phần khách đặt — cùng SP, cùng SL, giá lấy từ bảng giá riêng của khách
- * (không có thì để trống cho kho nhập). Ngày bán = ngày ghi đơn; kho chỉ chọn sẵn khi có đúng một kho.
+ * hoặc đơn giá bán của SP (`prices` đã gộp sẵn, xem mergePriceLists; không có thì để trống cho kho nhập).
+ * Ngày bán = ngày ghi đơn; kho chỉ chọn sẵn khi có đúng một kho.
  * Kho sửa SL, đổi SP, thêm / bớt dòng trên form như phiếu nháp thường.
  */
 export function confirmationFormValues(

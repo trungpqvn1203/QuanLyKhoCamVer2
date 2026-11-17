@@ -27,6 +27,9 @@ public record UpdateCustomerRequest(
         @Size(max = 1000, message = "Ghi chú tối đa 1000 ký tự")
         String note,
 
+        // BR-PRC-04: PUT = cập nhật toàn bộ → không gửi nghĩa là bỏ bảng giá
+        Long priceListId,
+
         @NotNull(message = "Trạng thái không được để trống")
         Boolean active) {
 }

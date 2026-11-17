@@ -20,6 +20,7 @@ import { OpeningDebtPage } from './features/opening-debts/OpeningDebtPage'
 import { OpeningStockListPage } from './features/opening-stocks/OpeningStockListPage'
 import { PayrollPage } from './features/payroll/PayrollPage'
 import { ProductListPage } from './features/products/ProductListPage'
+import { ProductPriceListPage } from './features/products/ProductPriceListPage'
 import { StockReportPage } from './features/reports/StockReportPage'
 import { SalesOrderListPage } from './features/sales-orders/SalesOrderListPage'
 import { StockCountListPage } from './features/stock-counts/StockCountListPage'
@@ -51,6 +52,7 @@ export const router = createBrowserRouter([
       { index: true, element: <Navigate to="/dashboard" replace /> },
       { path: 'dashboard', element: <DashboardPage /> },
       { path: 'products', element: <ProductListPage /> },
+      { path: 'product-prices', element: <ProductPriceListPage /> },
       { path: 'warehouses', element: <WarehouseListPage /> },
       { path: 'suppliers', element: guarded('suppliers', <SupplierListPage />) },
       { path: 'customers', element: <CustomerListPage /> },

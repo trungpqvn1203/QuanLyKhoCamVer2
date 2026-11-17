@@ -45,6 +45,33 @@ describe('productApi.list', () => {
 
     expect(capturedUrl().searchParams.has('keyword')).toBe(false)
   })
+
+  it('gửi hasSalePrice=true khi lọc sản phẩm đã đặt giá bán', async () => {
+    const capturedUrl = stubFetchAndCaptureUrl()
+
+    await productApi.list({ page: 0, size: 20 }, { hasSalePrice: true })
+
+    expect(capturedUrl().searchParams.get('hasSalePrice')).toBe('true')
+  })
+})
+
+describe('productApi.updateSalePrice', () => {
+  it('PUT /api/products/{id}/sale-price gửi đơn giá bán mới hoặc null để bỏ giá', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ success: true, data: {}, timestamp: '' }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    await productApi.updateSalePrice(12, 350000)
+
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit]
+    expect(url).toContain('/api/products/12/sale-price')
+    expect(init.method).toBe('PUT')
+    expect(JSON.parse(init.body as string)).toEqual({ salePrice: 350000 })
+  })
 })
 
 describe('categoryApi.update', () => {

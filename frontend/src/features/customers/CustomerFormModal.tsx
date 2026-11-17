@@ -1,6 +1,9 @@
 import { Form, Input, Select, Switch } from 'antd'
+import { useEffect, useState } from 'react'
 import { FormModal } from '../../components/ui/FormModal'
 import { PHONE_FORMAT_MESSAGE, isValidPhone } from '../../utils/phone'
+import { priceListApi } from '../products/price-list-api'
+import type { PriceList } from '../products/price-list-api'
 import { CUSTOMER_TYPE_OPTIONS, customerApi } from './customer-api'
 import type { Customer, UpdateCustomerInput } from './customer-api'
 
@@ -15,6 +18,22 @@ interface CustomerFormModalProps {
 
 export function CustomerFormModal({ open, editing, onClose, onSaved }: CustomerFormModalProps) {
   const [form] = Form.useForm<UpdateCustomerInput>()
+  const [priceLists, setPriceLists] = useState<PriceList[]>([])
+
+  useEffect(() => {
+    if (!open) return
+    priceListApi
+      .listAll()
+      .then(setPriceLists)
+      .catch(() => setPriceLists([]))
+  }, [open])
+
+  const priceListOptions = priceLists
+    .filter((list) => list.active || list.id === editing?.priceListId)
+    .map((list) => ({
+      value: list.id,
+      label: list.active ? list.name : `${list.name} (ngừng dùng)`,
+    }))
 
   const handleSubmit = async ({ active, ...fields }: UpdateCustomerInput) => {
     // Tạo mới không gửi active: khách mới luôn hoạt động.
@@ -41,6 +60,18 @@ export function CustomerFormModal({ open, editing, onClose, onSaved }: CustomerF
       </Form.Item>
       <Form.Item name="type" label="Loại khách" rules={[{ required: true, message: 'Chọn loại khách' }]}>
         <Select options={CUSTOMER_TYPE_OPTIONS} placeholder="Chọn loại khách" />
+      </Form.Item>
+      <Form.Item
+        name="priceListId"
+        label="Bảng giá áp dụng (tùy chọn)"
+        extra="Lập phiếu bán cho khách này sẽ tự điền giá từ bảng giá đã chọn (nếu khách chưa có giá riêng cho SP đó)."
+      >
+        <Select
+          allowClear
+          options={priceListOptions}
+          placeholder="Chọn bảng giá (ví dụ: Giá lẻ, Giá đại lý…)"
+          showSearch={{ optionFilterProp: 'label' }}
+        />
       </Form.Item>
       <Form.Item
         name="phone"

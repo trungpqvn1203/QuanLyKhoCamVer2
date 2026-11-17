@@ -1,5 +1,45 @@
 import { describe, expect, it } from 'vitest'
-import { applyPriceList, draftSalesLineAmount, draftSalesTotal, paymentTotal, toPaymentInput, toSalesOrderInput } from './sales-order-form'
+import {
+  applyPriceList,
+  draftSalesLineAmount,
+  draftSalesTotal,
+  mergePriceLists,
+  paymentTotal,
+  productPriceMap,
+  suggestPrice,
+  toPaymentInput,
+  toSalesOrderInput,
+} from './sales-order-form'
+
+describe('suggestPrice / mergePriceLists (BR-SAL-07, BR-PRC-05, BR-PRD-07)', () => {
+  const customerPrices = new Map([[1, 310000]])
+  const tierPrices = new Map([
+    [1, 320000],
+    [2, 275000],
+  ])
+  const productPrices = productPriceMap([
+    { id: 1, salePrice: 330000 },
+    { id: 2, salePrice: 280000 },
+    { id: 3, salePrice: 290000 },
+    { id: 4, salePrice: null },
+  ])
+
+  it('ưu tiên giá riêng của khách → giá trong bảng giá của khách → đơn giá bán mặc định của SP', () => {
+    expect(suggestPrice(1, customerPrices, productPrices, tierPrices)).toEqual({ price: 310000, source: 'CUSTOMER' })
+    expect(suggestPrice(2, customerPrices, productPrices, tierPrices)).toEqual({ price: 275000, source: 'PRICE_LIST' })
+    expect(suggestPrice(3, customerPrices, productPrices, tierPrices)).toEqual({ price: 290000, source: 'PRODUCT' })
+    expect(suggestPrice(4, customerPrices, productPrices, tierPrices)).toBeUndefined()
+    expect(suggestPrice(undefined, customerPrices, productPrices, tierPrices)).toBeUndefined()
+  })
+
+  it('gộp bảng giá (dùng khi xác nhận đơn khách đặt / đổi khách): giá riêng đè lên bảng giá, bảng giá đè lên giá SP', () => {
+    expect([...mergePriceLists(customerPrices, productPrices, tierPrices)]).toEqual([
+      [1, 310000],
+      [2, 275000],
+      [3, 290000],
+    ])
+  })
+})
 
 describe('applyPriceList (BR-SAL-07)', () => {
   it('dòng có giá riêng lấy giá riêng; dòng không có giữ giá đang nhập; dòng chưa chọn SP giữ nguyên', () => {

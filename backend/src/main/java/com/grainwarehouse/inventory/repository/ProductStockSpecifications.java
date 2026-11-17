@@ -24,7 +24,7 @@ public final class ProductStockSpecifications {
     public static Specification<Product> from(ProductStockSearchCriteria criteria) {
         return Specification.allOf(
                 ProductSpecifications.from(
-                        new ProductSearchCriteria(criteria.keyword(), criteria.categoryId(), criteria.active())),
+                        new ProductSearchCriteria(criteria.keyword(), criteria.categoryId(), criteria.active(), null, null)),
                 hasStockStatus(criteria.stockStatus()));
     }
 

@@ -8,5 +8,10 @@ import com.grainwarehouse.common.search.HasKeyword;
  * Mọi trường tùy chọn: null = không lọc. Sai kiểu (categoryId=abc) → 400 VALIDATION_FAILED.
  * Phân trang/sắp xếp không nằm ở đây mà ở Pageable (page, size, sort) — contract-spec.
  */
-public record ProductSearchCriteria(String keyword, Long categoryId, Boolean active) implements HasKeyword, HasActive {
+public record ProductSearchCriteria(
+        String keyword,
+        Long categoryId,
+        Boolean active,
+        Boolean hasSalePrice,
+        Long prioritizePriceListId) implements HasKeyword, HasActive {
 }

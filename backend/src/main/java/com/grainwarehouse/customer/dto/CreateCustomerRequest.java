@@ -28,5 +28,8 @@ public record CreateCustomerRequest(
         String address,
 
         @Size(max = 1000, message = "Ghi chú tối đa 1000 ký tự")
-        String note) {
+        String note,
+
+        // BR-PRC-04: bảng giá áp dụng (tùy chọn)
+        Long priceListId) {
 }

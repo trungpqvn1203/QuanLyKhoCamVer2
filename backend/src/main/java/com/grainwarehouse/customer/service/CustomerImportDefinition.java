@@ -69,7 +69,7 @@ public class CustomerImportDefinition implements ImportDefinition<CreateCustomer
     @Override
     public CreateCustomerRequest parse(ImportRow row) {
         return new CreateCustomerRequest(row.text("name"), row.option("type", TYPES), row.text("phone"),
-                row.text("contactName"), row.text("address"), row.text("note"));
+                row.text("contactName"), row.text("address"), row.text("note"), null);
     }
 
     /** "0901 234 567" và "0901.234.567" là cùng một số → phải bị coi là trùng. */

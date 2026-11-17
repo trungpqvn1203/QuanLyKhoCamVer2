@@ -57,6 +57,10 @@ public class Product extends AuditableEntity {
     @Column(name = "min_stock_quantity")
     private Integer minStockQuantity;
 
+    // BR-PRD-07: đơn giá bán mặc định — chỉ để điền sẵn khi khách không có giá riêng; null = chưa đặt
+    @Column(name = "sale_price", precision = 15, scale = 2)
+    private BigDecimal salePrice;
+
     @Column(nullable = false)
     private boolean active = true;
 }

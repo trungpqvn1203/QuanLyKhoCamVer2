@@ -133,8 +133,8 @@ _(Trả lời BR-SAL-Q01: có công nợ, chỉ ở mức phiếu bán + lịch 
 **Giá bán**
 
 - **BR-SAL-06:** Mỗi khách có thể có **bảng giá riêng**: một giá hiện hành cho mỗi SP (≥ 0, 2 chữ số lẻ). Không lưu lịch sử giá trong bảng giá.
-- **BR-SAL-07:** Khi thêm dòng vào phiếu, giá **điền sẵn** từ bảng giá của khách (nếu có); người bán **sửa tay được**. Không có giá riêng → nhập tay.
-- **BR-SAL-08:** Giá thực bán **chụp lại trên dòng phiếu**. Đổi/xóa bảng giá không làm đổi phiếu đã lập. Backend không ép giá dòng phải bằng bảng giá. (BR-PRD-07 vẫn đúng: giá không lưu trong SP.)
+- **BR-SAL-07:** Khi thêm dòng vào phiếu (hoặc xác nhận đơn khách đặt), giá **điền sẵn** theo thứ tự ưu tiên: **bảng giá riêng của khách** (nếu có) → **đơn giá bán chung của sản phẩm** (BR-PRD-07, nếu có); cả hai không có → nhập tay. Người bán **sửa tay được**. _(Sửa 2026-11-15: bổ sung giá bán chung của SP làm giá gợi ý mặc định)_
+- **BR-SAL-08:** Giá thực bán **chụp lại trên dòng phiếu**. Đổi/xóa bảng giá riêng hoặc đơn giá bán của SP không làm đổi phiếu đã lập. Backend không ép giá dòng phải bằng bảng giá.
 
 **Thanh toán & công nợ**
 
@@ -212,7 +212,7 @@ _(Trả lời BR-TRF-Q01: kho nguồn được phép đã ngừng, kho đích ph
 - **BR-PRD-04:** Mỗi sản phẩm **bắt buộc** thuộc đúng một danh mục.
 - **BR-PRD-05:** Mỗi sản phẩm có **một đơn vị giao dịch cố định**, chọn từ danh mục đơn vị tính (BR-UNIT). Không quy đổi đơn vị khi giao dịch. _(Sửa 2026-10-28: trước đây chỉ `BAG` hoặc `KG`)_
 - **BR-PRD-06:** Mỗi sản phẩm có `net_weight_kg` > 0 (khối lượng một đơn vị, luôn bắt buộc; đơn vị Kg thì = 1, BR-UNIT-03). **Tấn chỉ là đơn vị báo cáo**: `tấn = số lượng × net_weight_kg / 1000` (ví dụ tổng nhập theo nhà cung cấp, tổng bán theo khách hàng).
-- **BR-PRD-07:** Không lưu giá trong sản phẩm. Giá nhập/bán ghi trên từng dòng chứng từ.
+- **BR-PRD-07:** Mỗi sản phẩm có thể có **đơn giá bán chung** (`sale_price`, tùy chọn, ≥ 0, tối đa 2 chữ số lẻ theo BR-MON-04) — chỉ làm **giá gợi ý mặc định** khi lập phiếu bán cho khách chưa có giá riêng (BR-SAL-07). Giá nhập/bán thực tế vẫn ghi và chụp trên từng dòng chứng từ (BR-SAL-08). _(Sửa 2026-11-15: trước đây không lưu giá trong sản phẩm)_
 - **BR-PRD-08:** Sản phẩm không xóa cứng; ngừng kinh doanh bằng `active = false`.
 - **BR-PRD-09:** Không tạo mới sản phẩm trùng tên với sản phẩm **đã ngừng kinh doanh** (tránh một mặt hàng có hai mã, lịch sử bị tách đôi). Hệ thống từ chối kèm mã SP cũ và hướng dẫn **mở bán lại** (`PUT` với `active: true`). _(Xác nhận 2026-10-15)_
 - **BR-PRD-10:** Khi thêm hoặc sửa SP (form và file Excel) được chọn **một NCC** cung cấp SP đó — **tùy chọn** _(sửa 2026-10-28: chọn một cho đơn giản; quan hệ NCC–SP vẫn nhiều–nhiều, SP cần thêm NCC thì gán ở màn Nhà cung cấp; API vẫn nhận mảng để sau mở rộng)_. Chọn = tạo hoặc bật lại liên kết BR-SUP-05; đổi NCC ở form sửa = gỡ NCC cũ, gán NCC mới; xóa trắng = gỡ. SP đang có **nhiều** NCC thì form chỉ hiển thị, không sửa NCC (tránh gỡ nhầm). Áp dụng BR-SUP-06 cho liên kết mới; liên kết sẵn có với NCC nay đã ngừng được giữ (BR-SUP-07). Tạo SP và gán NCC trong **cùng một transaction**: NCC lỗi thì SP không được tạo. Excel có **một cột "Nhà cung cấp"** là dropdown "mã · tên" các NCC đang hoạt động; khi đọc chỉ lấy phần mã. _(Xác nhận 2026-10-28)_

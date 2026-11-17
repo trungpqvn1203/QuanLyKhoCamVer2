@@ -1,4 +1,4 @@
-import { AccountBookOutlined, AppstoreOutlined, CarOutlined, AuditOutlined, BankOutlined, BarChartOutlined, CalendarOutlined, DashboardOutlined, DollarOutlined, DownOutlined, ExportOutlined, FlagOutlined, HistoryOutlined, HomeOutlined, IdcardOutlined, ImportOutlined, InboxOutlined, KeyOutlined, LogoutOutlined, SafetyOutlined, ShopOutlined, ShoppingOutlined, SwapOutlined, TeamOutlined, TruckOutlined, UserOutlined, UsergroupAddOutlined, WalletOutlined } from '@ant-design/icons'
+import { AccountBookOutlined, AppstoreOutlined, AuditOutlined, BankOutlined, BarChartOutlined, CalendarOutlined, CarOutlined, DashboardOutlined, DollarOutlined, DownOutlined, ExportOutlined, FlagOutlined, HistoryOutlined, HomeOutlined, IdcardOutlined, ImportOutlined, InboxOutlined, KeyOutlined, LogoutOutlined, SafetyOutlined, ShopOutlined, ShoppingOutlined, SwapOutlined, TagsOutlined, TeamOutlined, TruckOutlined, UserOutlined, UsergroupAddOutlined, WalletOutlined } from '@ant-design/icons'
 import { App, Breadcrumb, Button, Dropdown, Flex, Layout, Menu, Typography, theme } from 'antd'
 import type { MenuProps } from 'antd'
 import type { ReactNode } from 'react'
@@ -29,6 +29,7 @@ interface MenuEntry {
 const MENU_ITEMS: MenuEntry[] = [
   { key: '/dashboard', icon: <DashboardOutlined />, label: 'Tổng quan' },
   { key: '/products', icon: <AppstoreOutlined />, label: 'Sản phẩm' },
+  { key: '/product-prices', icon: <TagsOutlined />, label: 'Bảng giá bán' },
   { key: '/warehouses', icon: <HomeOutlined />, label: 'Kho hàng' },
   { key: '/vehicles', icon: <CarOutlined />, label: 'Xe giao hàng' },
   { key: '/suppliers', icon: <ShopOutlined />, label: 'Nhà cung cấp', permission: 'suppliers' },

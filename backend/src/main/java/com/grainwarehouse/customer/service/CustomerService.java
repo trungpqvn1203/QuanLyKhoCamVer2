@@ -1,5 +1,6 @@
 package com.grainwarehouse.customer.service;
 
+import com.grainwarehouse.common.exception.BusinessException;
 import com.grainwarehouse.common.exception.DuplicateResourceException;
 import com.grainwarehouse.common.exception.InvalidRequestException;
 import com.grainwarehouse.common.exception.ResourceNotFoundException;
@@ -13,10 +14,14 @@ import com.grainwarehouse.customer.entity.Customer;
 import com.grainwarehouse.customer.entity.CustomerType;
 import com.grainwarehouse.customer.repository.CustomerRepository;
 import com.grainwarehouse.customer.repository.CustomerSpecifications;
+import com.grainwarehouse.pricelist.entity.PriceList;
+import com.grainwarehouse.pricelist.repository.PriceListRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.Objects;
 
 @Service
 @RequiredArgsConstructor
@@ -24,6 +29,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class CustomerService {
 
     private final CustomerRepository customerRepository;
+    private final PriceListRepository priceListRepository;
 
     public PageResponse<CustomerResponse> list(CustomerSearchCriteria criteria, Pageable pageable) {
         return PageResponse.from(
@@ -51,6 +57,9 @@ public class CustomerService {
         Customer customer = new Customer();
         apply(customer, request.name(), request.type(), phone, request.contactName(), request.address(),
                 request.note());
+        if (request.priceListId() != null) {
+            customer.setPriceList(findActivePriceList(request.priceListId()));
+        }
         return customer;
     }
 
@@ -62,6 +71,12 @@ public class CustomerService {
 
         apply(customer, request.name(), request.type(), phone, request.contactName(), request.address(),
                 request.note());
+        Long currentPriceListId = customer.getPriceList() == null ? null : customer.getPriceList().getId();
+        if (request.priceListId() == null) {
+            customer.setPriceList(null);
+        } else if (!Objects.equals(currentPriceListId, request.priceListId())) {
+            customer.setPriceList(findActivePriceList(request.priceListId()));
+        }
         customer.setActive(request.active());
         return CustomerResponse.from(customerRepository.saveAndFlush(customer));
     }
@@ -116,6 +131,15 @@ public class CustomerService {
     // Trường tùy chọn: chuỗi rỗng/toàn khoảng trắng lưu thành NULL → bị bỏ khỏi JSON (NON_NULL)
     private static String blankToNull(String value) {
         return value == null || value.isBlank() ? null : value.trim();
+    }
+
+    private PriceList findActivePriceList(Long priceListId) {
+        PriceList priceList = priceListRepository.findById(priceListId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy bảng giá id=" + priceListId));
+        if (!priceList.isActive()) {
+            throw new BusinessException("Bảng giá '" + priceList.getName() + "' đã ngừng dùng");
+        }
+        return priceList;
     }
 
     private Customer findOrThrow(Long id) {

@@ -7,6 +7,7 @@ import com.grainwarehouse.common.response.ApiResponse;
 import com.grainwarehouse.common.response.PageResponse;
 import com.grainwarehouse.product.dto.CreateProductRequest;
 import com.grainwarehouse.product.dto.ProductResponse;
+import com.grainwarehouse.product.dto.ProductSalePriceRequest;
 import com.grainwarehouse.product.dto.ProductSearchCriteria;
 import com.grainwarehouse.product.dto.UpdateProductRequest;
 import com.grainwarehouse.product.service.ProductImportDefinition;
@@ -79,6 +80,13 @@ public class ProductController {
     public ResponseEntity<ApiResponse<ProductResponse>> update(@PathVariable Long id,
                                                                @Valid @RequestBody UpdateProductRequest request) {
         return ResponseEntity.ok(ApiResponse.ok(productService.update(id, request), "Cập nhật sản phẩm thành công"));
+    }
+
+    @PutMapping("/{id}/sale-price")
+    public ResponseEntity<ApiResponse<ProductResponse>> updateSalePrice(
+            @PathVariable Long id, @Valid @RequestBody ProductSalePriceRequest request) {
+        String message = request.salePrice() == null ? "Đã bỏ đơn giá bán" : "Lưu đơn giá bán thành công";
+        return ResponseEntity.ok(ApiResponse.ok(productService.updateSalePrice(id, request.salePrice()), message));
     }
 
     // Soft delete (BR-PRD-08): 204 No Content theo contract-spec

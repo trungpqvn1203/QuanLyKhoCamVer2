@@ -5,12 +5,13 @@ import { useEffect, useState } from 'react'
 import { ApiError } from '../../api/client'
 import { toFormFieldErrors } from '../../api/form-errors'
 import { CodeText } from '../../components/ui/CodeLink'
-import { formatDateTime } from '../../utils/format'
+import { EMPTY_TEXT, formatDateTime } from '../../utils/format'
 import { formatPriceInput, formatVnd, hasAtMostTwoDecimals, parsePriceInput } from '../../utils/money'
 import { productApi } from '../products/product-api'
 import type { Product } from '../products/product-api'
 import { customerPriceApi } from '../sales-orders/sales-order-api'
 import type { CustomerPrice } from '../sales-orders/sales-order-api'
+import { productPriceMap } from '../sales-orders/sales-order-form'
 import type { Customer } from './customer-api'
 
 interface CustomerPriceDrawerProps {
@@ -103,12 +104,13 @@ export function CustomerPriceDrawer({ open, customer, onClose }: CustomerPriceDr
     try {
       await customerPriceApi.remove(customerId, price.productId)
       setPrices((current) => current?.filter((item) => item.productId !== price.productId) ?? null)
-      notification.success({ title: 'Đã bỏ giá riêng', description: `${price.productName} — lập phiếu sẽ nhập giá tay` })
+      notification.success({ title: 'Đã bỏ giá riêng', description: `${price.productName} — lập phiếu sẽ dùng đơn giá bán chung của SP (nếu có)` })
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Không bỏ được giá')
     }
   }
 
+  const salePrices = productPriceMap(products)
   const productOptions = products.map((product) => ({ value: product.id, label: `${product.code} · ${product.name}` }))
 
   const columns: TableProps<CustomerPrice>['columns'] = [
@@ -125,6 +127,17 @@ export function CustomerPriceDrawer({ open, customer, onClose }: CustomerPriceDr
     },
     { title: 'ĐVT', dataIndex: 'unitName', width: 64 },
     { title: 'Giá riêng', dataIndex: 'unitPrice', width: 140, align: 'right', render: (v: number) => formatVnd(v) },
+    {
+      // BR-PRD-07: để so với giá chung; SP ngừng kinh doanh không có trong danh sách tải về
+      title: 'Giá bán chung',
+      key: 'salePrice',
+      width: 130,
+      align: 'right',
+      render: (_, price) => {
+        const salePrice = salePrices.get(price.productId)
+        return salePrice === undefined ? EMPTY_TEXT : formatVnd(salePrice)
+      },
+    },
     { title: 'Cập nhật', dataIndex: 'updatedAt', width: 150, render: (at: string) => formatDateTime(at) },
     {
       title: '',
@@ -194,7 +207,7 @@ export function CustomerPriceDrawer({ open, customer, onClose }: CustomerPriceDr
           columns={columns}
           dataSource={prices ?? []}
           pagination={false}
-          locale={{ emptyText: 'Khách chưa có giá riêng — lập phiếu sẽ nhập giá tay' }}
+          locale={{ emptyText: 'Khách chưa có giá riêng — lập phiếu dùng đơn giá bán chung của SP (nếu có)' }}
         />
       </Flex>
     </Drawer>
