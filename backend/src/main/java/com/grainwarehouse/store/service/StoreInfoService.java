@@ -28,6 +28,7 @@ public class StoreInfoService {
     public StoreInfoResponse save(StoreInfoRequest request) {
         StoreInfo info = storeInfoRepository.findById(StoreInfo.ID).orElseGet(StoreInfo::create);
         info.update(request.name().trim(), blankToNull(request.address()), blankToNull(request.phone()),
+                blankToNull(request.bankAccountHolder()), blankToNull(request.bankAccount()),
                 blankToNull(request.receiptFooter()));
         // saveAndFlush: ép ghi ngay để @UpdateTimestamp có giá trị trong response
         return StoreInfoResponse.from(storeInfoRepository.saveAndFlush(info));

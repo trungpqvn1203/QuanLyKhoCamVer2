@@ -9,6 +9,8 @@ const store: StoreInfo = {
   name: 'Cửa hàng cám Minh Phát',
   address: '12 Lý Bôn, Thái Bình',
   phone: '0912 345 678',
+  bankAccountHolder: 'Công ty TNHH Minh Phát',
+  bankAccount: '1077809999 - Vietcombank',
   receiptFooter: 'Cảm ơn quý khách!',
 }
 
@@ -49,13 +51,22 @@ function order(overrides: Partial<SalesOrder> = {}): SalesOrder {
 const render = (element: React.ReactElement) => renderToStaticMarkup(element)
 
 describe('SalesReceipt (phiếu bán, BR-PRT-02)', () => {
-  it('có thông tin cửa hàng, dòng hàng, tổng, đã trả, còn nợ, số tiền bằng chữ', () => {
+  it('có thông tin cửa hàng + STK, bảng hàng kẻ khung, tổng tiền hàng, đã trả, còn nợ, số tiền bằng chữ', () => {
     const html = render(<SalesReceipt order={order()} store={store} printedAt="28/10/2026 17:40" />)
 
     expect(html).toContain('Cửa hàng cám Minh Phát')
-    expect(html).toContain('50 bao x 320.000')
+    expect(html).toContain('Đ/C: 12 Lý Bôn, Thái Bình')
+    expect(html).toContain('Điện thoại: 0912 345 678')
+    expect(html).toContain('Chủ tài khoản: Công ty TNHH Minh Phát')
+    expect(html).toContain('STK: 1077809999 - Vietcombank')
+    expect(html).toContain('PHIẾU XUẤT KHO')
+    expect(html).toContain('Số HĐ: PX000008')
+    expect(html).toContain('Ngày 22 tháng 10 năm 2026')
+    expect(html).toContain('Cám gà thịt 25kg (Bao)')
+    expect(html).toContain('320.000')
+    expect(html).toContain('Tổng tiền hàng:')
     expect(html).toContain('16.410.000')
-    expect(html).toContain('Còn nợ')
+    expect(html).toContain('Còn nợ:')
     expect(html).toContain('Mười sáu triệu bốn trăm mười nghìn đồng')
     expect(html).toContain('Cảm ơn quý khách!')
     expect(html).not.toContain('TẠM TÍNH')
@@ -65,7 +76,7 @@ describe('SalesReceipt (phiếu bán, BR-PRT-02)', () => {
     const html = render(<SalesReceipt order={order({ status: 'DRAFT' })} store={store} printedAt="x" />)
 
     expect(html).toContain('PHIẾU TẠM TÍNH')
-    expect(html).not.toContain('Còn nợ')
+    expect(html).not.toContain('Còn nợ:')
   })
 
   it('tên khách có ký tự HTML được escape, không thành thẻ', () => {
@@ -77,7 +88,7 @@ describe('SalesReceipt (phiếu bán, BR-PRT-02)', () => {
   it('chưa cấu hình cửa hàng - vẫn in, không có phần đầu', () => {
     const html = render(<SalesReceipt order={order()} store={{ configured: false }} printedAt="x" />)
 
-    expect(html).toContain('PHIẾU BÁN HÀNG')
+    expect(html).toContain('PHIẾU XUẤT KHO')
     expect(html).not.toContain('class="store"')
   })
 })

@@ -22,6 +22,16 @@ body { margin: 0; padding: 3mm 4mm 6mm; width: 80mm; color: #000;
 .total { font-size: 14px; font-weight: 700; }
 .stamp { border: 1px solid #000; text-align: center; font-weight: 700; padding: 2px; margin: 4px 0; }
 hr { border: 0; border-top: 1px dashed #000; margin: 6px 0; }
+table.receipt-table { width: 100%; border-collapse: collapse; margin: 4px 0 6px; font-size: 11px; }
+table.receipt-table th, table.receipt-table td { border: 1px solid #000; padding: 2px 3px; vertical-align: middle; }
+table.receipt-table th { font-weight: 700; text-align: center; }
+table.receipt-table td.num { text-align: right; white-space: nowrap; }
+table.receipt-table td.center { text-align: center; white-space: nowrap; }
+.summary { margin-top: 4px; }
+.summary-row { display: flex; justify-content: flex-end; gap: 12px; margin-top: 2px; }
+.summary-row > :first-child { text-align: right; }
+.summary-row > :last-child { min-width: 72px; text-align: right; font-weight: 700; white-space: nowrap; }
+.footer-greeting { margin-top: 12px; text-align: center; font-style: italic; }
 `
 
 /**

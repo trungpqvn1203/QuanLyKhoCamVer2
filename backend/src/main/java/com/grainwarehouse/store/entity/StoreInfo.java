@@ -35,6 +35,12 @@ public class StoreInfo {
     @Column(length = 50)
     private String phone;
 
+    @Column(name = "bank_account_holder", length = 200)
+    private String bankAccountHolder;
+
+    @Column(name = "bank_account", length = 200)
+    private String bankAccount;
+
     @Column(name = "receipt_footer", length = 300)
     private String receiptFooter;
 
@@ -48,10 +54,12 @@ public class StoreInfo {
         return info;
     }
 
-    public void update(String name, String address, String phone, String receiptFooter) {
+    public void update(String name, String address, String phone, String bankAccountHolder, String bankAccount, String receiptFooter) {
         this.name = name;
         this.address = address;
         this.phone = phone;
+        this.bankAccountHolder = bankAccountHolder;
+        this.bankAccount = bankAccount;
         this.receiptFooter = receiptFooter;
     }
 }

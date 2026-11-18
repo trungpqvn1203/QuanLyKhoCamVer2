@@ -54,22 +54,27 @@ class StoreInfoApiTest {
     void shouldCreateThenOverwrite() throws Exception {
         save("""
                 {"name": "  Cửa hàng cám Minh Phát ", "address": "12 Lý Bôn, Thái Bình",
-                 "phone": "0912 345 678", "receiptFooter": "Cảm ơn quý khách!"}
+                 "phone": "0912 345 678", "bankAccountHolder": "  Công ty Minh Phát ",
+                 "bankAccount": " 1077809999 - Vietcombank ", "receiptFooter": "Cảm ơn quý khách!"}
                 """)
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.message").value("Đã lưu thông tin cửa hàng"))
                 .andExpect(jsonPath("$.data.configured").value(true))
                 .andExpect(jsonPath("$.data.name").value("Cửa hàng cám Minh Phát"))
+                .andExpect(jsonPath("$.data.bankAccountHolder").value("Công ty Minh Phát"))
+                .andExpect(jsonPath("$.data.bankAccount").value("1077809999 - Vietcombank"))
                 .andExpect(jsonPath("$.data.updatedAt").exists());
 
         save("""
-                {"name": "Cám Minh Phát", "address": "   ", "phone": "0912 345 678"}
+                {"name": "Cám Minh Phát", "address": "   ", "phone": "0912 345 678", "bankAccount": "  "}
                 """)
                 .andExpect(status().isOk());
 
         mockMvc.perform(get("/api/store-info"))
                 .andExpect(jsonPath("$.data.name").value("Cám Minh Phát"))
                 .andExpect(jsonPath("$.data.address").doesNotExist())
+                .andExpect(jsonPath("$.data.bankAccountHolder").doesNotExist())
+                .andExpect(jsonPath("$.data.bankAccount").doesNotExist())
                 .andExpect(jsonPath("$.data.receiptFooter").doesNotExist());
         assertThat(jdbcTemplate.queryForObject("SELECT count(*) FROM store_info", Integer.class)).isEqualTo(1);
     }

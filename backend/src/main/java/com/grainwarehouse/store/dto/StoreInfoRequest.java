@@ -15,6 +15,12 @@ public record StoreInfoRequest(
         @Size(max = 50, message = "Số điện thoại tối đa 50 ký tự")
         String phone,
 
+        @Size(max = 200, message = "Chủ tài khoản tối đa 200 ký tự")
+        String bankAccountHolder,
+
+        @Size(max = 200, message = "Số tài khoản ngân hàng tối đa 200 ký tự")
+        String bankAccount,
+
         @Size(max = 300, message = "Lời chào cuối phiếu tối đa 300 ký tự")
         String receiptFooter) {
 }

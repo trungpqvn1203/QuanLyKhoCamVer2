@@ -10,14 +10,16 @@ public record StoreInfoResponse(
         String name,
         String address,
         String phone,
+        String bankAccountHolder,
+        String bankAccount,
         String receiptFooter,
         Instant updatedAt) {
 
     public static StoreInfoResponse from(StoreInfo info) {
         if (info == null) {
-            return new StoreInfoResponse(false, null, null, null, null, null);
+            return new StoreInfoResponse(false, null, null, null, null, null, null, null);
         }
         return new StoreInfoResponse(true, info.getName(), info.getAddress(), info.getPhone(),
-                info.getReceiptFooter(), info.getUpdatedAt());
+                info.getBankAccountHolder(), info.getBankAccount(), info.getReceiptFooter(), info.getUpdatedAt());
     }
 }

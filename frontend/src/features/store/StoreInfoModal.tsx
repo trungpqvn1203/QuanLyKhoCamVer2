@@ -50,7 +50,13 @@ export function StoreInfoModal({ open, onClose, onSaved }: StoreInfoModalProps) 
         <Input placeholder="Ví dụ: 12 Lý Bôn, TP Thái Bình" />
       </Form.Item>
       <Form.Item name="phone" label="Số điện thoại" rules={[{ max: 50 }]}>
-        <Input placeholder="Ví dụ: 0912 345 678" />
+        <Input placeholder="Ví dụ: 0326 130 135 - 0984 423 483" />
+      </Form.Item>
+      <Form.Item name="bankAccountHolder" label="Chủ tài khoản" rules={[{ max: 200 }]}>
+        <Input placeholder="Ví dụ: Công ty TNHH TM DV Quang Thanh" />
+      </Form.Item>
+      <Form.Item name="bankAccount" label="STK / Ngân hàng" rules={[{ max: 200 }]}>
+        <Input placeholder="Ví dụ: 1077809999 - Vietcombank" />
       </Form.Item>
       <Form.Item
         name="receiptFooter"
@@ -58,7 +64,7 @@ export function StoreInfoModal({ open, onClose, onSaved }: StoreInfoModalProps) 
         rules={[{ max: 300 }]}
         extra="In ở cuối phiếu bán cho khách. Để trống thì không in."
       >
-        <Input placeholder="Ví dụ: Cảm ơn quý khách, hẹn gặp lại!" />
+        <Input placeholder="Ví dụ: Xin Cảm ơn Quý khách và Hẹn gặp lại!" />
       </Form.Item>
     </FormModal>
   )

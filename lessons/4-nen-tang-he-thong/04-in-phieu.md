@@ -2,8 +2,9 @@
 
 [← Mục lục kho bài học](../README.md)
 
-## Module: In phiếu bán và phiếu xuất kho (2026-10-28, migration V24)
+## Module: In phiếu bán và phiếu xuất kho (2026-10-28, migration V24; cập nhật form bảng 2026-11-18, migration V35)
 
+- **Đổi mẫu in sang dạng bảng kẻ khung kiểu KiotViet (V35).** Thêm `bank_account_holder` và `bank_account` vào `store_info` để in thông tin chuyển khoản ở đầu phiếu. Mẫu `SalesReceipt` đổi từ dạng dòng rời kiểu siêu thị sang bảng 5 cột kẻ viền đen (`TT | Sản phẩm | Đơn giá | SL | Thành tiền`), tiêu đề `PHIẾU XUẤT KHO`, ngày dạng `Ngày DD tháng MM năm YYYY`. Giữ nguyên các class cũ trong `K80_CSS` vì `TripSheet` (phiếu chuyến giao hàng) dùng chung `printK80`.
 - **Một phiếu, hai người đọc — làm hai mẫu rồi gộp lại một.** Bản đầu tách hai mẫu (khách có giá; lái xe không giá, có tấn), sau đó chủ cửa hàng chọn dùng chung phiếu bán cho đơn giản và bỏ mẫu xe. Bài học: hỏi người dùng thật thường cho thiết kế đơn giản hơn phân tích trên giấy. Phần dưới giữ lại lý do của bản đầu.
 - **Lý do của bản đầu:** Khách cần giá, tổng tiền và số tiền bằng chữ. Lái xe và bốc vác cần kho, số bao và **số tấn** để xếp hàng và biết xe có quá tải không, nhưng *không nên* thấy giá bán. Vì vậy dữ liệu dùng chung một phiếu bán (`GET /api/sales-orders/{id}`), còn mẫu in thì tách làm hai: `SalesReceipt` và `DeliverySlip`. Backend chỉ cần trả thêm `tons` cho từng dòng và `totalTons`, tính bằng BigDecimal theo đúng công thức của BR-PRD-06, để frontend không tự nhân số thực.
 - **Luồng thực tế quyết định lúc nào được in.** Kho in phiếu xuất cho lái xe khi phiếu còn **nháp**, bốc hàng xong mới hoàn tất. Thiếu hàng thì sửa nháp rồi in lại. Phiếu đã hoàn tất thì bị khóa, chỉ còn cách đảo phiếu. Vì vậy cả hai mẫu đều in được ở trạng thái nháp. Riêng phiếu khách ở trạng thái nháp có dòng "PHIẾU TẠM TÍNH" để không bị coi là chứng từ chính thức.

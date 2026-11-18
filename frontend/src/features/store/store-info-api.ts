@@ -6,6 +6,8 @@ export interface StoreInfo {
   name?: string
   address?: string
   phone?: string
+  bankAccountHolder?: string
+  bankAccount?: string
   receiptFooter?: string
   updatedAt?: string
 }
@@ -14,6 +16,8 @@ export interface StoreInfoInput {
   name: string
   address?: string
   phone?: string
+  bankAccountHolder?: string
+  bankAccount?: string
   receiptFooter?: string
 }
 

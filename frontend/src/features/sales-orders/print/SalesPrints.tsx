@@ -1,4 +1,4 @@
-import { formatDate, formatQuantity } from '../../../utils/format'
+import { formatQuantity } from '../../../utils/format'
 import { vndToWords } from '../../../utils/number-to-words'
 import type { StoreInfo } from '../../store/store-info-api'
 import type { SalesOrder } from '../sales-order-api'
@@ -11,6 +11,12 @@ import type { SalesOrder } from '../sales-order-api'
 const moneyFormat = new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 0 })
 const money = (amount: number) => moneyFormat.format(amount)
 
+/** "2026-11-17" → "Ngày 17 tháng 11 năm 2026" */
+function formatLongDate(isoDate: string): string {
+  const [year, month, day] = isoDate.split('-')
+  return `Ngày ${day} tháng ${month} năm ${year}`
+}
+
 interface PrintProps {
   order: SalesOrder
   store: StoreInfo
@@ -21,67 +27,88 @@ interface PrintProps {
 function StoreHeader({ store }: { store: StoreInfo }) {
   if (!store.configured) return null
   return (
-    <div className="center">
+    <div className="center" style={{ marginBottom: 6 }}>
       <div className="store">{store.name}</div>
-      {store.address && <div className="small">{store.address}</div>}
-      {store.phone && <div className="small">ĐT: {store.phone}</div>}
-      <hr />
+      {store.address && <div className="small">Đ/C: {store.address}</div>}
+      {store.phone && <div className="small">Điện thoại: {store.phone}</div>}
+      {store.bankAccountHolder && <div className="small">Chủ tài khoản: {store.bankAccountHolder}</div>}
+      {store.bankAccount && <div className="small">STK: {store.bankAccount}</div>}
     </div>
   )
 }
 
-/** Phiếu bán — kiểu bill siêu thị: tên hàng một dòng, "SL x đơn giá ... thành tiền" dòng dưới. */
+/** Phiếu bán khổ K80 — bảng kẻ khung (TT | Sản phẩm | Đơn giá | SL | Thành tiền) theo mẫu phiếu xuất kho KiotViet. */
 export function SalesReceipt({ order, store, printedAt }: PrintProps) {
   const draft = order.status === 'DRAFT'
   return (
     <>
       <StoreHeader store={store} />
-      <div className="center title">PHIẾU BÁN HÀNG</div>
+      <div className="center title">PHIẾU XUẤT KHO</div>
       {/* BR-PRT-02: nháp chưa trừ kho, số có thể còn đổi → ghi rõ để khách không coi là chứng từ chính thức */}
       {draft && <div className="stamp">PHIẾU TẠM TÍNH – CHƯA HOÀN TẤT</div>}
-      <div className="row">
-        <span>Số: {order.code}</span>
-        <span>Ngày: {formatDate(order.documentDate)}</span>
+      <div className="center small">Số HĐ: {order.code}</div>
+      <div className="center small">{formatLongDate(order.documentDate)}</div>
+      <div className="row small" style={{ marginTop: 4 }}>
+        <span>Khách hàng: {order.customerName}</span>
+        <span>SĐT: {order.customerPhone ?? ''}</span>
       </div>
-      <div>
-        Khách: {order.customerName}
-        {order.customerPhone && ` – ${order.customerPhone}`}
-      </div>
-      <hr />
-      {order.lines.map((line) => (
-        <div className="item" key={line.id}>
-          <div className="item-name">{line.productName}</div>
-          <div className="row">
-            <span>
-              {formatQuantity(line.quantity)} {line.unitName.toLowerCase()} x {money(line.unitPrice)}
-            </span>
-            <span>{money(line.lineAmount)}</span>
-          </div>
+      <table className="receipt-table">
+        <thead>
+          <tr>
+            <th>TT</th>
+            <th>Sản phẩm</th>
+            <th>
+              Đơn
+              <br />
+              giá
+            </th>
+            <th>SL</th>
+            <th>
+              Thành
+              <br />
+              tiền
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {order.lines.map((line, index) => (
+            <tr key={line.id}>
+              <td className="center">{index + 1}</td>
+              <td>
+                {line.productName} ({line.unitName})
+              </td>
+              <td className="num">{money(line.unitPrice)}</td>
+              <td className="center">{formatQuantity(line.quantity)}</td>
+              <td className="num">{money(line.lineAmount)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <div className="summary">
+        <div className="summary-row bold">
+          <span>Tổng tiền hàng:</span>
+          <span>{money(order.totalAmount)}</span>
         </div>
-      ))}
-      <hr />
-      <div className="row total">
-        <span>TỔNG CỘNG</span>
-        <span>{money(order.totalAmount)}</span>
+        {!draft && (
+          <>
+            <div className="summary-row">
+              <span>Đã thanh toán:</span>
+              <span>{money(order.paidAmount)}</span>
+            </div>
+            <div className="summary-row bold">
+              <span>Còn nợ:</span>
+              <span>{money(order.outstandingAmount)}</span>
+            </div>
+          </>
+        )}
       </div>
-      {!draft && (
-        <>
-          <div className="row">
-            <span>Đã thanh toán</span>
-            <span>{money(order.paidAmount)}</span>
-          </div>
-          <div className="row bold">
-            <span>Còn nợ</span>
-            <span>{money(order.outstandingAmount)}</span>
-          </div>
-        </>
-      )}
       <div className="small" style={{ marginTop: 4 }}>
         Bằng chữ: {vndToWords(order.totalAmount)}
       </div>
-      <hr />
-      {store.receiptFooter && <div className="center bold">{store.receiptFooter}</div>}
-      <div className="center small">In lúc {printedAt}</div>
+      {store.receiptFooter && <div className="footer-greeting">{store.receiptFooter}</div>}
+      <div className="center small" style={{ marginTop: 4 }}>
+        In lúc {printedAt}
+      </div>
     </>
   )
 }
